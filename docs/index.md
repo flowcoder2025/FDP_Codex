@@ -41,6 +41,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-public-readiness-boundary.md`
 - `docs/decisions/2026-07-08-evaluation-surface-baseline.md`
 - `docs/decisions/2026-07-08-context-pack-command-surface.md`
+- `docs/decisions/2026-07-08-context-selection-rule-table.md`
 
 ## Runbooks
 
@@ -70,6 +71,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0017-ci.md`
 - `docs/records/validation-wi-cx0019-docs.md`
 - `docs/records/validation-wi-cx0020-feat.md`
+- `docs/records/validation-wi-cx0021-feat.md`
 
 ## Tooling
 

@@ -47,6 +47,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-public-readiness-boundary.md',
   'docs/decisions/2026-07-08-evaluation-surface-baseline.md',
   'docs/decisions/2026-07-08-context-pack-command-surface.md',
+  'docs/decisions/2026-07-08-context-selection-rule-table.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -64,6 +65,7 @@ const requiredFiles = [
   'scripts/validate-repo.mjs',
   'scripts/build-context-pack.mjs',
   'docs/records/validation-wi-cx0020-feat.md',
+  'docs/records/validation-wi-cx0021-feat.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -76,6 +78,7 @@ const requiredChunkIds = [
   'decision.public-readiness-boundary',
   'decision.evaluation-surface-baseline',
   'decision.context-pack-command-surface',
+  'decision.context-selection-rule-table',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -106,6 +109,7 @@ const requiredChunkIds = [
   'tool.manifest-lib',
   'tool.build-context-pack',
   'record.validation-wi-cx0020-feat',
+  'record.validation-wi-cx0021-feat',
 ];
 
 const requiredLabels = [
@@ -584,7 +588,7 @@ function validateContextPackCommandSurface() {
   checks.context_pack_hygiene_append_procedure = hygiene.includes('--append-ledger') && hygiene.includes('ledger_append');
   checks.context_pack_decision_stdout_default = decision.includes('stdout-only by default');
   checks.context_pack_decision_append_explicit = decision.includes('only when `--append-ledger` is present');
-  checks.context_pack_manifest_hook_status = /^  status: implemented-v0$/m.test(manifest.split('hook_contract:')[1] ?? '');
+  checks.context_pack_manifest_hook_status = /^  status: implemented-v1$/m.test(manifest.split('hook_contract:')[1] ?? '');
   checks.context_pack_manifest_output_ledger_append = manifest.includes('    - ledger_append');
   checks.context_pack_sample_no_append = sample?.ledger_append?.requested === false && sample?.ledger_append?.status === 'not_requested';
   checks.context_pack_sample_no_bodies = sample?.contains_chunk_bodies === false && sample?.body_storage === 'forbidden';
@@ -598,11 +602,73 @@ function validateContextPackCommandSurface() {
   if (!checks.context_pack_decision_stdout_default || !checks.context_pack_decision_append_explicit) {
     error('context_pack.decision_contract_missing', 'Context pack command decision must lock stdout default and explicit append.');
   }
-  if (!checks.context_pack_manifest_hook_status) error('context_pack.manifest_status_missing', 'Manifest hook contract must be implemented-v0.');
+  if (!checks.context_pack_manifest_hook_status) error('context_pack.manifest_status_missing', 'Manifest hook contract must be implemented-v1.');
   if (!checks.context_pack_manifest_output_ledger_append) error('context_pack.manifest_ledger_append_missing', 'Manifest hook output must include ledger_append.');
   if (!checks.context_pack_sample_no_append) error('context_pack.default_mutates_ledger', 'Default context pack run must report no ledger append.');
   if (!checks.context_pack_sample_no_bodies) error('context_pack.body_contract_failed', 'Context pack output must forbid chunk bodies.');
   if (!checks.context_pack_sample_selects_builder) error('context_pack.selection_missing_builder', 'Context pack sample should select the builder chunk for builder work.');
+}
+function validateContextSelectionRuleTable() {
+  const builder = read('scripts/build-context-pack.mjs');
+  const spec = read('docs/specifications/context-pack-builder.md');
+  const manifest = read('docs/manifest.yaml');
+  const decision = read('docs/decisions/2026-07-08-context-selection-rule-table.md');
+  const expectedRuleIds = [
+    'always-on.reference',
+    'flow.wi-state',
+    'risk.r2-r3-policy-baseline',
+    'changed.manifest',
+    'changed.tooling',
+    'intent.context-pack',
+    'intent.github',
+    'intent.validation',
+    'manifest.loads-for-token-match',
+  ];
+
+  let sample = null;
+  try {
+    const output = execFileSync(process.execPath, [
+      'scripts/build-context-pack.mjs',
+      '--wi', 'WI-CX0021-feat',
+      '--intent', 'github issue validation context-pack-building',
+      '--risk', 'R2',
+      '--changed', 'docs/manifest.yaml',
+      '--changed', 'scripts/build-context-pack.mjs',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    sample = JSON.parse(output);
+  } catch (err) {
+    error('context_selection.sample_failed', 'Context pack builder must emit parseable JSON with rule-table metadata.', err.stderr?.toString().trim() || err.message);
+  }
+
+  const sampleRuleIds = sample?.selection_rule_ids ?? [];
+  const missingBuilderRules = expectedRuleIds.filter((ruleId) => !builder.includes(ruleId));
+  const missingSpecRules = expectedRuleIds.filter((ruleId) => !spec.includes(`\`${ruleId}\``));
+  const missingSampleRules = expectedRuleIds.filter((ruleId) => !sampleRuleIds.includes(ruleId));
+  const chunksWithoutRules = (sample?.selected_chunks ?? [])
+    .filter((chunk) => !Array.isArray(chunk.selection_rules) || chunk.selection_rules.length === 0)
+    .map((chunk) => chunk.id);
+
+  checks.context_selection_missing_builder_rules = missingBuilderRules;
+  checks.context_selection_missing_spec_rules = missingSpecRules;
+  checks.context_selection_missing_sample_rules = missingSampleRules;
+  checks.context_selection_chunks_without_rules = chunksWithoutRules;
+  checks.context_selection_manifest_outputs = manifest.includes('    - selection_rule_ids') && manifest.includes('    - selection_rules');
+  checks.context_selection_decision_stable_rules = decision.includes('stable rule ids') && decision.includes('selection_rule_ids');
+  checks.context_selection_sample_no_append = sample?.ledger_append?.requested === false;
+  checks.context_selection_sample_no_bodies = sample?.contains_chunk_bodies === false && sample?.body_storage === 'forbidden';
+
+  if (missingBuilderRules.length) error('context_selection.builder_rules_missing', 'Builder must define all required context selection rule ids.', missingBuilderRules);
+  if (missingSpecRules.length) error('context_selection.spec_rules_missing', 'Context pack spec must document all required context selection rule ids.', missingSpecRules);
+  if (missingSampleRules.length) error('context_selection.sample_rules_missing', 'Sample context pack must exercise all required selection rule ids.', missingSampleRules);
+  if (chunksWithoutRules.length) error('context_selection.chunk_rules_missing', 'Every selected chunk must include selection_rules metadata.', chunksWithoutRules);
+  if (!checks.context_selection_manifest_outputs) error('context_selection.manifest_outputs_missing', 'Manifest hook output must include selection rule metadata fields.');
+  if (!checks.context_selection_decision_stable_rules) error('context_selection.decision_contract_missing', 'Context selection decision must lock stable rule ids and output metadata.');
+  if (!checks.context_selection_sample_no_append) error('context_selection.default_append_failed', 'Rule-table sample must keep default no-append behavior.');
+  if (!checks.context_selection_sample_no_bodies) error('context_selection.body_contract_failed', 'Rule-table sample must forbid chunk bodies.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -630,6 +696,7 @@ validateGitHubGovernance();
 validatePublicReadiness();
 validateEvaluationSurface();
 validateContextPackCommandSurface();
+validateContextSelectionRuleTable();
 validatePackage();
 
 const result = {

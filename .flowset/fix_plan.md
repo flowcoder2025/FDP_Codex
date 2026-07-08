@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -17,7 +17,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0021-feat Context Selection Rule Table: convert context pack selection heuristics into an explicit rule table and validator-backed contract without changing the stdout-default and explicit-append boundary. Expected strategy: PSC=P2, WTC=AUTO+KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0022-docs Decision Queue State Codes: classify remaining Decision Needed items with explicit state codes, owner gates, and lock blockers so Operating Policy LOCK can proceed without mixing unresolved governance questions into active WI context. Expected strategy: PSC=P2, WTC=KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
@@ -36,6 +36,5 @@ Discipline:
 - [ ] Whether portfolio guardrails become deterministic validator rules.
 - [ ] Whether every KI must become a GitHub Issue after public release.
 - [ ] Whether the validator should adopt a strict YAML parser later.
-- [ ] Whether context pack selection should remain heuristic or move to a stricter rule table.
 - [ ] Whether handoff maximum line count should be 220, 300, or profile-dependent.
 - [ ] Whether current WI and handoff should be split into stricter machine-readable state later.
