@@ -122,7 +122,9 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0047-test.md',
   '.flowset/runtime-snapshot.json',
   'docs/specifications/runtime-snapshot.md',
+  'docs/specifications/a2-handoff-receiver-contract.md',
   'docs/records/validation-wi-cx0048-test.md',
+  'docs/records/validation-wi-cx0049-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -153,8 +155,10 @@ const requiredChunkIds = [
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
   'spec.runtime-snapshot',
+  'spec.a2-handoff-receiver-contract',
   'flow.runtime-snapshot',
   'record.validation-wi-cx0048-test',
+  'record.validation-wi-cx0049-docs',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -1059,7 +1063,7 @@ function validatePortfolioGuardrailValidatorBaseline() {
   const decisionPath = 'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md';
   const recordPath = 'docs/records/validation-wi-cx0045-test.md';
   const portfolioValidationRecord = read(recordPath);
-  const strategyCodes = ['FND', 'VAL', 'AUTO', 'KNOW', 'OSS', 'EVAL', 'DEBT'];
+  const strategyCodes = ['FND', 'VAL', 'AUTO', 'KNOW', 'OSS', 'EVAL', 'DEBT', 'SPEC'];
 
   const hasStrategyFields = (body) => {
     const psc = /- PSC: P[0-6]\b/.test(body);
@@ -1340,7 +1344,8 @@ function validateCollaborationResponseContract() {
   if (!checks.collaboration_response_approval) error('collaboration_response.approval_missing', 'Decision-bearing replies must state next action and approval needed.');
   if (!checks.collaboration_response_korean_tone) error('collaboration_response.korean_tone_missing', 'AGENTS and decision must preserve the conversational Korean tone instruction.');
   if (!checks.collaboration_response_boundaries) error('collaboration_response.boundaries_missing', 'Decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
-}function validateSessionBoundaryAutomationContract() {
+}
+function validateSessionBoundaryAutomationContract() {
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const hygiene = read('docs/policies/context-hygiene.md');
   const decision = read('docs/decisions/2026-07-08-session-boundary-automation-contract.md');
@@ -2259,8 +2264,9 @@ function validateSessionOrchestrationControlPlaneAudit() {
     && audit.includes('WI-CX0050-test Worktree Isolation Verification');
   checks.session_orchestration_priority = audit.includes('WI-CX0048-test Runtime Snapshot Validator')
     && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
-    && fixPlan.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
-    && handoff.includes('Start WI-CX0049-docs A2 Handoff Receiver Contract')
+    && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract')
+    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
+    && handoff.includes('Start WI-CX0050-test Worktree Isolation Verification')
     && exists('.flowset/runtime-snapshot.json');
   checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
@@ -2399,6 +2405,7 @@ function validateRuntimeSnapshotValidator() {
     && spec.includes('parent_thread.id')
     && spec.includes('runner_discovery.title_query_count')
     && spec.includes('No runner result claims effective handoff receiver success')
+    && spec.includes('Receiver result labels follow `docs/specifications/a2-handoff-receiver-contract.md`')
     && spec.includes('Worktree isolation remains `not_proven` until WI-CX0050-test repays it');
   checks.runtime_snapshot_manifest = manifest.includes('id: spec.runtime-snapshot')
     && manifest.includes(specPath)
@@ -2411,13 +2418,14 @@ function validateRuntimeSnapshotValidator() {
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(snapshotPath)
     && recordsReadme.includes(recordPath);
-  checks.runtime_snapshot_flow = currentWi.includes('WI id: WI-CX0048-test')
-    && currentWi.includes('WTC: VAL')
-    && state.current_wi?.id === 'WI-CX0048-test'
+  checks.runtime_snapshot_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
+    && currentWi.includes('Status: validated')
+    && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
+    && state.current_wi?.validation_record
     && state.current_priority?.kind === 'wi'
-    && state.current_priority?.wi_id === 'WI-CX0049-docs'
-    && fixPlan.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
-    && handoff.includes('Start WI-CX0049-docs A2 Handoff Receiver Contract')
+    && state.current_priority?.owner_gate
+    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
+    && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
     && handoff.includes('Runtime snapshot: `.flowset/runtime-snapshot.json`');
   checks.runtime_snapshot_record = record.includes('WI: WI-CX0048-test')
     && record.includes('Status: validated')
@@ -2446,9 +2454,102 @@ function validateRuntimeSnapshotValidator() {
   if (!checks.runtime_snapshot_spec) error('runtime_snapshot.spec_missing', 'Runtime snapshot spec must define metadata-only fields and validation rules.');
   if (!checks.runtime_snapshot_manifest) error('runtime_snapshot.manifest_missing', 'Manifest must register runtime snapshot, spec, and validation record.');
   if (!checks.runtime_snapshot_indexes) error('runtime_snapshot.index_missing', 'Indexes must include runtime snapshot artifacts.');
-  if (!checks.runtime_snapshot_flow) error('runtime_snapshot.flow_missing', 'Flow state and handoff must record WI-CX0048 and advance to WI-CX0049.');
+  if (!checks.runtime_snapshot_flow) error('runtime_snapshot.flow_missing', 'Flow state and handoff must preserve WI-CX0048 evidence and maintain a valid current flow state.');
   if (!checks.runtime_snapshot_record) error('runtime_snapshot.record_missing', 'WI-CX0048 validation record must capture evidence, result, and strategy.');
   if (!checks.runtime_snapshot_hard_stops) error('runtime_snapshot.boundary_missing', 'WI-CX0048 must preserve hard stops and avoid automation authority or Layer 2 generation changes.');
+}
+function validateA2HandoffReceiverContract() {
+  const contractPath = 'docs/specifications/a2-handoff-receiver-contract.md';
+  const recordPath = 'docs/records/validation-wi-cx0049-docs.md';
+  const contract = read(contractPath);
+  const record = read(recordPath);
+  const snapshot = readJson('.flowset/runtime-snapshot.json');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const runnerResults = Array.isArray(snapshot.runner_results) ? snapshot.runner_results : [];
+
+  checks.a2_receiver_contract_terms = contract.includes('Parent thread:')
+    && contract.includes('Receiver:')
+    && contract.includes('Receiver record:')
+    && contract.includes('repo-visible control-plane evidence')
+    && contract.includes('must not rely on copied context bodies or prompt dumps');
+  checks.a2_receiver_contract_taxonomy = contract.includes('`success`')
+    && contract.includes('`duplicate-stop`')
+    && contract.includes('`blocked-handback`')
+    && contract.includes('`failed`')
+    && contract.includes('`stale-or-unknown`')
+    && contract.includes('This is a valid safety stop, not a successful handoff')
+    && contract.includes('keep the handoff receiver assessment `not_proven`');
+  checks.a2_receiver_contract_evidence = contract.includes('## Required Receiver Evidence')
+    && contract.includes('`wi_id`')
+    && contract.includes('`expected_next_wi`')
+    && contract.includes('`parent_thread_id`')
+    && contract.includes('`runner_thread_id`')
+    && contract.includes('`automation_id`')
+    && contract.includes('`context_pack_id`')
+    && contract.includes('`repository_changes`')
+    && contract.includes('`validation_summary`')
+    && contract.includes('`hard_stops_preserved`');
+  checks.a2_receiver_contract_parent_handback = contract.includes('## Parent Thread Handback Rules')
+    && contract.includes('must not treat the handoff as a fresh-session success')
+    && contract.includes('record KI debt and schedule repayment')
+    && contract.includes('must not start another independent WI merely to avoid a handback point');
+  checks.a2_receiver_contract_validation_rules = contract.includes('`npm run validate` must fail')
+    && contract.includes('The runtime snapshot remains `not_proven` while observed runners only have `duplicate-stop` results')
+    && contract.includes('live flow advances to WI-CX0050-test Worktree Isolation Verification');
+  checks.a2_receiver_contract_runtime_state = snapshot.handoff_receiver_assessment?.status === 'not_proven'
+    && runnerResults.some((item) => item.receiver_result === 'duplicate-stop')
+    && !runnerResults.some((item) => item.receiver_result === 'success');
+  checks.a2_receiver_contract_manifest = manifest.includes('id: spec.a2-handoff-receiver-contract')
+    && manifest.includes(contractPath)
+    && manifest.includes('id: record.validation-wi-cx0049-docs')
+    && manifest.includes(recordPath);
+  checks.a2_receiver_contract_indexes = docsIndex.includes(contractPath)
+    && docsIndex.includes(recordPath)
+    && recordsReadme.includes(recordPath);
+  checks.a2_receiver_contract_flow = currentWi.includes('WI id: WI-CX0049-docs')
+    && currentWi.includes('WTC: SPEC')
+    && currentWi.includes('Status: validated')
+    && state.current_wi?.id === 'WI-CX0049-docs'
+    && state.current_wi?.validation_record === recordPath
+    && state.current_priority?.kind === 'wi'
+    && state.current_priority?.wi_id === 'WI-CX0050-test'
+    && state.current_priority?.strategy?.WTC === 'VAL'
+    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
+    && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract')
+    && handoff.includes('Start WI-CX0050-test Worktree Isolation Verification');
+  checks.a2_receiver_contract_record = record.includes('WI: WI-CX0049-docs')
+    && record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0049-docs-20260708110849')
+    && record.includes('does not claim that any A2 runner has succeeded as a receiver')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance');
+  checks.a2_receiver_contract_boundary = contract.includes('does not create or update Codex app automations')
+    && contract.includes('generate a Layer 2 target-project scaffold')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('automation schedule change')
+    && record.includes('automation prompt change')
+    && record.includes('A2/A3 authority change')
+    && record.includes('S2 execution')
+    && record.includes('separate reviewer creation')
+    && record.includes('first Layer 2 scaffold generation occurred');
+
+  if (!checks.a2_receiver_contract_terms) error('a2_receiver_contract.terms_missing', 'A2 handoff receiver contract must define parent, receiver, receiver record, and context-body boundaries.');
+  if (!checks.a2_receiver_contract_taxonomy) error('a2_receiver_contract.taxonomy_missing', 'A2 handoff receiver contract must define success, duplicate-stop, blocked-handback, failed, and stale-or-unknown results.');
+  if (!checks.a2_receiver_contract_evidence) error('a2_receiver_contract.evidence_missing', 'A2 handoff receiver contract must define required repo-visible receiver evidence fields.');
+  if (!checks.a2_receiver_contract_parent_handback) error('a2_receiver_contract.parent_handback_missing', 'A2 handoff receiver contract must define parent-thread handback behavior.');
+  if (!checks.a2_receiver_contract_validation_rules) error('a2_receiver_contract.validation_rules_missing', 'A2 handoff receiver contract must define validator expectations and WI-CX0050 flow advancement.');
+  if (!checks.a2_receiver_contract_runtime_state) error('a2_receiver_contract.runtime_state_invalid', 'Runtime snapshot must not claim receiver success while observed runner results are duplicate-stop only.');
+  if (!checks.a2_receiver_contract_manifest) error('a2_receiver_contract.manifest_missing', 'Manifest must register the A2 handoff receiver contract and validation record.');
+  if (!checks.a2_receiver_contract_indexes) error('a2_receiver_contract.index_missing', 'Documentation indexes must include the A2 handoff receiver contract and validation record.');
+  if (!checks.a2_receiver_contract_flow) error('a2_receiver_contract.flow_missing', 'Flow state and handoff must record WI-CX0049 and advance to WI-CX0050.');
+  if (!checks.a2_receiver_contract_record) error('a2_receiver_contract.record_missing', 'WI-CX0049 validation record must capture evidence, result, and strategy.');
+  if (!checks.a2_receiver_contract_boundary) error('a2_receiver_contract.boundary_missing', 'WI-CX0049 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -2500,6 +2601,9 @@ validatePostBootstrapAutomationCadenceHandback();
 validateLayer2ScopeCodeOptionsPacket();
 validateLayer2ChunkIdScopePolicy();
 validateLayer2ScopeCodeDecisionHandback();
+validateSessionOrchestrationControlPlaneAudit();
+validateRuntimeSnapshotValidator();
+validateA2HandoffReceiverContract();
 validatePackage();
 
 const result = {

@@ -47,6 +47,7 @@ The validator must check at least:
 - Runner discovery records both broad title search and automation-id search results, including the observed query gap.
 - The latest runner thread is recorded and at least one runner result is `duplicate-stop`.
 - No runner result claims effective handoff receiver success while `handoff_receiver_assessment.status` is `not_proven`.
+- Receiver result labels follow `docs/specifications/a2-handoff-receiver-contract.md`.
 - Worktree isolation remains `not_proven` until WI-CX0050-test repays it.
 - Generalized A2/A3 expansion and first Layer 2 target-project scaffold confidence remain blocked while receiver and isolation statuses are not proven.
 

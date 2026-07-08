@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0048-test Runtime Snapshot Validator.
+Current WI: WI-CX0049-docs A2 Handoff Receiver Contract.
 
-WI-CX0048-test status: validated.
+WI-CX0049-docs status: validated.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
@@ -20,9 +20,9 @@ Strictness probe: `npm run typecheck:strict-probe`; current measured debt is str
 
 Session orchestration audit is accepted at `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`. It records that the parent `안녕` thread continued context-hygiene-sensitive work while A2 runner threads duplicate-stopped instead of producing effective handoff receiver output.
 
-Runtime snapshot validator is accepted at `docs/specifications/runtime-snapshot.md`, `.flowset/runtime-snapshot.json`, and `docs/records/validation-wi-cx0048-test.md`.
+Runtime snapshot validator is accepted at `docs/specifications/runtime-snapshot.md`, `.flowset/runtime-snapshot.json`, and `docs/records/validation-wi-cx0048-test.md`. A2 handoff receiver contract is accepted at `docs/specifications/a2-handoff-receiver-contract.md` and `docs/records/validation-wi-cx0049-docs.md`.
 
-Next priority is WI-CX0049-docs A2 Handoff Receiver Contract. It must define receiver success, duplicate-stop handling, repo-visible reporting, and parent-thread handback behavior before generalized A2/A3 autonomy expansion.
+Next priority is WI-CX0050-test Worktree Isolation Verification. It must prove or block the A2 worktree isolation model before first Layer 2 target-project scaffold confidence claims.
 
 Layer 2 scope code decision handback is available at `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`. Recommended answer: `A, use <CODE>`.
 
@@ -57,6 +57,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0039-docs: Flow State Readable Snapshot. Evidence: `.flowset/state.json`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, and `docs/records/validation-wi-cx0039-docs.md`.
 - WI-CX0047-test: Session Orchestration Control-Plane Audit. Evidence: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md` and `docs/records/validation-wi-cx0047-test.md`.
 - WI-CX0048-test: Runtime Snapshot Validator. Evidence: `.flowset/runtime-snapshot.json`, `docs/specifications/runtime-snapshot.md`, and `docs/records/validation-wi-cx0048-test.md`.
+- WI-CX0049-docs: A2 Handoff Receiver Contract. Evidence: `docs/specifications/a2-handoff-receiver-contract.md` and `docs/records/validation-wi-cx0049-docs.md`.
 - WI-CX0034-docs: Layer 2 Scope Code Options Packet. Evidence: `docs/records/layer-2-scope-code-options-2026-07-08.md` and `docs/records/validation-wi-cx0034-docs.md`; final scope code choice remains user-gated.
 - WI-CX0036-docs: Chunk Id Scope Policy. Evidence: `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md` and `docs/records/validation-wi-cx0036-docs.md`; per-target-project chunk id scope is accepted.
 - WI-CX0037-docs: Layer 2 Scope Code Decision Handback. Evidence: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0037-docs.md`; final scope code choice remains user-gated.
@@ -75,6 +76,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Current WI: `.flowset/current-wi.md`.
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Runtime snapshot spec: `docs/specifications/runtime-snapshot.md`.
+- A2 handoff receiver contract: `docs/specifications/a2-handoff-receiver-contract.md`.
 - Session orchestration audit: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`.
 - Strictness probe: `scripts/report-type-strictness.mjs` via `npm run typecheck:strict-probe`.
 - Automation runner S2 packet: `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
@@ -92,7 +94,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Strategic replies must synthesize accumulated objective, locked constraints, verified current state, and newest concern before reprioritizing.
 - Fresh-run, handoff receiver, and clean-session claims require control-plane evidence, not only local green validators.
 - `.flowset/runtime-snapshot.json` is required evidence before claiming A2 handoff receiver success.
-- KI-CX-AUTO-001 and KI-CX-AUTO-004 remain debt until WI-CX0049 and WI-CX0050 repay receiver and isolation gaps.
+- KI-CX-AUTO-002 receiver-contract debt is repaid by WI-CX0049; KI-CX-AUTO-004 remains debt until WI-CX0050 repays worktree isolation. Fresh-run success claims still require receiver evidence.
 - Context bodies are ephemeral and ledger records metadata only.
 - `.flowset/context-ledger.jsonl` is append-only audit evidence.
 - `.flowset/state.json` is a compact operating-state snapshot and must not store context bodies.
@@ -114,16 +116,16 @@ Release publication, deployment, package publication, and OSS program submission
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0048-test-runtime-snapshot-validator`.
+- Active WI branch for this cycle: `wi/cx0049-docs-a2-handoff-receiver-contract`.
 
 ## Next Action
 
-Start WI-CX0049-docs A2 Handoff Receiver Contract.
+Start WI-CX0050-test Worktree Isolation Verification.
 
 ## Blocked Work
 
 - First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and control-plane confidence checks.
-- WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked until the user chooses the scope code rule and WI-CX0049/WI-CX0050 repay receiver and worktree confidence debt.
+- WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked until the user chooses the scope code rule and WI-CX0050 repays worktree confidence debt.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.
 - Deployment is not approved.
