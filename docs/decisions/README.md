@@ -9,10 +9,10 @@ Current decisions:
 - `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`: accepted bootstrap publication envelope for GitHub Actions, labels, public visibility, PR merge, and branch deletion.
 - `docs/decisions/2026-07-08-public-readiness-boundary.md`: accepted public bootstrap, pre-release boundary.
 - `docs/decisions/2026-07-08-evaluation-surface-baseline.md`: accepted evaluation execution surface boundary.
+- `docs/decisions/2026-07-08-context-pack-command-surface.md`: accepted stdout-default and explicit ledger-append context pack command surface.
 
 Decision Needed:
 
-- First hook implementation surface.
 - Chunk id scope: global, per-layer, or per-target-project.
 - Layer 2 project scope code rule.
 - Release category policy.
@@ -20,13 +20,9 @@ Decision Needed:
 - Default autonomy mode after bootstrap.
 - A2/A3 git and continuation scope.
 - Branch deletion automation default after squash merge.
-- Blind review execution surface.
-- Adversarial checklist granularity per surface type.
 - Whether portfolio guardrails become deterministic validator rules.
 - Whether every KI must become a GitHub Issue after public release.
 - Whether the validator should adopt a strict YAML parser later.
-- Whether context pack output should be written to `.flowset/context-packs/` metadata files or remain stdout-only by default.
-- Whether context pack builder runs should append ledger records automatically or require a separate explicit command.
 - Whether context pack selection should remain heuristic or move to a stricter rule table.
 - Whether handoff maximum line count should be 220, 300, or profile-dependent.
 - Whether current WI and handoff should be split into stricter machine-readable state later.

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseManifest } from './lib/manifest.mjs';
 
 const repoRoot = process.cwd();
+const ledgerPath = '.flowset/context-ledger.jsonl';
 
 function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n');
@@ -143,6 +144,22 @@ function selectChunks({ alwaysOn, chunks }, request) {
   return [...selections.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function appendLedger(contextPack, actor) {
+  const lines = contextPack.selected_chunks.map((chunk) => JSON.stringify({
+    timestamp: contextPack.generated_at,
+    wi_id: contextPack.wi_id,
+    chunk_id: chunk.id,
+    source: chunk.source,
+    hash: chunk.hash,
+    load_reason: chunk.load_reasons.join('; '),
+    decision_ref: chunk.decision_ref,
+    actor,
+  }));
+
+  appendFileSync(path.join(repoRoot, ledgerPath), `${lines.join('\n')}\n`, 'utf8');
+  return lines.length;
+}
+
 const args = parseArgs(process.argv.slice(2));
 const currentWi = parseCurrentWi();
 const request = {
@@ -156,6 +173,8 @@ const request = {
 const manifest = parseManifest(read('docs/manifest.yaml'));
 const selected = selectChunks(manifest, request);
 const generatedAt = new Date().toISOString();
+const appendRequested = args['append-ledger'] === true;
+const actor = args.actor || 'codex';
 const contextPack = {
   schema_version: 0,
   context_pack_id: `ctx-${request.wi_id.toLowerCase()}-${generatedAt.replace(/[-:.TZ]/g, '').slice(0, 14)}`,
@@ -166,9 +185,20 @@ const contextPack = {
   changed_paths: request.changed_paths,
   selected_chunk_ids: selected.map((chunk) => chunk.id),
   selected_chunks: selected,
+  ledger_append: {
+    requested: appendRequested,
+    status: appendRequested ? 'appended' : 'not_requested',
+    path: ledgerPath,
+    actor,
+    entry_count: appendRequested ? selected.length : 0,
+  },
   body_storage: 'forbidden',
   contains_chunk_bodies: false,
   forbidden_output: manifest.hookContract.forbidden_output,
 };
+
+if (appendRequested) {
+  contextPack.ledger_append.entry_count = appendLedger(contextPack, actor);
+}
 
 console.log(JSON.stringify(contextPack, null, 2));
