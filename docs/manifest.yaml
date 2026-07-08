@@ -1451,6 +1451,20 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: spec.a2-handoff-receiver-contract
+    title: A2 Handoff Receiver Contract
+    source: docs/specifications/a2-handoff-receiver-contract.md
+    type: specification
+    layer: layer1
+    status: draft
+    loads_for:
+      - validation
+      - automation-planning
+      - session-boundary
+      - fresh-run-continuation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
   - id: flow.runtime-snapshot
     title: Runtime Snapshot
     source: .flowset/runtime-snapshot.json
@@ -1467,6 +1481,19 @@ chunks:
   - id: record.validation-wi-cx0048-test
     title: WI-CX0048-test Validation Record
     source: docs/records/validation-wi-cx0048-test.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - automation-planning
+      - session-boundary
+      - validation
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0049-docs
+    title: WI-CX0049-docs Validation Record
+    source: docs/records/validation-wi-cx0049-docs.md
     type: record
     layer: layer1
     status: evidence

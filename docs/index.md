@@ -34,6 +34,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/specifications/context-pack-builder.md`
 - `docs/specifications/layer-2-knowledge-scaffold.md`
 - `docs/specifications/runtime-snapshot.md`
+- `docs/specifications/a2-handoff-receiver-contract.md`
 
 ## Decisions
 
@@ -121,6 +122,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0047-test.md`
 - `.flowset/runtime-snapshot.json`
 - `docs/records/validation-wi-cx0048-test.md`
+- `docs/records/validation-wi-cx0049-docs.md`
 
 ## Tooling
 
