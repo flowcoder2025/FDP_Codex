@@ -2,19 +2,19 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T08:36:00Z",
+  "updated_at": "2026-07-08T08:51:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0040-chore",
-    "category": "chore",
-    "title": "Tooling Strictness Probe",
+    "id": "WI-CX0041-docs",
+    "category": "docs",
+    "title": "Automation Runner S2 Review Packet",
     "status": "validated",
-    "branch": "wi/cx0040-chore-tooling-strictness-probe",
-    "validation_record": "docs/records/validation-wi-cx0040-chore.md"
+    "branch": "wi/cx0041-docs-automation-runner-s2-review-packet",
+    "validation_record": "docs/records/validation-wi-cx0041-docs.md"
   },
   "current_priority": {
     "kind": "user_decision",

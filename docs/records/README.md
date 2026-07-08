@@ -50,12 +50,14 @@ Current validation records:
 - `docs/records/validation-wi-cx0037-docs.md`
 - `docs/records/validation-wi-cx0039-docs.md`
 - `docs/records/validation-wi-cx0040-chore.md`
+- `docs/records/validation-wi-cx0041-docs.md`
 
 Other records:
 
 - `docs/records/decision-packet-2026-07-08.md`
 - `docs/records/layer-2-scope-code-options-2026-07-08.md`
 - `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`
+- `docs/records/automation-runner-s2-review-packet-2026-07-08.md`
 
 Forbidden record content:
 
