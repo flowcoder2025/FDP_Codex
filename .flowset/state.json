@@ -2,31 +2,36 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T09:29:00Z",
+  "updated_at": "2026-07-08T10:45:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0046-test",
+    "id": "WI-CX0047-test",
     "category": "test",
-    "title": "Autonomous Work Exhaustion Stop Gate",
+    "title": "Session Orchestration Control-Plane Audit",
     "status": "validated",
-    "branch": "wi/cx0046-test-autonomous-work-exhaustion-stop-gate",
-    "validation_record": "docs/records/validation-wi-cx0046-test.md"
+    "branch": "wi/cx0047-test-session-orchestration-control-plane-audit",
+    "validation_record": "docs/records/validation-wi-cx0047-test.md"
   },
   "current_priority": {
-    "kind": "user_decision",
-    "item": "Layer 2 project scope code rule",
-    "state": "DQ-USER",
-    "owner_gate": "USER",
-    "lock_blocker": "conditional",
-    "prompt": "docs/records/layer-2-scope-code-decision-handback-2026-07-08.md",
-    "recommended_answer_shape": "A, use <CODE>",
+    "kind": "wi",
+    "wi_id": "WI-CX0048-test",
+    "item": "Runtime Snapshot Validator",
+    "state": "ready",
+    "owner_gate": "CODEX",
+    "lock_blocker": "no",
+    "strategy": {
+      "PSC": "P1",
+      "WTC": "VAL",
+      "Risk": "R2",
+      "ESC": "E1+E3+E5+E6"
+    },
     "blocks": [
-      "WI-CX0038-docs",
-      "first Layer 2 target-project scaffold generation"
+      "generalized A2/A3 autonomy expansion",
+      "first Layer 2 target-project scaffold confidence claims"
     ]
   },
   "triggered_work": [

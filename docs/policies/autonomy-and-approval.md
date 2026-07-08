@@ -129,6 +129,13 @@ FDP_Codex default:
 - For the next independent, context-hygiene-sensitive WI, prefer standalone or project automation with a dedicated worktree once that automation is explicitly installed, tested, and inside an approval envelope.
 - Until that automation surface is installed and verified, use handoff plus context pack metadata to make a fresh run possible, but do not claim automatic fresh-session execution.
 
+## Control-Plane Runtime Validation
+
+Fresh-run claims must be backed by control-plane evidence, not only repository documents or green local validators.
+
+Before treating a Codex automation as a handoff receiver or a clean fresh-run boundary, FDP_Codex must record or validate the parent thread id and title, goal thread id when visible, automation id and status, runner thread ids and titles, execution environment, cwd or worktree path, last-run evidence, and whether the runner produced a branch, PR, output record, or only duplicate-stop evidence.
+
+If control-plane evidence is missing, contradictory, or shows that the parent thread continued context-hygiene-sensitive WI implementation, classify the issue as KI debt and do not generalize A2/A3 autonomy, claim fresh-session handoff success, or proceed to first Layer 2 scaffold generation on that assumption.
 ## Autonomous Work Exhaustion Stop Gate
 
 When the live fix plan has no executable next WI because remaining work is gated by user decision, external state, or separate-reviewer availability, Codex must stop autonomous WI creation and hand back the decision surface.
@@ -138,6 +145,7 @@ The handback must name the blocking user decision, triggered work waiting for ev
 Codex may still finish the active WI, poll checks, merge an approved PR, or verify a just-completed cycle. Codex must not start another independent WI merely to avoid stopping.
 
 A new autonomous WI may start only when the user supplies a decision or approval, new trigger evidence appears, a separate review surface becomes available, a concrete defect or critical/high KI appears, or a recorded repayment trigger is reached.
+
 ## UX Rule
 
 Ask once for the envelope, then avoid repeated prompts inside that envelope. Ask again only at a hard stop, when the envelope expires, or when evidence contradicts the envelope assumptions.

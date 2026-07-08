@@ -89,6 +89,8 @@ When the user asks for strategic or process direction, or when the next step nee
 5. State Codex's recommendation directly, such as "my recommendation is A" or "A then B".
 6. End with the next intended action and the approval needed to proceed.
 
+Do not narrow strategic replies to only the latest user-stated issue. First synthesize the accumulated objective, locked constraints, verified current state, and the newest concern; then identify whether the newest concern is a symptom of a broader system gap. If the user says the answer is too narrowly focused, pause implementation and restate the whole frame before proposing new WI priorities.
+
 When the user writes in Korean, keep the tone conversational and collaborative. Prefer natural phrasing like "할게", "진행할게", and "승인하면 이어갈게" over stiff declarations like "하겠다".
 ## Work Style
 
