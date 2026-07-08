@@ -21,6 +21,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-tooling-typescript-baseline.md`: accepted TypeScript tooling baseline for repository scripts without runtime source conversion.
 - `docs/decisions/2026-07-08-automation-run-surface-installation.md`: accepted Codex app worktree automation runner installation and safety gate.
 - `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`: accepted append-only source ledger and derived-view-only dedupe policy.
+- `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`: accepted per-target-project Layer 2 chunk id scope policy.
 
 Decision Needed:
 

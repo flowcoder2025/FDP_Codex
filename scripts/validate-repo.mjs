@@ -100,6 +100,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0033-test.md',
   'docs/records/layer-2-scope-code-options-2026-07-08.md',
   'docs/records/validation-wi-cx0034-docs.md',
+  'docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md',
+  'docs/records/validation-wi-cx0036-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -174,6 +176,8 @@ const requiredChunkIds = [
   'record.validation-wi-cx0033-test',
   'record.layer-2-scope-code-options',
   'record.validation-wi-cx0034-docs',
+  'decision.layer-2-chunk-id-scope-policy',
+  'record.validation-wi-cx0036-docs',
 ];
 
 const requiredLabels = [
@@ -1288,11 +1292,14 @@ function validateLayer2KnowledgeScaffoldContract() {
     && spec.includes('target-project identifier and scope code');
   checks.layer2_scaffold_generation_gates = spec.includes('Do not generate the first Layer 2 target-project scaffold')
     && spec.includes('Layer 2 project scope code rule')
-    && spec.includes('Chunk id scope: global, per-layer, or per-target-project')
+    && spec.includes('Chunk id scope is resolved as per-target-project')
+    && spec.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
     && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-    && fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
+    && !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
   checks.layer2_scaffold_knowledge_link = knowledge.includes('docs/specifications/layer-2-knowledge-scaffold.md')
-    && knowledge.includes('target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt, and Layer 1 provenance')
+    && knowledge.includes('target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt')
+    && knowledge.includes('Layer 1 provenance')
+    && knowledge.includes('per-target-project chunk id namespaces')
     && knowledge.includes('Layer 2 scaffold generation remains blocked');
   checks.layer2_scaffold_manifest = manifest.includes('spec.layer-2-knowledge-scaffold')
     && manifest.includes('docs/specifications/layer-2-knowledge-scaffold.md')
@@ -1319,7 +1326,7 @@ function validateLayer2KnowledgeScaffoldContract() {
   if (!checks.layer2_scaffold_separation) error('layer2_scaffold.separation_missing', 'Layer 2 scaffold spec must separate target WI/KI namespaces from Layer 1.');
   if (!checks.layer2_scaffold_context_hygiene) error('layer2_scaffold.context_hygiene_missing', 'Layer 2 scaffold spec must preserve context hygiene and metadata-only ledgers.');
   if (!checks.layer2_scaffold_provenance) error('layer2_scaffold.provenance_missing', 'Layer 2 scaffold spec must require Layer 1 provenance.');
-  if (!checks.layer2_scaffold_generation_gates) error('layer2_scaffold.generation_gates_missing', 'Layer 2 scaffold generation must stay gated on scope-code and chunk namespace decisions.');
+  if (!checks.layer2_scaffold_generation_gates) error('layer2_scaffold.generation_gates_missing', 'Layer 2 scaffold generation must stay gated on the remaining scope-code decision while using the accepted chunk namespace policy.');
   if (!checks.layer2_scaffold_knowledge_link) error('layer2_scaffold.knowledge_link_missing', 'Knowledge system spec must link to the Layer 2 scaffold contract.');
   if (!checks.layer2_scaffold_manifest) error('layer2_scaffold.manifest_missing', 'Manifest must register Layer 2 scaffold spec and validation record.');
   if (!checks.layer2_scaffold_indexes) error('layer2_scaffold.index_missing', 'Documentation indexes must include the Layer 2 scaffold spec and validation record.');
@@ -1402,7 +1409,7 @@ function validateLayer2ScopeCodeOptionsPacket() {
     && packet.includes('scope_code_decision_ref');
   checks.layer2_scope_code_queue = fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && fixPlan.includes('docs/records/layer-2-scope-code-options-2026-07-08.md')
-    && fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
+    && !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
   checks.layer2_scope_code_manifest = manifest.includes('record.layer-2-scope-code-options')
     && manifest.includes('docs/records/layer-2-scope-code-options-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0034-docs')
@@ -1416,13 +1423,9 @@ function validateLayer2ScopeCodeOptionsPacket() {
     && record.includes('Recommended fallback is Option B')
     && record.includes('DQ-USER | USER | conditional')
     && record.includes('No Layer 2 target-project scaffold generation occurred');
-  checks.layer2_scope_code_flow = currentWi.includes('WI id: WI-CX0034-docs')
-    && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0034-docs-layer-2-scope-code-options-packet')
-    && fixPlan.includes('- [ ] WI-CX0036-docs Chunk Id Scope Policy')
-    && handoff.includes('WI-CX0034-docs: Layer 2 Scope Code Options Packet')
-    && handoff.includes('Immediate next WI:')
-    && handoff.includes('WI-CX0036-docs Chunk Id Scope Policy');
+  checks.layer2_scope_code_flow = !/^- \[ \] WI-CX0034-docs\b/m.test(fixPlan)
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+    && handoff.includes('WI-CX0034-docs: Layer 2 Scope Code Options Packet');
   checks.layer2_scope_code_boundary = record.includes('No public API or external contract was stabilized')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
@@ -1432,12 +1435,80 @@ function validateLayer2ScopeCodeOptionsPacket() {
   if (!checks.layer2_scope_code_packet_boundary) error('layer2_scope_code.boundary_missing', 'Scope code options packet must preserve the user decision and generation boundary.');
   if (!checks.layer2_scope_code_packet_options) error('layer2_scope_code.options_missing', 'Scope code options packet must contain options A-D plus primary and fallback recommendations.');
   if (!checks.layer2_scope_code_packet_rule) error('layer2_scope_code.rule_missing', 'Scope code options packet must include the proposed acceptance rule fields.');
-  if (!checks.layer2_scope_code_queue) error('layer2_scope_code.queue_missing', 'Decision queue must keep scope code user-gated and chunk id policy-gated.');
+  if (!checks.layer2_scope_code_queue) error('layer2_scope_code.queue_missing', 'Decision queue must keep scope code user-gated after chunk id scope is resolved.');
   if (!checks.layer2_scope_code_manifest) error('layer2_scope_code.manifest_missing', 'Manifest must register the options packet and validation record.');
   if (!checks.layer2_scope_code_indexes) error('layer2_scope_code.index_missing', 'Indexes must include the options packet and validation record.');
   if (!checks.layer2_scope_code_record) error('layer2_scope_code.record_missing', 'WI-CX0034 validation record must capture recommendations and boundaries.');
   if (!checks.layer2_scope_code_flow) error('layer2_scope_code.flow_missing', 'Flow state must record WI-CX0034 and advance current priority to WI-CX0036.');
   if (!checks.layer2_scope_code_boundary) error('layer2_scope_code.boundary_not_preserved', 'WI-CX0034 must preserve generation, publication, public API, dependency, and destructive boundaries.');
+}
+function validateLayer2ChunkIdScopePolicy() {
+  const decision = read('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md');
+  const record = read('docs/records/validation-wi-cx0036-docs.md');
+  const spec = read('docs/specifications/layer-2-knowledge-scaffold.md');
+  const knowledge = read('docs/specifications/knowledge-system.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+
+  checks.layer2_chunk_id_decision = decision.includes('Layer 2 chunk ids are scoped per target project')
+    && decision.includes('Each Layer 2 target manifest owns its local chunk id namespace')
+    && decision.includes('Layer 1 chunk ids remain scoped to the FDP_Codex Layer 1 manifest')
+    && decision.includes('layer1:<chunk_id>')
+    && decision.includes('target:<project_scope_code>:<chunk_id>');
+  checks.layer2_chunk_id_rejections = decision.includes('Global chunk ids were rejected')
+    && decision.includes('Per-layer chunk ids were rejected')
+    && decision.includes('multiple Layer 2 target projects')
+    && decision.includes('central registry burden');
+  checks.layer2_chunk_id_spec = spec.includes('## Chunk Id Namespace')
+    && spec.includes('Layer 2 chunk ids are scoped per target project')
+    && spec.includes('Local target chunk ids must be unique within that target manifest')
+    && spec.includes('Cross-manifest references must be qualified')
+    && spec.includes('target:<project_scope_code>:<chunk_id>')
+    && spec.includes('Chunk id scope is resolved as per-target-project');
+  checks.layer2_chunk_id_knowledge = knowledge.includes('per-target-project chunk id namespaces')
+    && knowledge.includes('Layer 2 chunk id scope is resolved as per-target-project')
+    && knowledge.includes('Layer 2 project scope code remains user-gated');
+  checks.layer2_chunk_id_queue = !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional');
+  checks.layer2_chunk_id_manifest = manifest.includes('decision.layer-2-chunk-id-scope-policy')
+    && manifest.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
+    && manifest.includes('record.validation-wi-cx0036-docs')
+    && manifest.includes('docs/records/validation-wi-cx0036-docs.md');
+  checks.layer2_chunk_id_indexes = docsIndex.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
+    && docsIndex.includes('docs/records/validation-wi-cx0036-docs.md')
+    && decisionsReadme.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0036-docs.md');
+  checks.layer2_chunk_id_record = record.includes('WI: WI-CX0036-docs')
+    && record.includes('Decision accepts per-target-project chunk id scope')
+    && record.includes('The live Decision Needed queue no longer contains the chunk id scope row')
+    && record.includes('No Layer 2 target-project scaffold generation occurred');
+  checks.layer2_chunk_id_flow = currentWi.includes('WI id: WI-CX0036-docs')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0036-docs-chunk-id-scope-policy')
+    && fixPlan.includes('- [ ] WI-CX0037-docs Layer 2 Scope Code Decision Handback')
+    && handoff.includes('WI-CX0036-docs: Chunk Id Scope Policy')
+    && handoff.includes('WI-CX0037-docs Layer 2 Scope Code Decision Handback');
+  checks.layer2_chunk_id_boundary = decision.includes('This decision does not generate a Layer 2 target-project scaffold')
+    && decision.includes('does not choose the Layer 2 project scope code rule')
+    && record.includes('No public API or external contract was stabilized')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && handoff.includes('First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule');
+
+  if (!checks.layer2_chunk_id_decision) error('layer2_chunk_id.decision_missing', 'Chunk id scope decision must accept per-target-project scope and qualified references.');
+  if (!checks.layer2_chunk_id_rejections) error('layer2_chunk_id.rejections_missing', 'Chunk id scope decision must reject global and per-layer alternatives with rationale.');
+  if (!checks.layer2_chunk_id_spec) error('layer2_chunk_id.spec_missing', 'Layer 2 scaffold spec must include the per-target-project chunk id namespace rule.');
+  if (!checks.layer2_chunk_id_knowledge) error('layer2_chunk_id.knowledge_missing', 'Knowledge system spec must reflect resolved chunk id scope and remaining user gate.');
+  if (!checks.layer2_chunk_id_queue) error('layer2_chunk_id.queue_missing', 'Decision queue must remove chunk id scope and keep scope code user-gated.');
+  if (!checks.layer2_chunk_id_manifest) error('layer2_chunk_id.manifest_missing', 'Manifest must register the chunk id decision and validation record.');
+  if (!checks.layer2_chunk_id_indexes) error('layer2_chunk_id.index_missing', 'Indexes must include the chunk id decision and validation record.');
+  if (!checks.layer2_chunk_id_record) error('layer2_chunk_id.record_missing', 'WI-CX0036 validation record must capture decision evidence.');
+  if (!checks.layer2_chunk_id_flow) error('layer2_chunk_id.flow_missing', 'Flow state must record WI-CX0036 and advance current priority to WI-CX0037.');
+  if (!checks.layer2_chunk_id_boundary) error('layer2_chunk_id.boundary_missing', 'WI-CX0036 must preserve generation, scope-code, publication, and external-contract boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1481,6 +1552,7 @@ validateContextLedgerDedupePolicy();
 validateLayer2KnowledgeScaffoldContract();
 validateAutomationRunnerFreshRunEvidenceGate();
 validateLayer2ScopeCodeOptionsPacket();
+validateLayer2ChunkIdScopePolicy();
 validatePackage();
 
 const result = {
