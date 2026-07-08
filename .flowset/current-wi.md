@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0033-test
+WI id: WI-CX0034-docs
 
-Category: test
+Category: docs
 
-Title: Automation Runner Fresh-Run Evidence Gate
+Title: Layer 2 Scope Code Options Packet
 
 Layer: Layer 1
 
@@ -12,37 +12,37 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0033-test-automation-runner-fresh-run-evidence-gate
+Branch: wi/cx0034-docs-layer-2-scope-code-options-packet
 
-Approval envelope: user delegated autonomous FDP_Codex process work through `/goal`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, destructive filesystem or git operations, public API or external contract changes, and A3 publication behavior.
+Approval envelope: user delegated autonomous FDP_Codex process work through `/goal`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, destructive filesystem or git operations, public API or external contract changes, A3 publication behavior, and first Layer 2 target-project scaffold generation.
 
 ## Scope
 
-Inspect whether the installed A2 worktree runner has produced a standalone FDP_Codex fresh-run output, record the absence of such output, and move the actual output review to a triggered backlog slot instead of blocking autonomous progress.
+Prepare user-facing options for the Layer 2 project scope code rule without deciding the final rule or generating Layer 2 artifacts.
 
 ## Triage
 
 - PSC: P2
-- WTC: AUTO
+- WTC: KNOW
 - Risk: R2
 - ESC: E1+E3+E5+E6
-- Primary evaluator stance: automation evidence integrity and false-green prevention.
-- Validator stance: deterministic checks that no actual fresh-run output is claimed when no standalone runner thread, PR, or branch exists.
+- Primary evaluator stance: decision-boundary integrity and user-gate preservation.
+- Validator stance: deterministic checks for options coverage, live Decision Needed queue state, manifest registration, and generation boundary.
 
 ## Verification Plan
 
-- Inspect the installed automation config.
-- Inspect Codex app thread index for standalone FDP_Codex runner output.
-- Inspect local session files for a standalone worktree automation run and distinguish guardian subagent sessions from runner output.
-- Inspect GitHub for duplicate open PRs and remote branches.
-- Update manifest, indexes, handoff, and validation record.
-- Add validator coverage for the evidence-gate result and triggered backlog handoff.
+- Read the Layer 2 scaffold, knowledge system, decision queue, and naming policies.
+- Draft scope-code options without closing the user-gated decision.
+- Update live backlog and handoff without authorizing scaffold generation.
+- Register the packet and validation evidence in the manifest and indexes.
+- Add validator coverage for the options packet and flow state.
 - Run `npm run ci:check`.
-- Record validation evidence in `docs/records/validation-wi-cx0033-test.md`.
+- Record validation evidence in `docs/records/validation-wi-cx0034-docs.md`.
 
 ## Completion Evidence
 
-- `docs/records/validation-wi-cx0033-test.md`
+- `docs/records/layer-2-scope-code-options-2026-07-08.md`
+- `docs/records/validation-wi-cx0034-docs.md`
 - `.flowset/fix_plan.md`
 - `.flowset/handoff.md`
 - `docs/manifest.yaml`
@@ -50,5 +50,5 @@ Inspect whether the installed A2 worktree runner has produced a standalone FDP_C
 
 ## Decision Needed
 
-- Actual first fresh-run output review remains triggered by a future standalone A2 runner output.
-- The runner authority is not expanded.
+- The user must choose the Layer 2 project scope code rule before first Layer 2 scaffold generation.
+- Chunk id scope remains unresolved before manifest namespace expansion or first scaffold generation.
