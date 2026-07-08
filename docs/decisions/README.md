@@ -14,6 +14,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-decision-queue-state-codes.md`: accepted Decision Needed state codes and live queue shape.
 - `docs/decisions/2026-07-08-ki-identity-severity-policy.md`: accepted field-only KI severity classification.
 - `docs/decisions/2026-07-08-handoff-size-policy.md`: accepted Layer 1 220-line handoff limit.
+- `docs/decisions/2026-07-08-autonomy-default-options-packet.md`: accepted autonomy default options packet and user-intervention boundaries.
 
 Decision Needed:
 

@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0024-docs
+WI id: WI-CX0025-docs
 
 Category: docs
 
-Title: Handoff Size Policy
+Title: Autonomy Default Options Packet
 
 Layer: Layer 1
 
@@ -12,35 +12,34 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0024-docs-handoff-size-policy
+Branch: wi/cx0025-docs-autonomy-default-options-packet
 
 Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Decide the handoff maximum line-count rule and validator profile so Operating Policy LOCK can distinguish compact handoff hygiene from project-size-specific exceptions.
+Decide the default post-bootstrap autonomy option set and user-intervention boundaries so Operating Policy LOCK can encode autonomous continuation without overclaiming unattended Codex session creation.
 
 ## Verification Plan
 
-- Build a fresh context pack for handoff size policy.
-- Record the accepted handoff size decision.
-- Update context hygiene and validator expectations.
-- Remove the handoff max line count blocker from the live Decision Needed queue.
+- Build a fresh context pack for autonomy default options.
+- Record the accepted autonomy default options decision.
+- Update autonomy policy and the live Decision Needed queue.
 - Register the decision and validation record in `docs/manifest.yaml`.
+- Extend `scripts/validate-repo.mjs` to verify the autonomy options packet.
 - Run context pack default mode and explicit append mode.
 - Run `npm run validate`.
 - Run `git diff --check`.
-- Confirm no deployment, release publication, tag creation, package publication, or OSS program submission occurred.
 
 ## Completion Evidence
 
-- `docs/decisions/2026-07-08-handoff-size-policy.md`
-- `docs/policies/context-hygiene.md`
-- `docs/records/validation-wi-cx0024-docs.md`
+- `docs/decisions/2026-07-08-autonomy-default-options-packet.md`
+- `docs/policies/autonomy-and-approval.md`
+- `docs/records/validation-wi-cx0025-docs.md`
 - `.flowset/fix_plan.md`
 - `docs/manifest.yaml`
 - `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0024-docs.
+- None for WI-CX0025-docs.

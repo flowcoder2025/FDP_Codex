@@ -52,6 +52,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-decision-queue-state-codes.md',
   'docs/decisions/2026-07-08-ki-identity-severity-policy.md',
   'docs/decisions/2026-07-08-handoff-size-policy.md',
+  'docs/decisions/2026-07-08-autonomy-default-options-packet.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -73,6 +74,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0022-docs.md',
   'docs/records/validation-wi-cx0023-docs.md',
   'docs/records/validation-wi-cx0024-docs.md',
+  'docs/records/validation-wi-cx0025-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -89,6 +91,7 @@ const requiredChunkIds = [
   'decision.decision-queue-state-codes',
   'decision.ki-identity-severity-policy',
   'decision.handoff-size-policy',
+  'decision.autonomy-default-options-packet',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -124,6 +127,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0022-docs',
   'record.validation-wi-cx0023-docs',
   'record.validation-wi-cx0024-docs',
+  'record.validation-wi-cx0025-docs',
 ];
 
 const requiredLabels = [
@@ -709,6 +713,8 @@ function validateDecisionQueue() {
   const debtWithoutTrigger = rows
     .filter((row) => row.state === 'DQ-DEBT' && (!row.trigger || row.trigger.length < 12))
     .map((row) => row.item);
+  const acceptedRows = rows.filter((row) => row.state === 'DQ-ACCEPTED').map((row) => row.item);
+  const yesLockBlockers = rows.filter((row) => row.lockBlocker === 'yes').map((row) => row.item);
 
   checks.decision_queue_policy_missing_states = missingPolicyStates;
   checks.decision_queue_row_count = rows.length;
@@ -716,18 +722,20 @@ function validateDecisionQueue() {
   checks.decision_queue_invalid_owner_gates = invalidOwners;
   checks.decision_queue_invalid_lock_blockers = invalidBlockers;
   checks.decision_queue_debt_without_trigger = debtWithoutTrigger;
-  checks.decision_queue_has_lock_blocker = rows.some((row) => row.lockBlocker === 'yes');
+  checks.decision_queue_has_lock_blocker = yesLockBlockers.length > 0;
+  checks.decision_queue_yes_lock_blocker_count = yesLockBlockers.length;
+  checks.decision_queue_accepted_rows = acceptedRows;
   checks.decision_queue_index_points_to_fix_plan = decisionsIndex.includes('`.flowset/fix_plan.md`') && decisionsIndex.includes('docs/policies/decision-queue.md');
   checks.decision_queue_index_not_duplicated = !decisionsIndex.includes('Chunk id scope: global');
   checks.decision_queue_decision_accepts_codes = decision.includes('DQ-USER') && decision.includes('DQ-ACCEPTED');
 
   if (missingPolicyStates.length) error('decision_queue.policy_states_missing', 'Decision queue policy must define all state codes.', missingPolicyStates);
-  if (rows.length < 10) error('decision_queue.too_few_rows', 'Decision Needed queue must remain a state-coded table with the live unresolved items.', rows.length);
+  if (rows.length < 1) error('decision_queue.empty', 'Decision Needed queue must remain a state-coded table while unresolved items exist.', rows.length);
   if (invalidStates.length) error('decision_queue.invalid_states', 'Decision Needed rows contain invalid state codes.', invalidStates);
   if (invalidOwners.length) error('decision_queue.invalid_owner_gates', 'Decision Needed rows contain invalid owner gates.', invalidOwners);
   if (invalidBlockers.length) error('decision_queue.invalid_lock_blockers', 'Decision Needed rows contain invalid lock blocker values.', invalidBlockers);
   if (debtWithoutTrigger.length) error('decision_queue.debt_without_trigger', 'DQ-DEBT rows must include repayment triggers.', debtWithoutTrigger);
-  if (!checks.decision_queue_has_lock_blocker) error('decision_queue.no_lock_blocker', 'Decision queue must identify at least one real lock blocker when one exists.');
+  if (acceptedRows.length) error('decision_queue.accepted_rows_live', 'Accepted Decision Needed items should leave the live queue and move to decisions or records.', acceptedRows);
   if (!checks.decision_queue_index_points_to_fix_plan) error('decision_queue.index_pointer_missing', 'Decisions README must point to the live fix_plan queue and policy.');
   if (!checks.decision_queue_index_not_duplicated) error('decision_queue.index_duplicates_live_queue', 'Decisions README must not duplicate the live queue.');
   if (!checks.decision_queue_decision_accepts_codes) error('decision_queue.decision_codes_missing', 'Decision record must accept the state-code set.');
@@ -768,6 +776,27 @@ function validateHandoffSizePolicy() {
   if (!checks.handoff_size_queue_removed) error('handoff_size.queue_item_not_closed', 'Handoff maximum line-count item must leave the live Decision Needed queue after accepted decision.');
   if (!checks.handoff_size_profile_future) error('handoff_size.future_profile_missing', 'Decision must reserve larger profile-specific limits for future policy work.');
 }
+function validateAutonomyDefaultOptionsPacket() {
+  const policy = read('docs/policies/autonomy-and-approval.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const decision = read('docs/decisions/2026-07-08-autonomy-default-options-packet.md');
+
+  checks.autonomy_default_options_section = policy.includes('## Post-Bootstrap Default Options');
+  checks.autonomy_default_a1_fallback = policy.includes('Durable default without an active approval envelope: A1 Assisted') && decision.includes('Durable default without an active approval envelope: A1 Assisted');
+  checks.autonomy_default_a2_envelope = policy.includes('A2 Supervised Autopilot may continue while the user-approved envelope is active') && decision.includes('A2 is envelope-scoped');
+  checks.autonomy_default_a3_not_default = policy.includes('A3 is not a default mode') && decision.includes('A3 is not a default mode');
+  checks.autonomy_default_no_unattended_thread_claim = policy.includes('does not imply unattended new Codex thread creation') && decision.includes('does not claim fully user-invisible Codex session creation');
+  checks.autonomy_default_queue_removed = !fixPlan.includes('| Default autonomy mode after bootstrap. |');
+  checks.autonomy_default_exclusions = decision.includes('No deployment, release publication, package publication, or OSS program submission');
+
+  if (!checks.autonomy_default_options_section) error('autonomy_default.options_section_missing', 'Autonomy policy must include post-bootstrap default options.');
+  if (!checks.autonomy_default_a1_fallback) error('autonomy_default.a1_fallback_missing', 'Policy and decision must set A1 Assisted as the no-envelope fallback.');
+  if (!checks.autonomy_default_a2_envelope) error('autonomy_default.a2_envelope_missing', 'Policy and decision must keep A2 envelope-scoped.');
+  if (!checks.autonomy_default_a3_not_default) error('autonomy_default.a3_default_ambiguous', 'Policy and decision must state A3 is not a default mode.');
+  if (!checks.autonomy_default_no_unattended_thread_claim) error('autonomy_default.thread_claim_ambiguous', 'Policy and decision must not overclaim unattended Codex session creation.');
+  if (!checks.autonomy_default_queue_removed) error('autonomy_default.queue_item_not_closed', 'Default autonomy mode item must leave the live Decision Needed queue after accepted decision.');
+  if (!checks.autonomy_default_exclusions) error('autonomy_default.exclusions_missing', 'Decision must preserve deployment, release, package publication, and OSS submission exclusions.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -798,6 +827,7 @@ validateContextSelectionRuleTable();
 validateDecisionQueue();
 validateKiIdentityPolicy();
 validateHandoffSizePolicy();
+validateAutonomyDefaultOptionsPacket();
 validatePackage();
 
 const result = {

@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0024-docs Handoff Size Policy.
+Current WI: WI-CX0025-docs Autonomy Default Options Packet.
 
-WI-CX0024-docs status: validated.
+WI-CX0025-docs status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -24,6 +24,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0022-docs: Decision Queue State Codes. Evidence: `docs/policies/decision-queue.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, and `docs/records/validation-wi-cx0022-docs.md`.
 - WI-CX0023-docs: KI Identity Severity Policy. Evidence: `docs/decisions/2026-07-08-ki-identity-severity-policy.md` and `docs/records/validation-wi-cx0023-docs.md`.
 - WI-CX0024-docs: Handoff Size Policy. Evidence: `docs/decisions/2026-07-08-handoff-size-policy.md` and `docs/records/validation-wi-cx0024-docs.md`.
+- WI-CX0025-docs: Autonomy Default Options Packet. Evidence: `docs/decisions/2026-07-08-autonomy-default-options-packet.md` and `docs/records/validation-wi-cx0025-docs.md`.
 
 ## Orientation SSOT
 
@@ -33,7 +34,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Decision queue policy: `docs/policies/decision-queue.md`.
-- Handoff size decision: `docs/decisions/2026-07-08-handoff-size-policy.md`.
+- Autonomy default decision: `docs/decisions/2026-07-08-autonomy-default-options-packet.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 
 ## Locked For This Scaffold
@@ -46,6 +47,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Decision Needed items use state codes from `docs/policies/decision-queue.md`.
 - KI ids must not encode severity; severity is field-only.
 - Layer 1 handoff must not exceed 220 lines.
+- No-envelope autonomy fallback is A1 Assisted; A2 requires an approval envelope; A3 is not default.
 - Public status is `public bootstrap, pre-release`.
 - E2 Blind Independent Review requires S2 Separate Blind Review.
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
@@ -63,7 +65,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0025-docs Autonomy Default Options Packet.
+- WI-CX0016-docs Operating Policy LOCK.
 
 ## Blocked Work
 
