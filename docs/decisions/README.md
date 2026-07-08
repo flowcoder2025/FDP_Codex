@@ -17,6 +17,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-autonomy-default-options-packet.md`: accepted autonomy default options packet and user-intervention boundaries.
 - `docs/decisions/2026-07-08-operating-policy-lock.md`: accepted Layer 1 operating policy lock v0.
 - `docs/decisions/2026-07-08-collaboration-response-contract.md`: accepted user-facing decision framing and conversational Korean tone contract.
+- `docs/decisions/2026-07-08-session-boundary-automation-contract.md`: accepted session boundary automation contract for auto-compact, thread automation, fresh-run automation, new local threads, and Goal mode.
 
 Decision Needed:
 

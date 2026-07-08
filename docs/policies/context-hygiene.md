@@ -38,6 +38,12 @@ Chunk is a manifest-addressable unit of policy, specification, decision, runbook
 5. Load only the selected chunk sources from the generated context pack metadata.
 6. Work from the selected active context.
 
+## Auto-Compact Boundary
+
+Auto-compact is not a new WI boundary, fresh run, fresh session, or context hygiene reset. It may preserve summarized same-thread context.
+
+If auto-compact occurs during a long WI, Codex may finish the active WI, but must not use that compacted context as the basis for the next independent WI. The next independent WI must rebuild context from `docs/manifest.yaml` and the live flow-state files.
+
 ## Required WI End Procedure
 
 1. Update the relevant SSOT documents.
@@ -45,7 +51,7 @@ Chunk is a manifest-addressable unit of policy, specification, decision, runbook
 3. Update handoff with pointers and next actions, not copied SSOT bodies.
 4. Dispose of the active context pack.
 5. Do not carry chunk bodies forward.
-
+6. Do not treat auto-compact summaries as reusable context packs.
 ## Handoff Size Rule
 
 Layer 1 FDP_Codex handoff must remain compact and must not exceed 220 lines.

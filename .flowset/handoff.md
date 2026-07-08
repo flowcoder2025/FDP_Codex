@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0026-docs Collaboration Response Contract.
+Current WI: WI-CX0027-docs Session Boundary Automation Contract.
 
-WI-CX0026-docs status: validated.
+WI-CX0027-docs status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -27,6 +27,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0025-docs: Autonomy Default Options Packet. Evidence: `docs/decisions/2026-07-08-autonomy-default-options-packet.md` and `docs/records/validation-wi-cx0025-docs.md`.
 - WI-CX0016-docs: Operating Policy LOCK v0. Evidence: `docs/decisions/2026-07-08-operating-policy-lock.md` and `docs/records/validation-wi-cx0016-docs.md`.
 - WI-CX0026-docs: Collaboration Response Contract. Evidence: `docs/decisions/2026-07-08-collaboration-response-contract.md` and `docs/records/validation-wi-cx0026-docs.md`.
+- WI-CX0027-docs: Session Boundary Automation Contract. Evidence: `docs/decisions/2026-07-08-session-boundary-automation-contract.md` and `docs/records/validation-wi-cx0027-docs.md`.
 
 ## Orientation SSOT
 
@@ -39,6 +40,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Operating policy lock: `docs/decisions/2026-07-08-operating-policy-lock.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 - Collaboration response contract: `docs/decisions/2026-07-08-collaboration-response-contract.md`.
+- Session boundary contract: `docs/decisions/2026-07-08-session-boundary-automation-contract.md`.
 
 ## Locked For This Scaffold
 
@@ -57,6 +59,7 @@ Release publication, deployment, package publication, and OSS program submission
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
 - Validate workflow covers Node 20 and Node 24.
 - Decision-bearing replies separate situation, options, recommendation, tradeoffs, and approval needed.
+- Auto-compact is same-thread continuation, not a fresh session or context hygiene reset.
 
 ## Git State
 
