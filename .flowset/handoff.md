@@ -6,9 +6,11 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0037-docs Layer 2 Scope Code Decision Handback.
+Current WI: WI-CX0039-docs Flow State Readable Snapshot.
 
-WI-CX0037-docs status: validated.
+WI-CX0039-docs status: validated.
+
+Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
 Layer 2 scope code decision handback is available at `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
 
@@ -37,10 +39,12 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0034-docs: Layer 2 Scope Code Options Packet. Evidence: `docs/records/layer-2-scope-code-options-2026-07-08.md` and `docs/records/validation-wi-cx0034-docs.md`; final scope code choice remains user-gated.
 - WI-CX0036-docs: Chunk Id Scope Policy. Evidence: `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md` and `docs/records/validation-wi-cx0036-docs.md`; per-target-project chunk id scope is accepted.
 - WI-CX0037-docs: Layer 2 Scope Code Decision Handback. Evidence: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0037-docs.md`; final scope code choice remains user-gated.
+- WI-CX0039-docs: Flow State Readable Snapshot. Evidence: `.flowset/state.json`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, and `docs/records/validation-wi-cx0039-docs.md`.
 
 ## Orientation SSOT
 
 - Manifest: `docs/manifest.yaml`.
+- Machine-readable flow snapshot: `.flowset/state.json`.
 - Live backlog: `.flowset/fix_plan.md`.
 - Current WI: `.flowset/current-wi.md`.
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
@@ -54,6 +58,7 @@ Release publication, deployment, package publication, and OSS program submission
 
 - Context bodies are ephemeral and ledger records metadata only.
 - `.flowset/context-ledger.jsonl` is append-only audit evidence.
+- `.flowset/state.json` is a compact operating-state snapshot and must not store context bodies.
 - Ledger dedupe must be a derived view/report and must not rewrite, delete, compact, or replace the source ledger.
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
 - Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
@@ -69,7 +74,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0037-docs-layer-2-scope-code-decision-handback`.
+- Active WI branch for this cycle: `wi/cx0039-docs-flow-state-readable-snapshot`.
 
 ## Next Action
 
@@ -93,7 +98,7 @@ Recommended answer shape:
 ## New Session Procedure
 
 1. Start rooted at the merged repository.
-2. Read `AGENTS.md`, `docs/manifest.yaml`, this handoff, `.flowset/current-wi.md`, and `.flowset/fix_plan.md`.
+2. Read `AGENTS.md`, `docs/manifest.yaml`, `.flowset/state.json`, this handoff, `.flowset/current-wi.md`, and `.flowset/fix_plan.md`.
 3. Build a fresh context pack for the next WI.
 4. Run `npm run validate` before declaring repository policy work complete.
 5. Stop at Layer 2 scaffold generation, release, deployment, package publication, OSS submission, or destructive local realignment boundaries unless explicitly approved.

@@ -64,9 +64,11 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-tooling-typescript-baseline.md',
   'docs/decisions/2026-07-08-automation-run-surface-installation.md',
   'docs/decisions/2026-07-08-context-ledger-dedupe-policy.md',
+  'docs/decisions/2026-07-08-flow-state-readable-snapshot.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
+  '.flowset/state.json',
   '.flowset/context-ledger.jsonl',
   '.github/PULL_REQUEST_TEMPLATE.md',
   '.github/ISSUE_TEMPLATE/known_issue.yml',
@@ -104,6 +106,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0036-docs.md',
   'docs/records/layer-2-scope-code-decision-handback-2026-07-08.md',
   'docs/records/validation-wi-cx0037-docs.md',
+  'docs/records/validation-wi-cx0039-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -127,6 +130,7 @@ const requiredChunkIds = [
   'decision.tooling-typescript-baseline',
   'decision.automation-run-surface-installation',
   'decision.context-ledger-dedupe-policy',
+  'decision.flow-state-readable-snapshot',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -144,6 +148,7 @@ const requiredChunkIds = [
   'spec.knowledge-system',
   'spec.context-pack-builder',
   'flow.current-wi',
+  'flow.state-snapshot',
   'flow.fix-plan',
   'flow.handoff',
   'record.context-ledger',
@@ -182,6 +187,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0036-docs',
   'record.layer-2-scope-code-decision-handback',
   'record.validation-wi-cx0037-docs',
+  'record.validation-wi-cx0039-docs',
 ];
 
 const requiredLabels = [
@@ -232,6 +238,15 @@ function error(id, message, detail = undefined) {
 
 function warning(id, message, detail = undefined) {
   warnings.push({ id, message, detail });
+}
+
+function readJson(relativePath) {
+  try {
+    return JSON.parse(read(relativePath));
+  } catch (err) {
+    error('json.parse_failed', `${relativePath} must contain valid JSON.`, err.message);
+    return {};
+  }
 }
 
 function git(args) {
@@ -495,9 +510,11 @@ function validateFlowState() {
   const fixPlanText = read('.flowset/fix_plan.md');
   const handoffText = read('.flowset/handoff.md');
   const manifestText = read('docs/manifest.yaml');
+  const stateSnapshot = readJson('.flowset/state.json');
 
   const currentWiId = /^WI id: (WI-CX\d{4}-[a-z]+)$/m.exec(currentWiText)?.[1] ?? null;
   const currentStatus = /^Status: (.+)$/m.exec(currentWiText)?.[1]?.trim() ?? null;
+  const currentBranch = /^Branch: (.+)$/m.exec(currentWiText)?.[1]?.trim() ?? null;
   const currentPriorityBlock = /## Current Priority\n\n([\s\S]*?)(?:\n## |$)/.exec(fixPlanText)?.[1] ?? '';
   const currentPriorityItems = [...currentPriorityBlock.matchAll(/^- \[ \] (.+)$/gm)].map((match) => match[1].trim());
   const currentPriorityMatches = currentPriorityItems
@@ -534,6 +551,53 @@ function validateFlowState() {
       && handoffText.includes('choose the Layer 2 project scope code rule')
       && handoffText.includes('A, use <CODE>');
 
+  const snapshotCurrentWi = stateSnapshot.current_wi ?? {};
+  const snapshotPriority = stateSnapshot.current_priority ?? {};
+  const snapshotTriggeredWork = Array.isArray(stateSnapshot.triggered_work) ? stateSnapshot.triggered_work : [];
+  const snapshotHardStops = Array.isArray(stateSnapshot.hard_stops) ? stateSnapshot.hard_stops : [];
+  const requiredHardStops = [
+    'release_publication',
+    'deployment',
+    'package_publication',
+    'oss_submission',
+    'a3_publication_behavior',
+    'public_api_or_external_contract_change',
+    'production_dependency_addition',
+    'destructive_filesystem_or_git_operation',
+    'first_layer2_target_project_scaffold_generation',
+  ];
+  const snapshotBlocks = Array.isArray(snapshotPriority.blocks) ? snapshotPriority.blocks : [];
+  const snapshotHasTriggeredA2 = snapshotTriggeredWork.some((item) => item.wi_id === 'WI-CX0035-test'
+    && item.status === 'blocked-until-trigger'
+    && String(item.trigger ?? '').includes('fdp-codex-a2-worktree-wi-runner'));
+
+  checks.flow_state_snapshot_schema = stateSnapshot.schema_version === 1
+    && stateSnapshot.kind === 'fdp-codex-flow-state'
+    && stateSnapshot.layer === 'layer1';
+  checks.flow_state_snapshot_current_wi = snapshotCurrentWi.id === currentWiId
+    && snapshotCurrentWi.status === currentStatus
+    && snapshotCurrentWi.branch === currentBranch
+    && snapshotCurrentWi.validation_record === expectedRecordPath;
+  checks.flow_state_snapshot_priority = snapshotPriority.kind === 'user_decision'
+    && snapshotPriority.item === 'Layer 2 project scope code rule'
+    && snapshotPriority.state === 'DQ-USER'
+    && snapshotPriority.owner_gate === 'USER'
+    && snapshotPriority.lock_blocker === 'conditional'
+    && snapshotPriority.prompt === 'docs/records/layer-2-scope-code-decision-handback-2026-07-08.md'
+    && snapshotPriority.recommended_answer_shape === 'A, use <CODE>'
+    && snapshotBlocks.includes('WI-CX0038-docs')
+    && snapshotBlocks.includes('first Layer 2 target-project scaffold generation')
+    && currentPriorityWaitsForUserDecision
+    && fixPlanText.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+    && handoffText.includes('A, use <CODE>');
+  checks.flow_state_snapshot_triggered_work = snapshotHasTriggeredA2
+    && fixPlanText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
+    && handoffText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked');
+  checks.flow_state_snapshot_hard_stops = requiredHardStops.every((item) => snapshotHardStops.includes(item));
+  checks.flow_state_snapshot_hygiene = stateSnapshot.hygiene?.body_storage === 'forbidden'
+    && stateSnapshot.hygiene?.context_bodies_carried === false
+    && String(stateSnapshot.hygiene?.snapshot_role ?? '').includes('not a context body store');
+
   checks.flow_current_status = currentStatus;
   checks.flow_current_priority_count = currentPriorityItems.length;
   checks.flow_current_priority_wi_count = currentPriorityMatches.length;
@@ -548,12 +612,35 @@ function validateFlowState() {
   checks.flow_validation_record_registered = validationRecordRegistered;
   checks.flow_handoff_mentions_current_wi = handoffMentionsCurrent;
   checks.flow_next_action_matches_fix_plan = nextActionMatchesFixPlan;
+  checks.flow_state_snapshot_registered = manifestText.includes('id: flow.state-snapshot')
+    && manifestText.includes('source: .flowset/state.json');
 
   if (currentPriorityItems.length !== 1) {
     error('flow.fix_plan_current_priority_count', 'fix_plan must have exactly one current priority item.', currentPriorityItems);
   }
   if (currentPriorityMatches.length !== 1 && !currentPriorityWaitsForUserDecision) {
     error('flow.fix_plan_current_priority_kind', 'fix_plan current priority must be either one WI item or one explicit user-decision wait item.', currentPriorityItems);
+  }
+  if (!checks.flow_state_snapshot_schema) {
+    error('flow.state_snapshot_schema', '.flowset/state.json must use the Layer 1 flow-state snapshot schema.');
+  }
+  if (!checks.flow_state_snapshot_current_wi) {
+    error('flow.state_snapshot_current_wi_mismatch', '.flowset/state.json current_wi must match .flowset/current-wi.md.', snapshotCurrentWi);
+  }
+  if (!checks.flow_state_snapshot_priority) {
+    error('flow.state_snapshot_priority_mismatch', '.flowset/state.json current_priority must match the user-decision wait in fix_plan and handoff.', snapshotPriority);
+  }
+  if (!checks.flow_state_snapshot_triggered_work) {
+    error('flow.state_snapshot_triggered_work_missing', '.flowset/state.json must preserve the blocked WI-CX0035 A2 runner output trigger.');
+  }
+  if (!checks.flow_state_snapshot_hard_stops) {
+    error('flow.state_snapshot_hard_stops_missing', '.flowset/state.json must preserve the active hard stops.', snapshotHardStops);
+  }
+  if (!checks.flow_state_snapshot_hygiene) {
+    error('flow.state_snapshot_hygiene_missing', '.flowset/state.json must remain a metadata-only snapshot, not a context body store.');
+  }
+  if (!checks.flow_state_snapshot_registered) {
+    error('flow.state_snapshot_manifest_missing', 'Manifest must register .flowset/state.json as flow.state-snapshot.');
   }
   if (completedCheckboxes.length) {
     error('flow.fix_plan_completed_history', 'fix_plan must not store completed-history checkboxes.', completedCheckboxes.length);
@@ -591,6 +678,80 @@ function validateFlowState() {
     }
   }
 }
+function validateFlowStateReadableSnapshotContract() {
+  const state = readJson('.flowset/state.json');
+  const decision = read('docs/decisions/2026-07-08-flow-state-readable-snapshot.md');
+  const record = read('docs/records/validation-wi-cx0039-docs.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const builder = read('scripts/build-context-pack.mjs');
+
+  let sample = null;
+  try {
+    const output = execFileSync(process.execPath, [
+      'scripts/build-context-pack.mjs',
+      '--wi', 'WI-CX0039-docs',
+      '--intent', 'flow state machine readable snapshot validation handoff',
+      '--risk', 'R1',
+      '--changed', '.flowset/state.json',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    sample = JSON.parse(output);
+  } catch (err) {
+    error('flow_state_snapshot.sample_failed', 'Context pack builder must emit parseable JSON for the flow-state snapshot sample.', err.stderr?.toString().trim() || err.message);
+  }
+
+  checks.flow_state_snapshot_decision = decision.includes('Add `.flowset/state.json` as a compact machine-readable Layer 1 flow-state snapshot')
+    && decision.includes('validator must check that `.flowset/state.json` agrees')
+    && decision.includes('not a hidden memory store')
+    && decision.includes('Decision Needed debt item about stricter machine-readable current WI and handoff state is closed');
+  checks.flow_state_snapshot_manifest = manifest.includes('id: flow.state-snapshot')
+    && manifest.includes('source: .flowset/state.json')
+    && manifest.includes('id: decision.flow-state-readable-snapshot')
+    && manifest.includes('docs/decisions/2026-07-08-flow-state-readable-snapshot.md')
+    && manifest.includes('id: record.validation-wi-cx0039-docs')
+    && manifest.includes('docs/records/validation-wi-cx0039-docs.md');
+  checks.flow_state_snapshot_indexes = docsIndex.includes('.flowset/state.json')
+    && docsIndex.includes('docs/decisions/2026-07-08-flow-state-readable-snapshot.md')
+    && docsIndex.includes('docs/records/validation-wi-cx0039-docs.md')
+    && decisionsReadme.includes('docs/decisions/2026-07-08-flow-state-readable-snapshot.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0039-docs.md');
+  checks.flow_state_snapshot_builder = builder.includes("chunkIds: ['flow.state-snapshot', 'flow.current-wi', 'flow.fix-plan', 'flow.handoff']")
+    && Array.isArray(sample?.selected_chunk_ids)
+    && sample.selected_chunk_ids.includes('flow.state-snapshot');
+  checks.flow_state_snapshot_queue = !fixPlan.includes('Whether current WI and handoff should be split into stricter machine-readable state later')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+    && fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule');
+  checks.flow_state_snapshot_record = record.includes('WI: WI-CX0039-docs')
+    && record.includes('Machine-readable flow-state snapshot exists and is validator-backed')
+    && record.includes('No Layer 2 project scope code rule was chosen')
+    && record.includes('No Layer 2 target-project scaffold generation occurred');
+  checks.flow_state_snapshot_handoff = handoff.includes('WI-CX0039-docs: Flow State Readable Snapshot')
+    && handoff.includes('Machine-readable flow snapshot: `.flowset/state.json`')
+    && handoff.includes('.flowset/state.json` is a compact operating-state snapshot');
+  checks.flow_state_snapshot_boundary = decision.includes('does not choose the Layer 2 project scope code rule')
+    && decision.includes('generate a Layer 2 target-project scaffold')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && state.hygiene?.body_storage === 'forbidden'
+    && state.hygiene?.context_bodies_carried === false;
+
+  if (!checks.flow_state_snapshot_decision) error('flow_state_snapshot.decision_missing', 'Decision must define snapshot role, validator coherence, and debt closure.');
+  if (!checks.flow_state_snapshot_manifest) error('flow_state_snapshot.manifest_missing', 'Manifest must register snapshot decision, flow chunk, and validation record.');
+  if (!checks.flow_state_snapshot_indexes) error('flow_state_snapshot.index_missing', 'Indexes must include snapshot decision, state file, and validation record.');
+  if (!checks.flow_state_snapshot_builder) error('flow_state_snapshot.builder_missing', 'WI-start context selection must include flow.state-snapshot.');
+  if (!checks.flow_state_snapshot_queue) error('flow_state_snapshot.queue_not_repaid', 'The machine-readable flow-state DQ-DEBT row must be removed while user-gated scope code remains live.');
+  if (!checks.flow_state_snapshot_record) error('flow_state_snapshot.record_missing', 'WI-CX0039 record must capture validation result and Layer 2 boundary preservation.');
+  if (!checks.flow_state_snapshot_handoff) error('flow_state_snapshot.handoff_missing', 'Handoff must point to .flowset/state.json and WI-CX0039 evidence.');
+  if (!checks.flow_state_snapshot_boundary) error('flow_state_snapshot.boundary_missing', 'Snapshot work must preserve context-hygiene and hard-stop boundaries.');
+}
+
 function validateGitHubGovernance() {
   const issuePolicy = read('docs/policies/github-issue-governance.md');
   const gitPolicy = read('docs/policies/git-workflow.md');
@@ -1568,12 +1729,11 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && record.includes('Handback preserves the user-gated Layer 2 project scope code rule')
     && record.includes('No Layer 2 project scope code rule was chosen')
     && record.includes('No Layer 2 target-project scaffold generation occurred');
-  checks.layer2_scope_handback_flow = currentWi.includes('WI id: WI-CX0037-docs')
-    && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0037-docs-layer-2-scope-code-decision-handback')
+  checks.layer2_scope_handback_flow = !/^- \[ \] WI-CX0037-docs\b/m.test(fixPlan)
     && handoff.includes('WI-CX0037-docs: Layer 2 Scope Code Decision Handback')
-    && handoff.includes('Recommended answer: `A, use <CODE>`')
-    && handoff.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked');
+    && handoff.includes('A, use <CODE>')
+    && handoff.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked')
+    && currentWi.includes('WI id: WI-CX0039-docs');
   checks.layer2_scope_handback_boundary2 = record.includes('No public API or external contract was stabilized')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
@@ -1588,7 +1748,7 @@ function validateLayer2ScopeCodeDecisionHandback() {
   if (!checks.layer2_scope_handback_manifest) error('layer2_scope_handback.manifest_missing', 'Manifest must register the handback and validation record.');
   if (!checks.layer2_scope_handback_indexes) error('layer2_scope_handback.index_missing', 'Indexes must include the handback and validation record.');
   if (!checks.layer2_scope_handback_record) error('layer2_scope_handback.record_missing', 'WI-CX0037 validation record must capture scope and boundary evidence.');
-  if (!checks.layer2_scope_handback_flow) error('layer2_scope_handback.flow_missing', 'Flow state must record WI-CX0037 and block CX0038 until user choice.');
+  if (!checks.layer2_scope_handback_flow) error('layer2_scope_handback.flow_missing', 'Flow state must preserve WI-CX0037 handback evidence and keep CX0038 blocked until user choice.');
   if (!checks.layer2_scope_handback_boundary2) error('layer2_scope_handback.boundary_not_preserved', 'WI-CX0037 must preserve generation, publication, public API, dependency, and destructive boundaries.');
 }
 function validatePackage() {
@@ -1613,6 +1773,7 @@ validateManifest();
 validateLedger();
 validateNaming();
 validateFlowState();
+validateFlowStateReadableSnapshotContract();
 validateGitHubGovernance();
 validatePublicReadiness();
 validateEvaluationSurface();
