@@ -186,6 +186,20 @@ chunks:
       - handoff
     body_carryover: forbidden
 
+  - id: decision.evaluation-surface-baseline
+    title: Evaluation Surface Baseline
+    source: docs/decisions/2026-07-08-evaluation-surface-baseline.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - evaluator-strategy-selection
+      - blind-review-planning
+      - adversarial-review-planning
+      - validation-planning
+      - release-boundary
+      - handoff
+    body_carryover: forbidden
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
@@ -719,6 +733,18 @@ chunks:
       - validation
     body_carryover: forbidden
 
+  - id: record.validation-wi-cx0019-docs
+    title: WI-CX0019-docs Validation Record
+    source: docs/records/validation-wi-cx0019-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - blind-review-planning
+      - adversarial-review-planning
+    body_carryover: forbidden
 hook_contract:
   status: implemented-draft-v0
   implementation: scripts/build-context-pack.mjs

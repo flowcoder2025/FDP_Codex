@@ -8,6 +8,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-repository-license-binding.md`: accepted repository remote and Apache-2.0 license.
 - `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`: accepted bootstrap publication envelope for GitHub Actions, labels, public visibility, PR merge, and branch deletion.
 - `docs/decisions/2026-07-08-public-readiness-boundary.md`: accepted public bootstrap, pre-release boundary.
+- `docs/decisions/2026-07-08-evaluation-surface-baseline.md`: accepted evaluation execution surface boundary.
 
 Decision Needed:
 

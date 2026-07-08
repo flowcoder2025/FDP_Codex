@@ -87,7 +87,7 @@ DEBT Debt Repayment:
 
 - KI repayment, verification debt repayment, stale decision cleanup, and hardening backlog.
 
-Detailed evaluator and validator role separation is defined in `docs/policies/evaluation-strategy.md`.
+Detailed evaluator and validator role separation is defined in `docs/policies/evaluation-strategy.md`. Review execution surfaces are defined by `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 
 ## Evaluation Strategy Codes
 

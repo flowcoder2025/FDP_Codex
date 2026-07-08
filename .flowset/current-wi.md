@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0017-ci
+WI id: WI-CX0019-docs
 
-Category: ci
+Category: docs
 
-Title: Validator CI Follow-Up
+Title: Evaluation Surface Baseline
 
 Layer: Layer 1
 
@@ -12,30 +12,30 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0017-ci-validator-ci-follow-up
+Branch: wi/cx0019-docs-evaluation-surface-baseline
 
 Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Inspect latest GitHub Actions behavior on `main`, reconcile local and remote CI expectations, and harden workflow or validator behavior only where evidence shows a gap.
+Define the accepted blind-review and adversarial-review execution surfaces for pre-release FDP_Codex work, including what must wait for a separate thread or human review before release candidate work.
 
 ## Verification Plan
 
-- Inspect latest `validate` workflow runs on GitHub.
-- Compare `.github/workflows/validate.yml` against `package.json` engine support.
-- Run `npm run validate` locally.
-- Run `npm run context:pack` for CI intent.
-- Confirm PR Actions pass before merge.
+- Rebuild context pack metadata for `blind-review-planning`.
+- Align evaluation and triage E-code meanings.
+- Record execution surfaces S0, S1, S2, and H1.
+- Run `npm run validate`.
 - Confirm no deployment, release publication, tag creation, package publication, or OSS program submission occurred.
 
 ## Completion Evidence
 
-- `.github/workflows/validate.yml`
-- `scripts/validate-repo.mjs`
-- `docs/records/validation-wi-cx0017-ci.md`
+- `docs/policies/evaluation-strategy.md`
+- `docs/policies/triage-strategy.md`
+- `docs/decisions/2026-07-08-evaluation-surface-baseline.md`
+- `docs/records/validation-wi-cx0019-docs.md`
 - `docs/manifest.yaml`
 
 ## Decision Needed
 
-- None for WI-CX0017-ci.
+- None for WI-CX0019-docs.
