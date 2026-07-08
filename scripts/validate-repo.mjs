@@ -118,6 +118,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0043-docs.md',
   'docs/records/validation-wi-cx0045-test.md',
   'docs/records/validation-wi-cx0046-test.md',
+  'docs/records/session-orchestration-control-plane-audit-2026-07-08.md',
+  'docs/records/validation-wi-cx0047-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -145,6 +147,8 @@ const requiredChunkIds = [
   'decision.flow-state-readable-snapshot',
   'decision.portfolio-guardrail-validator-baseline',
   'decision.autonomous-work-exhaustion-stop-gate',
+  'record.session-orchestration-control-plane-audit',
+  'record.validation-wi-cx0047-test',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -546,6 +550,7 @@ function validateFlowState() {
     && /^Waiting for user decision: Layer 2 project scope code rule\./.test(currentPriorityItems[0]);
   const currentPriorityDescriptor = currentPriorityMatches[0]
     ?? (currentPriorityWaitsForUserDecision ? 'Waiting for user decision: Layer 2 project scope code rule' : null);
+  const currentPriorityWiId = currentPriorityMatches[0] ?? null;
   const completedCheckboxes = [...fixPlanText.matchAll(/^- \[[xX]\] /gm)].map((match) => match[0]);
   const handoffLines = handoffText.split('\n').length;
   const handoffControlCharacters = [...handoffText].filter((char) => {
@@ -600,7 +605,7 @@ function validateFlowState() {
     && snapshotCurrentWi.status === currentStatus
     && snapshotCurrentWi.branch === currentBranch
     && snapshotCurrentWi.validation_record === expectedRecordPath;
-  checks.flow_state_snapshot_priority = snapshotPriority.kind === 'user_decision'
+  const snapshotPriorityMatchesUserDecision = snapshotPriority.kind === 'user_decision'
     && snapshotPriority.item === 'Layer 2 project scope code rule'
     && snapshotPriority.state === 'DQ-USER'
     && snapshotPriority.owner_gate === 'USER'
@@ -612,6 +617,19 @@ function validateFlowState() {
     && currentPriorityWaitsForUserDecision
     && fixPlanText.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && handoffText.includes('A, use <CODE>');
+  const snapshotPriorityMatchesWi = snapshotPriority.kind === 'wi'
+    && snapshotPriority.wi_id === currentPriorityWiId
+    && snapshotPriority.state === 'ready'
+    && snapshotPriority.owner_gate === 'CODEX'
+    && snapshotPriority.lock_blocker === 'no'
+    && snapshotPriority.strategy?.PSC
+    && snapshotPriority.strategy?.WTC
+    && snapshotPriority.strategy?.Risk
+    && snapshotPriority.strategy?.ESC
+    && currentPriorityMatches.length === 1
+    && fixPlanText.includes(`${snapshotPriority.wi_id} ${snapshotPriority.item}`)
+    && handoffText.includes(snapshotPriority.wi_id);
+  checks.flow_state_snapshot_priority = snapshotPriorityMatchesUserDecision || snapshotPriorityMatchesWi;
   checks.flow_state_snapshot_triggered_work = snapshotHasTriggeredA2
     && fixPlanText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && handoffText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked');
@@ -650,7 +668,7 @@ function validateFlowState() {
     error('flow.state_snapshot_current_wi_mismatch', '.flowset/state.json current_wi must match .flowset/current-wi.md.', snapshotCurrentWi);
   }
   if (!checks.flow_state_snapshot_priority) {
-    error('flow.state_snapshot_priority_mismatch', '.flowset/state.json current_priority must match the user-decision wait in fix_plan and handoff.', snapshotPriority);
+    error('flow.state_snapshot_priority_mismatch', '.flowset/state.json current_priority must match the fix_plan and handoff current priority.', snapshotPriority);
   }
   if (!checks.flow_state_snapshot_triggered_work) {
     error('flow.state_snapshot_triggered_work_missing', '.flowset/state.json must preserve the blocked WI-CX0035 A2 runner output trigger.');
@@ -749,8 +767,7 @@ function validateFlowStateReadableSnapshotContract() {
     && Array.isArray(sample?.selected_chunk_ids)
     && sample.selected_chunk_ids.includes('flow.state-snapshot');
   checks.flow_state_snapshot_queue = !fixPlan.includes('Whether current WI and handoff should be split into stricter machine-readable state later')
-    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-    && fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule');
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional');
   checks.flow_state_snapshot_record = record.includes('WI: WI-CX0039-docs')
     && record.includes('Machine-readable flow-state snapshot exists and is validator-backed')
     && record.includes('No Layer 2 project scope code rule was chosen')
@@ -1078,7 +1095,7 @@ function validatePortfolioGuardrailValidatorBaseline() {
     && docsIndex.includes(recordPath)
     && decisionsIndex.includes(decisionPath)
     && recordsReadme.includes(recordPath);
-  checks.portfolio_guardrail_flow = state.current_priority?.kind === 'user_decision'
+  checks.portfolio_guardrail_flow = ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && handoff.includes('WI-CX0045-test: Portfolio Guardrail Validator Baseline')
     && handoff.includes('Portfolio guardrail validator baseline is accepted')
     && handoff.includes('Current and future active WIs must record PSC, WTC, Risk, and ESC with E5 included');
@@ -1126,32 +1143,30 @@ function validateAutonomousWorkExhaustionStopGate() {
     && policy.includes('Codex must stop autonomous WI creation and hand back the decision surface')
     && policy.includes('Codex must not start another independent WI merely to avoid stopping')
     && policy.includes('A new autonomous WI may start only when the user supplies a decision or approval');
-  checks.autonomous_exhaustion_current_wi = currentWi.includes('WI id: WI-CX0046-test')
-    && currentWi.includes('WTC: AUTO')
+  checks.autonomous_exhaustion_current_wi = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
+    && currentWi.includes('Status: validated')
     && currentWi.includes('ESC: E1+E3+E5+E6')
-    && currentWi.includes('No further independent autonomous WI should start unless');
-  checks.autonomous_exhaustion_record = state.current_wi?.validation_record === recordPath
-    && record.includes('Autonomous work exhaustion is now a validator-backed handback point')
+    && record.includes('WI: WI-CX0046-test')
+    && record.includes('Autonomous work exhaustion is now a validator-backed handback point');
+  checks.autonomous_exhaustion_record = record.includes('Autonomous work exhaustion is now a validator-backed handback point')
     && record.includes('The persistent `/goal` remains active')
     && record.includes('S2 review remains blocked until a separate reviewer is available')
     && record.includes('Post-bootstrap automation cadence remains user-gated')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('separate reviewer creation')
     && record.includes('destructive filesystem or git operation occurred');
-  checks.autonomous_exhaustion_flow = state.current_wi?.id === 'WI-CX0046-test'
-    && state.current_priority?.kind === 'user_decision'
-    && state.current_priority?.item === 'Layer 2 project scope code rule'
+  checks.autonomous_exhaustion_flow = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
+    && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && Array.isArray(state.triggered_work)
     && state.triggered_work.some((item) => item.wi_id === 'WI-CX0035-test' && item.status === 'blocked-until-trigger')
-    && fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
   checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
     && handoff.includes('No further independent autonomous WI should start unless')
-    && handoff.includes('Ask the user to choose the Layer 2 project scope code rule')
     && handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
-    && handoff.includes('Generalized A2/A3 expansion is blocked on S2 blind review debt')
+    && handoff.includes('Generalized A2/A3 expansion is blocked')
     && handoff.includes('Long-lived post-bootstrap automation cadence and authority is blocked');
   checks.autonomous_exhaustion_manifest = manifest.includes('id: decision.autonomous-work-exhaustion-stop-gate')
     && manifest.includes(decisionPath)
@@ -1521,7 +1536,7 @@ function validateToolingStrictnessProbe() {
     && handoff.includes('WI-CX0040-chore: Tooling Strictness Probe')
     && handoff.includes('npm run typecheck:strict-probe')
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && state.current_priority?.kind === 'user_decision';
+    && ['user_decision', 'wi'].includes(state.current_priority?.kind);
   checks.ts_strictness_probe_boundary = record.includes('Strict mode was not enabled')
     && record.includes('Runtime `.mjs` source files were not converted to `.ts`')
     && record.includes('CI gating was not expanded to fail on known strictness debt')
@@ -1908,7 +1923,7 @@ function validateAutomationRunnerS2ReviewPacket() {
     && handoff.includes('WI-CX0041-docs: Automation Runner S2 Review Packet')
     && handoff.includes(packetPath)
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
-    && state.current_priority?.kind === 'user_decision';
+    && ['user_decision', 'wi'].includes(state.current_priority?.kind);
   checks.automation_s2_packet_debt_retained = fixPlan.includes('S2 blind review repayment for the automation runner. | DQ-DEBT | CODEX | conditional')
     && !record.includes('S2 blind review is complete')
     && !record.includes('E2 is satisfied')
@@ -1989,7 +2004,7 @@ function validatePostBootstrapAutomationCadenceHandback() {
     && handoff.includes(`Automation cadence handback: \`${handbackPath}\``)
     && handoff.includes('Post-bootstrap automation cadence and authority remains user-gated')
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
-    && state.current_priority?.kind === 'user_decision';
+    && ['user_decision', 'wi'].includes(state.current_priority?.kind);
   checks.automation_cadence_handback_no_authority_change = handback.includes('This handback does not change the automation schedule')
     && handback.includes('Do not use Option D as an immediate implementation step')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
@@ -2157,8 +2172,7 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && handback.includes('A, use FS');
   checks.layer2_scope_handback_chunk = handback.includes('Layer 2 chunk ids are scoped per target project')
     && handback.includes('target:<project_scope_code>:<chunk_id>');
-  checks.layer2_scope_handback_queue = fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule')
-    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+  checks.layer2_scope_handback_queue = fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && fixPlan.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
     && fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision');
   checks.layer2_scope_handback_manifest = manifest.includes('record.layer-2-scope-code-decision-handback')
@@ -2188,12 +2202,106 @@ function validateLayer2ScopeCodeDecisionHandback() {
   if (!checks.layer2_scope_handback_recommendation) error('layer2_scope_handback.recommendation_missing', 'Handback must include recommended A and fallback B with debt.');
   if (!checks.layer2_scope_handback_prompt) error('layer2_scope_handback.prompt_missing', 'Handback must include explicit decision prompt and example answer.');
   if (!checks.layer2_scope_handback_chunk) error('layer2_scope_handback.chunk_missing', 'Handback must reference accepted per-target-project chunk id scope.');
-  if (!checks.layer2_scope_handback_queue) error('layer2_scope_handback.queue_missing', 'Fix plan must wait for the user decision and point to CX0038 after choice.');
+  if (!checks.layer2_scope_handback_queue) error('layer2_scope_handback.queue_missing', 'Fix plan must keep the Layer 2 user decision queued and point to CX0038 after choice.');
   if (!checks.layer2_scope_handback_manifest) error('layer2_scope_handback.manifest_missing', 'Manifest must register the handback and validation record.');
   if (!checks.layer2_scope_handback_indexes) error('layer2_scope_handback.index_missing', 'Indexes must include the handback and validation record.');
   if (!checks.layer2_scope_handback_record) error('layer2_scope_handback.record_missing', 'WI-CX0037 validation record must capture scope and boundary evidence.');
   if (!checks.layer2_scope_handback_flow) error('layer2_scope_handback.flow_missing', 'Flow state must preserve WI-CX0037 handback evidence and keep CX0038 blocked until user choice.');
   if (!checks.layer2_scope_handback_boundary2) error('layer2_scope_handback.boundary_not_preserved', 'WI-CX0037 must preserve generation, publication, public API, dependency, and destructive boundaries.');
+}
+function validateSessionOrchestrationControlPlaneAudit() {
+  const agents = read('AGENTS.md');
+  const policy = read('docs/policies/autonomy-and-approval.md');
+  const auditPath = 'docs/records/session-orchestration-control-plane-audit-2026-07-08.md';
+  const recordPath = 'docs/records/validation-wi-cx0047-test.md';
+  const audit = read(auditPath);
+  const record = read(recordPath);
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+
+  checks.session_orchestration_agent_guidance = agents.includes('Do not narrow strategic replies to only the latest user-stated issue')
+    && agents.includes('accumulated objective, locked constraints, verified current state, and the newest concern')
+    && agents.includes('symptom of a broader system gap');
+  checks.session_orchestration_policy = policy.includes('## Control-Plane Runtime Validation')
+    && policy.includes('Fresh-run claims must be backed by control-plane evidence')
+    && policy.includes('parent thread id and title')
+    && policy.includes('runner thread ids and titles')
+    && policy.includes('only duplicate-stop evidence')
+    && policy.includes('do not generalize A2/A3 autonomy')
+    && policy.includes('proceed to first Layer 2 scaffold generation on that assumption');
+  checks.session_orchestration_audit_evidence = audit.includes('Status: accepted-audit')
+    && audit.includes('019f3d8b-76ae-7420-9337-d26582b51678')
+    && audit.includes('fdp-codex-a2-worktree-wi-runner')
+    && audit.includes('019f40a6-8574-79a2-b322-ee6e42a2fcc5')
+    && audit.includes('019f40dd-7758-7b23-b837-f3199c99b7ee')
+    && audit.includes('019f4115-caf6-7061-a1b8-9c08062c939c')
+    && audit.includes('Duplicate-stop')
+    && audit.includes('control-plane validation gap')
+    && audit.includes('parent `안녕` thread continued');
+  checks.session_orchestration_ki_repayment = audit.includes('KI-CX-AUTO-001')
+    && audit.includes('KI-CX-AUTO-002')
+    && audit.includes('KI-CX-AUTO-003')
+    && audit.includes('KI-CX-AUTO-004')
+    && audit.includes('KI-CX-AUTO-005')
+    && audit.includes('WI-CX0048-test Runtime Snapshot Validator')
+    && audit.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
+    && audit.includes('WI-CX0050-test Worktree Isolation Verification');
+  checks.session_orchestration_priority = fixPlan.includes('WI-CX0048-test Runtime Snapshot Validator')
+    && fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
+    && fixPlan.indexOf('WI-CX0048-test Runtime Snapshot Validator') < fixPlan.indexOf('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
+    && handoff.includes('Next priority is WI-CX0048-test Runtime Snapshot Validator')
+    && handoff.includes('Start WI-CX0048-test Runtime Snapshot Validator')
+    && handoff.includes('control-plane confidence checks');
+  checks.session_orchestration_flow = currentWi.includes('WI id: WI-CX0047-test')
+    && currentWi.includes('WTC: VAL')
+    && state.current_wi?.id === 'WI-CX0047-test'
+    && state.current_priority?.kind === 'wi'
+    && state.current_priority?.wi_id === 'WI-CX0048-test'
+    && state.current_priority?.owner_gate === 'CODEX'
+    && state.current_priority?.strategy?.ESC === 'E1+E3+E5+E6';
+  checks.session_orchestration_manifest = manifest.includes('id: record.session-orchestration-control-plane-audit')
+    && manifest.includes(auditPath)
+    && manifest.includes('status: accepted-audit')
+    && manifest.includes('id: record.validation-wi-cx0047-test')
+    && manifest.includes(recordPath);
+  checks.session_orchestration_indexes = docsIndex.includes(auditPath)
+    && docsIndex.includes(recordPath)
+    && recordsReadme.includes(auditPath)
+    && recordsReadme.includes(recordPath);
+  checks.session_orchestration_validation_record = record.includes('WI: WI-CX0047-test')
+    && record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0047-test-20260708103057')
+    && record.includes('Generalized validators')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance');
+  checks.session_orchestration_boundary = audit.includes('does not change automation schedule')
+    && audit.includes('automation prompt')
+    && audit.includes('A2/A3 authority')
+    && audit.includes('OSS program submission')
+    && audit.includes('production dependencies')
+    && audit.includes('destructive filesystem or git behavior')
+    && audit.includes('S2 execution')
+    && audit.includes('separate reviewer creation')
+    && audit.includes('first Layer 2 target-project scaffold generation')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('automation schedule change')
+    && record.includes('first Layer 2 scaffold generation occurred');
+
+  if (!checks.session_orchestration_agent_guidance) error('session_orchestration.agent_guidance_missing', 'AGENTS must prevent strategic replies from narrowing to only the latest issue.');
+  if (!checks.session_orchestration_policy) error('session_orchestration.policy_missing', 'Autonomy policy must require control-plane runtime validation before fresh-run claims.');
+  if (!checks.session_orchestration_audit_evidence) error('session_orchestration.audit_evidence_missing', 'Audit record must capture parent thread, automation, runner ids, duplicate-stop evidence, and the validation gap.');
+  if (!checks.session_orchestration_ki_repayment) error('session_orchestration.ki_repayment_missing', 'Audit record must register KI debt and repayment WIs.');
+  if (!checks.session_orchestration_priority) error('session_orchestration.priority_missing', 'Fix plan and handoff must prioritize WI-CX0048 before Layer 2 progression.');
+  if (!checks.session_orchestration_flow) error('session_orchestration.flow_missing', 'Current WI and state snapshot must record WI-CX0047 and next WI-CX0048.');
+  if (!checks.session_orchestration_manifest) error('session_orchestration.manifest_missing', 'Manifest must register the session orchestration audit and validation record.');
+  if (!checks.session_orchestration_indexes) error('session_orchestration.index_missing', 'Documentation indexes must include the session orchestration audit and validation record.');
+  if (!checks.session_orchestration_validation_record) error('session_orchestration.validation_record_missing', 'WI-CX0047 validation record must capture context pack evidence, result, and strategy.');
+  if (!checks.session_orchestration_boundary) error('session_orchestration.boundary_missing', 'WI-CX0047 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));

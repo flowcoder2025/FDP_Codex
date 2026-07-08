@@ -116,6 +116,8 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0043-docs.md`
 - `docs/records/validation-wi-cx0045-test.md`
 - `docs/records/validation-wi-cx0046-test.md`
+- `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`
+- `docs/records/validation-wi-cx0047-test.md`
 
 ## Tooling
 
