@@ -1,0 +1,33 @@
+# Pull Request
+
+## WI
+
+- WI:
+- Branch:
+- Related issue or KI:
+
+## Scope
+
+-
+
+## Validation
+
+- [ ] Validation record or command output is linked.
+- [ ] R2/R3 verification debt required before merge is repaid.
+- [ ] Blind review completed when required.
+- [ ] Adversarial review completed when required.
+
+## Policy Checks
+
+- [ ] Context pack was rebuilt from `docs/manifest.yaml`.
+- [ ] No chunk bodies were stored in the context ledger.
+- [ ] SSOT files were updated when policy, specification, decision, or record files changed.
+- [ ] Handoff and fix_plan remain compact operating state, not completed-history storage.
+- [ ] No unresolved Decision Needed item blocks merge.
+
+## Merge Readiness
+
+- [ ] PR title uses `WI-CXNNNN-category concise summary`.
+- [ ] Branch uses `wi/cxNNNN-category-short-slug`.
+- [ ] Required labels are applied.
+- [ ] Maintainer or user approval exists.

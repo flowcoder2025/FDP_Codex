@@ -1,0 +1,53 @@
+name: Known Issue
+description: Track a KI for repayment.
+title: "KI: "
+labels:
+  - fdp:triage-needed
+  - fdp:ki
+body:
+  - type: input
+    id: ki_id
+    attributes:
+      label: KI id
+      description: Existing KI id or "provisional" if not assigned yet.
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - critical
+        - high
+        - medium
+        - low
+    validations:
+      required: true
+  - type: input
+    id: related_wi
+    attributes:
+      label: Related WI
+      placeholder: WI-CX0000-category
+    validations:
+      required: false
+  - type: textarea
+    id: trigger
+    attributes:
+      label: Trigger
+      description: What exposed this issue?
+    validations:
+      required: true
+  - type: textarea
+    id: repayment
+    attributes:
+      label: Repayment condition and hard stop
+      description: What must be true before this KI can close, and what boundary cannot be crossed first?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link records, PRs, commands, or files.
+    validations:
+      required: false

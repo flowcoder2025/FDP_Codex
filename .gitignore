@@ -1,0 +1,20 @@
+# Local temporary files
+.tmp-openai-docs-cache/
+.tmp/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
