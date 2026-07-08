@@ -9,7 +9,7 @@ Discipline:
 - Use one focused WI at a time unless an approval envelope explicitly allows batching.
 - Use category-bearing WI ids: `WI-CXNNNN-category`.
 - Do not store completed task detail here.
-- Completed evidence belongs in `docs/records/`, `docs/decisions/`, git history, PRs, or `.flowset/handoff.md` summaries.
+- Completed evidence belongs in `docs/records/`, `docs/decisions`, git history, PRs, or `.flowset/handoff.md` summaries.
 - Keep this file compact and live.
 - Triage must choose both the next WI and the evaluator strategy codes.
 - Non-trivial work proceeds through the branch-first lifecycle in `docs/policies/git-workflow.md`.
@@ -17,13 +17,12 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0014-chore Bootstrap Reconciliation Execution: execute the approved clean worktree reconciliation path, create the first bootstrap commit, push/open/merge PR, apply labels, and convert the repository to public. Approved scope excludes deployment, release publication, and OSS program submission. Expected strategy: PSC=P2, WTC=GIT, Risk=R3, ESC=E1+E2+E3+E4+E5+E6.
+- [ ] WI-CX0015-docs OSS Readiness Baseline: define the first public release scope, then align README, CONTRIBUTING, SECURITY, roadmap, issue forms, and contributor guidance for public use. Blocked on public release scope boundary. Expected strategy: PSC=P5, WTC=OSS, Risk=R2, ESC=E2+E3+E4+E5+E6+E7.
 
 ## Next Candidates
 
-- [ ] WI-CX0015-docs OSS Readiness Baseline: lock first public release scope, then align README, CONTRIBUTING, SECURITY, and roadmap for public release readiness. Blocked on public release scope boundary. Expected strategy: P5/OSS/R2/E2+E5+E6+E7.
 - [ ] WI-CX0016-docs Operating Policy LOCK: convert accepted scaffold policies into formal decisions after unresolved Decision Needed items are answered. Blocked on Decision Needed queue. Expected strategy: P1/FND/R2/E4+E5+E6.
-- [ ] WI-CX0017-ci Validator CI Follow-Up: inspect GitHub Actions result after PR publication and harden workflow if needed. Expected strategy: P2/VAL/R2/E2+E3+E5+E6.
+- [ ] WI-CX0017-ci Validator CI Follow-Up: inspect GitHub Actions on `main` after closeout merge and harden workflow if needed. Expected strategy: P2/VAL/R2/E2+E3+E5+E6.
 
 ## Decision Needed Queue
 

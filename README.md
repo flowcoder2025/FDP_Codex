@@ -70,4 +70,4 @@ The context pack builder outputs metadata only. It does not output chunk bodies.
 
 FDP_Codex is licensed under the Apache License 2.0. See LICENSE.
 
-The GitHub repository is currently private during bootstrap: https://github.com/flowcoder2025/FDP_Codex.git.
+The GitHub repository is public after bootstrap publication: https://github.com/flowcoder2025/FDP_Codex.git.

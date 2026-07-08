@@ -326,6 +326,7 @@ function validateNaming() {
   const currentWi = read('.flowset/current-wi.md');
   const wiMatch = /^WI id: (WI-CX\d{4}-([a-z]+))$/m.exec(currentWi);
   const branchMatch = /^Branch: (.+)$/m.exec(currentWi);
+  const currentStatus = /^Status: (.+)$/m.exec(currentWi)?.[1]?.trim() ?? null;
   const wiIds = [...read('.flowset/fix_plan.md').matchAll(/WI-CX\d{4}-([a-z]+)/g)].map((match) => match[0]);
   const invalidWiIds = wiIds.filter((wiId) => {
     const category = wiId.split('-').at(-1);
@@ -354,16 +355,18 @@ function validateNaming() {
   }
 
   const branchPattern = /^wi\/cx\d{4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const mainBranchAllowed = currentBranch === 'main' && currentStatus === 'validated';
   checks.git_branch = currentBranch;
   checks.git_branch_source = gitBranch ? 'git' : (process.env.GITHUB_HEAD_REF ? 'GITHUB_HEAD_REF' : (process.env.GITHUB_REF_NAME ? 'GITHUB_REF_NAME' : 'none'));
   checks.git_has_head = hasHead;
-  checks.git_branch_format_ok = currentBranch ? branchPattern.test(currentBranch) : false;
+  checks.git_branch_format_ok = currentBranch ? (branchPattern.test(currentBranch) || mainBranchAllowed) : false;
+  checks.git_main_branch_allowed = mainBranchAllowed;
 
-  if (!currentBranch || !branchPattern.test(currentBranch)) {
-    error('git.branch_invalid', 'Current git branch must use wi/cxNNNN-category-short-slug.', currentBranch);
+  if (!currentBranch || (!branchPattern.test(currentBranch) && !mainBranchAllowed)) {
+    error('git.branch_invalid', 'Current git branch must use wi/cxNNNN-category-short-slug, or main with a validated current WI.', currentBranch);
   }
 
-  if (wiMatch && currentBranch && hasHead) {
+  if (wiMatch && currentBranch && hasHead && !mainBranchAllowed) {
     const expectedPrefix = `wi/cx${wiMatch[1].slice(5, 9)}-${wiMatch[2]}-`;
     if (!currentBranch.startsWith(expectedPrefix)) {
       error('git.branch_wi_mismatch', 'Current branch must match current WI after bootstrap commits exist.', {
