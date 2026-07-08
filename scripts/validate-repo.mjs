@@ -471,6 +471,7 @@ function validateGitHubGovernance() {
   const gitPolicy = read('docs/policies/git-workflow.md');
   const labels = read('.github/labels.yml');
   const prTemplate = read('.github/PULL_REQUEST_TEMPLATE.md');
+  const workflow = read('.github/workflows/validate.yml');
   const contributionTemplate = read('.github/ISSUE_TEMPLATE/contribution_intake.yml');
   const knownIssueTemplate = read('.github/ISSUE_TEMPLATE/known_issue.yml');
 
@@ -482,6 +483,10 @@ function validateGitHubGovernance() {
   checks.github_known_issue_has_repayment = knownIssueTemplate.includes('repayment');
   checks.github_contribution_template_has_triage_label = contributionTemplate.includes('fdp:triage-needed');
   checks.git_policy_has_hard_stops = gitPolicy.includes('## Git Hard Stops');
+  checks.github_workflow_has_node20 = workflow.includes('20.x');
+  checks.github_workflow_has_node24 = workflow.includes('24.x');
+  checks.github_workflow_has_dispatch = workflow.includes('workflow_dispatch:');
+  checks.github_workflow_read_only = workflow.includes('contents: read');
 
   if (missingLabels.length) error('github.labels_missing', 'Local label definitions are missing required labels.', missingLabels);
   if (!checks.github_approved_work_gate) error('github.approval_gate_missing', 'Issue governance must require explicit work approval.');
@@ -493,6 +498,10 @@ function validateGitHubGovernance() {
     error('github.contribution_template_incomplete', 'Contribution template must default to triage-needed.');
   }
   if (!checks.git_policy_has_hard_stops) error('git.policy_hard_stops_missing', 'Git workflow policy must define hard stops.');
+  if (!checks.github_workflow_has_node20) error('github.workflow_node20_missing', 'Validate workflow must test the minimum supported Node 20 runtime.');
+  if (!checks.github_workflow_has_node24) error('github.workflow_node24_missing', 'Validate workflow must test the current Node 24 runtime.');
+  if (!checks.github_workflow_has_dispatch) error('github.workflow_dispatch_missing', 'Validate workflow must allow manual workflow_dispatch reruns.');
+  if (!checks.github_workflow_read_only) error('github.workflow_permissions_not_read_only', 'Validate workflow must keep read-only contents permission.');
 }
 
 function validatePublicReadiness() {

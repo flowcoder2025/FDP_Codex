@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0015-docs
+WI id: WI-CX0017-ci
 
-Category: docs
+Category: ci
 
-Title: OSS Readiness Baseline
+Title: Validator CI Follow-Up
 
 Layer: Layer 1
 
@@ -12,36 +12,30 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0015-docs-oss-readiness-baseline
+Branch: wi/cx0017-ci-validator-ci-follow-up
 
-Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, and OSS program submission remain excluded.
+Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Define the first public readiness boundary and align public-facing repository documents for external inspection and contributor intake.
+Inspect latest GitHub Actions behavior on `main`, reconcile local and remote CI expectations, and harden workflow or validator behavior only where evidence shows a gap.
 
 ## Verification Plan
 
-- Rebuild context pack metadata for `oss-readiness`.
-- Run `npm run validate`.
-- Run `npm run context:pack` for the changed public-readiness surface.
-- Review README, contribution, security, roadmap, issue forms, manifest, fix_plan, and handoff for public-scope consistency.
+- Inspect latest `validate` workflow runs on GitHub.
+- Compare `.github/workflows/validate.yml` against `package.json` engine support.
+- Run `npm run validate` locally.
+- Run `npm run context:pack` for CI intent.
+- Confirm PR Actions pass before merge.
 - Confirm no deployment, release publication, tag creation, package publication, or OSS program submission occurred.
 
 ## Completion Evidence
 
-- `docs/decisions/2026-07-08-public-readiness-boundary.md`
-- `docs/records/validation-wi-cx0015-docs.md`
-- `README.md`
-- `CONTRIBUTING.md`
-- `SECURITY.md`
-- `ROADMAP.md`
-- `.github/ISSUE_TEMPLATE/config.yml`
-- `.github/ISSUE_TEMPLATE/known_issue.yml`
-- `.github/ISSUE_TEMPLATE/contribution_intake.yml`
-- `.github/PULL_REQUEST_TEMPLATE.md`
+- `.github/workflows/validate.yml`
 - `scripts/validate-repo.mjs`
+- `docs/records/validation-wi-cx0017-ci.md`
+- `docs/manifest.yaml`
 
 ## Decision Needed
 
-- None for WI-CX0015-docs.
+- None for WI-CX0017-ci.
