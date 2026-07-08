@@ -1,6 +1,6 @@
 # Verification Economy Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -99,4 +99,4 @@ Release-candidate work may adopt a stricter profile through a decision record.
 
 ## Decision Needed
 
-- Whether public examples should include intentionally deferred verification debt.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

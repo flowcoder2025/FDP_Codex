@@ -1,6 +1,6 @@
 # Decision Queue Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Purpose
 

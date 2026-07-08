@@ -53,6 +53,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-ki-identity-severity-policy.md',
   'docs/decisions/2026-07-08-handoff-size-policy.md',
   'docs/decisions/2026-07-08-autonomy-default-options-packet.md',
+  'docs/decisions/2026-07-08-operating-policy-lock.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -75,6 +76,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0023-docs.md',
   'docs/records/validation-wi-cx0024-docs.md',
   'docs/records/validation-wi-cx0025-docs.md',
+  'docs/records/validation-wi-cx0016-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -92,6 +94,7 @@ const requiredChunkIds = [
   'decision.ki-identity-severity-policy',
   'decision.handoff-size-policy',
   'decision.autonomy-default-options-packet',
+  'decision.operating-policy-lock',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -128,6 +131,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0023-docs',
   'record.validation-wi-cx0024-docs',
   'record.validation-wi-cx0025-docs',
+  'record.validation-wi-cx0016-docs',
 ];
 
 const requiredLabels = [
@@ -253,6 +257,9 @@ function parseManifestChunks(manifestText) {
 
     const typeMatch = /^    type: (.+)$/.exec(line);
     if (typeMatch) current.type = typeMatch[1].trim();
+
+    const statusMatch = /^    status: (.+)$/.exec(line);
+    if (statusMatch) current.status = statusMatch[1].trim();
 
     const carryMatch = /^    body_carryover: (.+)$/.exec(line);
     if (carryMatch) current.body_carryover = carryMatch[1].trim();
@@ -797,6 +804,58 @@ function validateAutonomyDefaultOptionsPacket() {
   if (!checks.autonomy_default_queue_removed) error('autonomy_default.queue_item_not_closed', 'Default autonomy mode item must leave the live Decision Needed queue after accepted decision.');
   if (!checks.autonomy_default_exclusions) error('autonomy_default.exclusions_missing', 'Decision must preserve deployment, release, package publication, and OSS submission exclusions.');
 }
+function validateOperatingPolicyLock() {
+  const fixPlan = read('.flowset/fix_plan.md');
+  const decision = read('docs/decisions/2026-07-08-operating-policy-lock.md');
+  const policyFiles = [
+    'docs/policies/context-hygiene.md',
+    'docs/policies/work-item-lifecycle.md',
+    'docs/policies/naming-and-commits.md',
+    'docs/policies/git-workflow.md',
+    'docs/policies/github-issue-governance.md',
+    'docs/policies/autonomy-and-approval.md',
+    'docs/policies/triage-strategy.md',
+    'docs/policies/evaluation-strategy.md',
+    'docs/policies/verification-economy.md',
+    'docs/policies/decision-queue.md',
+  ];
+  const pointerPolicyFiles = policyFiles.filter((file) => file !== 'docs/policies/decision-queue.md');
+  const statuses = policyFiles.map((file) => ({
+    file,
+    status: /^Status: (.+)$/m.exec(read(file))?.[1]?.trim() ?? null,
+  }));
+  const unaccepted = statuses.filter((item) => item.status !== 'accepted-v0.').map((item) => `${item.file}:${item.status}`);
+  const manifestChunks = parseManifestChunks(read('docs/manifest.yaml'));
+  const manifestPolicyStatusMismatches = policyFiles
+    .map((file) => {
+      const chunk = manifestChunks.find((item) => item.source === file);
+      return chunk?.status === 'accepted-v0' ? null : `${file}:${chunk?.status ?? 'missing'}`;
+    })
+    .filter(Boolean);
+  const queueBlock = /## Decision Needed Queue\n\n([\s\S]*?)(?:\n## |$)/.exec(fixPlan)?.[1] ?? '';
+  const yesBlockers = [...queueBlock.matchAll(/^\| (.+?) \| DQ-[A-Z]+ \| [A-Z0-9+]+ \| yes \| .+? \|$/gm)].map((match) => match[1]);
+  const missingPointers = pointerPolicyFiles
+    .filter((file) => !read(file).includes('Live unresolved policy items are tracked only in `.flowset/fix_plan.md`'));
+
+  checks.operating_lock_unaccepted_policies = unaccepted;
+  checks.operating_lock_manifest_policy_status_mismatches = manifestPolicyStatusMismatches;
+  checks.operating_lock_yes_blockers = yesBlockers;
+  checks.operating_lock_policy_decision_pointers_missing = missingPointers;
+  checks.operating_lock_decision_accepts_v0 = decision.includes('operating policies are locked as accepted-v0');
+  checks.operating_lock_live_queue_ssot = decision.includes('The live Decision Needed SSOT is `.flowset/fix_plan.md`');
+  checks.operating_lock_exclusions = decision.includes('does not authorize release publication, deployment, package publication, OSS program submission')
+    && decision.includes('destructive local realignment');
+  checks.operating_lock_next_wi = fixPlan.includes('WI-CX0018-chore Local Workspace Realignment');
+
+  if (unaccepted.length) error('operating_lock.unaccepted_policies', 'All Layer 1 operating policy files must be accepted-v0.', unaccepted);
+  if (manifestPolicyStatusMismatches.length) error('operating_lock.manifest_policy_status_mismatch', 'Manifest policy chunks must match accepted-v0 operating lock status.', manifestPolicyStatusMismatches);
+  if (yesBlockers.length) error('operating_lock.yes_blockers_remaining', 'Operating Policy LOCK requires no live yes lock blockers.', yesBlockers);
+  if (missingPointers.length) error('operating_lock.policy_queue_pointer_missing', 'Policy files must point to fix_plan as the live Decision Needed queue SSOT.', missingPointers);
+  if (!checks.operating_lock_decision_accepts_v0) error('operating_lock.decision_v0_missing', 'Operating lock decision must accept the policy set as accepted-v0.');
+  if (!checks.operating_lock_live_queue_ssot) error('operating_lock.live_queue_ssot_missing', 'Operating lock decision must keep fix_plan as the live Decision Needed SSOT.');
+  if (!checks.operating_lock_exclusions) error('operating_lock.exclusions_missing', 'Operating lock decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
+  if (!checks.operating_lock_next_wi) error('operating_lock.next_wi_missing', 'fix_plan should advance to the next live WI after policy lock validation.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -828,6 +887,7 @@ validateDecisionQueue();
 validateKiIdentityPolicy();
 validateHandoffSizePolicy();
 validateAutonomyDefaultOptionsPacket();
+validateOperatingPolicyLock();
 validatePackage();
 
 const result = {

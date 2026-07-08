@@ -1,6 +1,6 @@
 # Work Item Lifecycle Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Definitions
 
@@ -121,5 +121,4 @@ A WI is complete only when the declared evidence exists, verification is complet
 
 ## Decision Needed
 
-- Whether Layer 2 target projects must use `TG` or derive their own two-to-four-letter project code.
-- Whether KI ids should include severity in the id or keep severity as a field only.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

@@ -283,12 +283,25 @@ chunks:
       - validation
     body_carryover: forbidden
 
+  - id: decision.operating-policy-lock
+    title: Operating Policy LOCK v0
+    source: docs/decisions/2026-07-08-operating-policy-lock.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - operating-policy-lock
+      - wi-start
+      - handoff
+      - validation
+    body_carryover: forbidden
+
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
     type: policy
     layer: layer1
-    status: lock-candidate
+    status: accepted-v0
     loads_for:
       - wi-start
       - context-pack-building
@@ -301,7 +314,7 @@ chunks:
     source: docs/policies/decision-queue.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - decision-needed
       - operating-policy-lock
@@ -313,7 +326,7 @@ chunks:
     source: docs/policies/work-item-lifecycle.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - wi-triage
       - ki-triage
@@ -339,7 +352,7 @@ chunks:
     source: docs/policies/git-workflow.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - wi-start
       - branch
@@ -354,7 +367,7 @@ chunks:
     source: docs/policies/github-issue-governance.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - issue-triage
       - ki-triage
@@ -514,7 +527,7 @@ chunks:
     source: docs/policies/autonomy-and-approval.md
     type: policy
     layer: layer1
-    status: lock-candidate
+    status: accepted-v0
     loads_for:
       - automation-planning
       - approval-envelope
@@ -543,7 +556,7 @@ chunks:
     source: docs/policies/evaluation-strategy.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - evaluator-strategy-selection
       - blind-review-planning
@@ -558,7 +571,7 @@ chunks:
     source: docs/policies/verification-economy.md
     type: policy
     layer: layer1
-    status: draft
+    status: accepted-v0
     loads_for:
       - risk-classification
       - validation-planning
@@ -911,6 +924,18 @@ chunks:
       - audit
       - handoff
       - automation-planning
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0016-docs
+    title: WI-CX0016-docs Validation Record
+    source: docs/records/validation-wi-cx0016-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - operating-policy-lock
     body_carryover: forbidden
 
 hook_contract:

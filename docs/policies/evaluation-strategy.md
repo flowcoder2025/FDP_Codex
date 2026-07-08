@@ -214,4 +214,4 @@ Resolved by `docs/decisions/2026-07-08-evaluation-surface-baseline.md`:
 
 ## Decision Needed
 
-- Whether portfolio guardrails should become a deterministic validator rule or remain evaluator judgment.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

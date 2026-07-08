@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0025-docs Autonomy Default Options Packet.
+Current WI: WI-CX0016-docs Operating Policy LOCK.
 
-WI-CX0025-docs status: validated.
+WI-CX0016-docs status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -25,6 +25,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0023-docs: KI Identity Severity Policy. Evidence: `docs/decisions/2026-07-08-ki-identity-severity-policy.md` and `docs/records/validation-wi-cx0023-docs.md`.
 - WI-CX0024-docs: Handoff Size Policy. Evidence: `docs/decisions/2026-07-08-handoff-size-policy.md` and `docs/records/validation-wi-cx0024-docs.md`.
 - WI-CX0025-docs: Autonomy Default Options Packet. Evidence: `docs/decisions/2026-07-08-autonomy-default-options-packet.md` and `docs/records/validation-wi-cx0025-docs.md`.
+- WI-CX0016-docs: Operating Policy LOCK v0. Evidence: `docs/decisions/2026-07-08-operating-policy-lock.md` and `docs/records/validation-wi-cx0016-docs.md`.
 
 ## Orientation SSOT
 
@@ -34,17 +35,18 @@ Release publication, deployment, package publication, and OSS program submission
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Decision queue policy: `docs/policies/decision-queue.md`.
-- Autonomy default decision: `docs/decisions/2026-07-08-autonomy-default-options-packet.md`.
+- Operating policy lock: `docs/decisions/2026-07-08-operating-policy-lock.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 
 ## Locked For This Scaffold
 
+- Layer 1 operating policies are accepted-v0 for the public bootstrap pre-release baseline.
 - Context bodies are ephemeral and ledger records metadata only.
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
 - `npm run context:pack` is stdout-only by default.
 - Ledger mutation requires explicit `--append-ledger`.
 - Context selection uses stable rule ids and emits `selection_rule_ids` plus per-chunk `selection_rules`.
-- Decision Needed items use state codes from `docs/policies/decision-queue.md`.
+- Decision Needed items use state codes from `docs/policies/decision-queue.md` and live only in `.flowset/fix_plan.md`.
 - KI ids must not encode severity; severity is field-only.
 - Layer 1 handoff must not exceed 220 lines.
 - No-envelope autonomy fallback is A1 Assisted; A2 requires an approval envelope; A3 is not default.
@@ -65,7 +67,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0016-docs Operating Policy LOCK.
+- WI-CX0018-chore Local Workspace Realignment.
 
 ## Blocked Work
 
@@ -74,6 +76,7 @@ Immediate next WI:
 - Package publication is not approved.
 - OSS program submission is not approved.
 - `C:\dev\FDP_Codex` realignment may require destructive Git or filesystem approval.
+- E2 S2 blind review debt for the bootstrap operating lock remains due before release-candidate lock, public release, OSS submission, or generalized A2/A3 autonomy expansion.
 
 ## New Session Procedure
 

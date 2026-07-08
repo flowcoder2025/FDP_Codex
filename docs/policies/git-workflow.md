@@ -1,6 +1,6 @@
 # Git Workflow Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -109,6 +109,4 @@ Each completed WI should leave evidence in at least one of:
 
 ## Decision Needed
 
-- Whether FDP_Codex should allow A2 autopilot to push draft PR branches after local validation.
-- Whether branch deletion may be automatic after squash merge.
-- Whether first bootstrap publication should be a direct reconciliation PR or a protected bootstrap exception.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.
