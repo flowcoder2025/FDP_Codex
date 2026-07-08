@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`, `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`, `docs/specifications/layer-2-knowledge-scaffold.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`, `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`, `docs/records/layer-2-scope-code-options-2026-07-08.md`, `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`, `docs/specifications/layer-2-knowledge-scaffold.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0037-docs Layer 2 Scope Code Decision Handback: prepare a concise user handback for the remaining Layer 2 project scope code decision without generating target-project artifacts. Expected strategy: PSC=P2, WTC=KNOW, Risk=R1, ESC=E1+E3+E6.
+- [ ] Waiting for user decision: Layer 2 project scope code rule. Use `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md` as the decision prompt. Recommended answer shape: `A, use <CODE>`.
 
 ## Triggered Work
 
@@ -26,13 +26,13 @@ Discipline:
 
 ## Next Candidates
 
-- None selected until the user chooses the Layer 2 project scope code rule or a new unblocked WI is triaged.
+- WI-CX0038-docs Layer 2 Scope Code Accepted Decision: start only after the user chooses the Layer 2 project scope code rule.
 
 ## Decision Needed Queue
 
 | Item | State | Owner gate | Lock blocker | Repayment trigger |
 | --- | --- | --- | --- | --- |
-| Layer 2 project scope code rule. | DQ-USER | USER | conditional | Before first Layer 2 target-project scaffold; options packet `docs/records/layer-2-scope-code-options-2026-07-08.md`. |
+| Layer 2 project scope code rule. | DQ-USER | USER | conditional | Before first Layer 2 target-project scaffold; handback `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`. |
 | Release category policy. | DQ-EXTERNAL | H1 | no | Before release candidate, tag, package publication, deployment, or OSS submission. |
 | A3 publication/merge envelope beyond the current bootstrap approval scope. | DQ-USER | USER | conditional | Before A3 publication, release, deployment, package publication, OSS submission, or generalized automerge behavior. |
 | Branch deletion automation default after squash merge. | DQ-USER | USER | no | Before making branch deletion the default outside the current approval envelope. |
