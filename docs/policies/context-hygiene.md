@@ -46,6 +46,14 @@ Chunk is a manifest-addressable unit of policy, specification, decision, runbook
 4. Dispose of the active context pack.
 5. Do not carry chunk bodies forward.
 
+## Handoff Size Rule
+
+Layer 1 FDP_Codex handoff must remain compact and must not exceed 220 lines.
+
+The handoff should point to SSOT documents, validation records, decisions, PRs, and next actions instead of copying policy bodies.
+
+A larger handoff limit requires a future profile-specific policy WI. Until then, 220 lines is the validator-backed limit.
+
 ## Hook Contract
 
 The context pack builder may select chunks and produce a context pack manifest. It must not become a hidden memory store.

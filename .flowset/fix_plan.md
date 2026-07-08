@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0024-docs Handoff Size Policy: decide the handoff maximum line-count rule and validator profile so Operating Policy LOCK can distinguish compact handoff hygiene from project-size-specific exceptions. Expected strategy: PSC=P2, WTC=KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0025-docs Autonomy Default Options Packet: decide the default post-bootstrap autonomy option set and user-intervention boundaries so Operating Policy LOCK can encode autonomous continuation without overclaiming unattended Codex session creation. Expected strategy: PSC=P1, WTC=PROC+KNOW, Risk=R2, ESC=E2+E3+E5+E6.
 
 ## Next Candidates
 
@@ -38,5 +38,4 @@ Discipline:
 | Whether portfolio guardrails become deterministic validator rules. | DQ-POLICY | CODEX | no | After repeated portfolio imbalance findings or before release-readiness scoring. |
 | Whether every KI must become a GitHub Issue after public release. | DQ-EXTERNAL | H1 | no | Before first public release or external contributor operating mode. |
 | Whether the validator should adopt a strict YAML parser later. | DQ-DEBT | CODEX | no | When manifest grammar exceeds the current parser or parser drift is observed. |
-| Whether handoff maximum line count should be 220, 300, or profile-dependent. | DQ-POLICY | CODEX | yes | Scheduled as `WI-CX0024-docs Handoff Size Policy`. |
 | Whether current WI and handoff should be split into stricter machine-readable state later. | DQ-DEBT | CODEX | no | When handoff or current WI parsing becomes ambiguous or repeated validator exceptions appear. |

@@ -33,6 +33,7 @@ Current validation records:
 - `docs/records/validation-wi-cx0021-feat.md`
 - `docs/records/validation-wi-cx0022-docs.md`
 - `docs/records/validation-wi-cx0023-docs.md`
+- `docs/records/validation-wi-cx0024-docs.md`
 
 Other records:
 

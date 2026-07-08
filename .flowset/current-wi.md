@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0023-docs
+WI id: WI-CX0024-docs
 
 Category: docs
 
-Title: KI Identity Severity Policy
+Title: Handoff Size Policy
 
 Layer: Layer 1
 
@@ -12,21 +12,21 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0023-docs-ki-identity-severity-policy
+Branch: wi/cx0024-docs-handoff-size-policy
 
 Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Decide whether KI severity belongs in the KI id or remains a field-only classification, then update lifecycle policy and validator expectations.
+Decide the handoff maximum line-count rule and validator profile so Operating Policy LOCK can distinguish compact handoff hygiene from project-size-specific exceptions.
 
 ## Verification Plan
 
-- Build a fresh context pack for KI identity severity policy.
-- Record the accepted KI identity/severity decision.
-- Update work item lifecycle policy and the live Decision Needed queue.
+- Build a fresh context pack for handoff size policy.
+- Record the accepted handoff size decision.
+- Update context hygiene and validator expectations.
+- Remove the handoff max line count blocker from the live Decision Needed queue.
 - Register the decision and validation record in `docs/manifest.yaml`.
-- Extend `scripts/validate-repo.mjs` to verify the KI identity contract.
 - Run context pack default mode and explicit append mode.
 - Run `npm run validate`.
 - Run `git diff --check`.
@@ -34,13 +34,13 @@ Decide whether KI severity belongs in the KI id or remains a field-only classifi
 
 ## Completion Evidence
 
-- `docs/decisions/2026-07-08-ki-identity-severity-policy.md`
-- `docs/policies/work-item-lifecycle.md`
-- `docs/records/validation-wi-cx0023-docs.md`
+- `docs/decisions/2026-07-08-handoff-size-policy.md`
+- `docs/policies/context-hygiene.md`
+- `docs/records/validation-wi-cx0024-docs.md`
 - `.flowset/fix_plan.md`
 - `docs/manifest.yaml`
 - `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0023-docs.
+- None for WI-CX0024-docs.
