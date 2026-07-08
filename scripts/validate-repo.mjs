@@ -62,6 +62,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-collaboration-response-contract.md',
   'docs/decisions/2026-07-08-session-boundary-automation-contract.md',
   'docs/decisions/2026-07-08-tooling-typescript-baseline.md',
+  'docs/decisions/2026-07-08-tooling-strictness-probe.md',
   'docs/decisions/2026-07-08-automation-run-surface-installation.md',
   'docs/decisions/2026-07-08-context-ledger-dedupe-policy.md',
   'docs/decisions/2026-07-08-flow-state-readable-snapshot.md',
@@ -84,6 +85,7 @@ const requiredFiles = [
   'scripts/lib/manifest.mjs',
   'scripts/validate-repo.mjs',
   'scripts/build-context-pack.mjs',
+  'scripts/report-type-strictness.mjs',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -107,6 +109,7 @@ const requiredFiles = [
   'docs/records/layer-2-scope-code-decision-handback-2026-07-08.md',
   'docs/records/validation-wi-cx0037-docs.md',
   'docs/records/validation-wi-cx0039-docs.md',
+  'docs/records/validation-wi-cx0040-chore.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -128,6 +131,7 @@ const requiredChunkIds = [
   'decision.collaboration-response-contract',
   'decision.session-boundary-automation-contract',
   'decision.tooling-typescript-baseline',
+  'decision.tooling-strictness-probe',
   'decision.automation-run-surface-installation',
   'decision.context-ledger-dedupe-policy',
   'decision.flow-state-readable-snapshot',
@@ -165,6 +169,7 @@ const requiredChunkIds = [
   'tool.package',
   'tool.package-lock',
   'tool.tsconfig',
+  'tool.type-strictness-report',
   'record.validation-wi-cx0020-feat',
   'record.validation-wi-cx0021-feat',
   'record.validation-wi-cx0022-docs',
@@ -188,6 +193,7 @@ const requiredChunkIds = [
   'record.layer-2-scope-code-decision-handback',
   'record.validation-wi-cx0037-docs',
   'record.validation-wi-cx0039-docs',
+  'record.validation-wi-cx0040-chore',
 ];
 
 const requiredLabels = [
@@ -1253,6 +1259,108 @@ function validateToolingTypeScriptBaseline() {
   if (!checks.ts_baseline_decision) error('ts_baseline.decision_missing', 'TypeScript baseline decision must preserve runtime and dependency boundaries.');
   if (!checks.ts_baseline_record) error('ts_baseline.record_missing', 'WI-CX0028 validation record must include typecheck and validation evidence.');
 }
+function validateToolingStrictnessProbe() {
+  const pkg = JSON.parse(read('package.json'));
+  const tsconfig = JSON.parse(read('tsconfig.json'));
+  const script = read('scripts/report-type-strictness.mjs');
+  const decision = read('docs/decisions/2026-07-08-tooling-strictness-probe.md');
+  const record = read('docs/records/validation-wi-cx0040-chore.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+
+  let report = null;
+  try {
+    const output = execFileSync(process.execPath, ['scripts/report-type-strictness.mjs'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    report = JSON.parse(output);
+  } catch (err) {
+    error('ts_strictness_probe.execution_failed', 'Strictness probe must execute and emit JSON.', err.message);
+  }
+
+  const probeById = new Map((report?.probes ?? []).map((probe) => [probe.id, probe]));
+  const strict = probeById.get('strict');
+  const noImplicitAny = probeById.get('noImplicitAny');
+  const strictNullChecks = probeById.get('strictNullChecks');
+  const compilerOptions = tsconfig.compilerOptions ?? {};
+
+  checks.ts_strictness_probe_script = pkg.scripts?.['typecheck:strict-probe'] === 'node scripts/report-type-strictness.mjs'
+    && script.includes("kind: 'fdp-codex-type-strictness-report'")
+    && script.includes("{ id: 'strict', flags: ['--strict', 'true'] }")
+    && script.includes("{ id: 'noImplicitAny', flags: ['--noImplicitAny', 'true'] }")
+    && script.includes("{ id: 'strictNullChecks', flags: ['--strictNullChecks', 'true'] }")
+    && script.includes("status: result.status === 0 ? 'pass' : 'type-debt'")
+    && script.includes('script_exits_zero_on_type_debt: true');
+  checks.ts_strictness_probe_report = report?.kind === 'fdp-codex-type-strictness-report'
+    && report?.baseline?.strict_enabled === false
+    && report?.baseline?.type_debt_is_gating_failure === false
+    && strict?.status === 'type-debt'
+    && noImplicitAny?.status === 'type-debt'
+    && strictNullChecks?.status === 'type-debt'
+    && strict?.diagnostic_count > 0
+    && noImplicitAny?.diagnostic_count > 0
+    && strictNullChecks?.diagnostic_count > 0;
+  checks.ts_strictness_probe_top_codes = strict?.top_error_codes?.some((item) => item.code === 'TS2339')
+    && noImplicitAny?.top_error_codes?.some((item) => item.code === 'TS7006')
+    && strictNullChecks?.top_error_codes?.some((item) => item.code === 'TS2345');
+  checks.ts_strictness_probe_baseline_preserved = compilerOptions.strict === false
+    && pkg.scripts?.typecheck === 'tsc --project tsconfig.json --noEmit'
+    && pkg.scripts?.['ci:check'] === 'npm run typecheck && npm run validate'
+    && !exists('scripts/validate-repo.ts')
+    && !exists('scripts/build-context-pack.ts')
+    && !exists('scripts/report-type-strictness.ts');
+  checks.ts_strictness_probe_decision = decision.includes('Add a non-gating TypeScript strictness probe')
+    && decision.includes('Type debt discovered by the probe is reported as `type-debt` and does not fail the script')
+    && decision.includes('Keep `npm run typecheck` and `npm run ci:check` as the gating baseline')
+    && decision.includes('does not enable TypeScript strict mode');
+  checks.ts_strictness_probe_record = record.includes('WI: WI-CX0040-chore')
+    && record.includes('TypeScript strictness debt is now measurable and repeatable')
+    && record.includes('| `strict` | 2 | 582 |')
+    && record.includes('| `noImplicitAny` | 2 | 531 |')
+    && record.includes('| `strictNullChecks` | 2 | 47 |')
+    && record.includes('No release publication, deployment, package publication, OSS program submission');
+  checks.ts_strictness_probe_manifest = manifest.includes('id: decision.tooling-strictness-probe')
+    && manifest.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
+    && manifest.includes('id: tool.type-strictness-report')
+    && manifest.includes('scripts/report-type-strictness.mjs')
+    && manifest.includes('id: record.validation-wi-cx0040-chore')
+    && manifest.includes('docs/records/validation-wi-cx0040-chore.md');
+  checks.ts_strictness_probe_indexes = docsIndex.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
+    && docsIndex.includes('docs/records/validation-wi-cx0040-chore.md')
+    && docsIndex.includes('scripts/report-type-strictness.mjs')
+    && decisionsReadme.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0040-chore.md');
+  checks.ts_strictness_probe_flow = currentWi.includes('WI id: WI-CX0040-chore')
+    && currentWi.includes('Status: validated')
+    && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | Probe installed by WI-CX0040')
+    && handoff.includes('WI-CX0040-chore: Tooling Strictness Probe')
+    && handoff.includes('Strictness probe: `npm run typecheck:strict-probe`')
+    && state.current_wi?.id === 'WI-CX0040-chore'
+    && state.current_priority?.kind === 'user_decision';
+  checks.ts_strictness_probe_boundary = record.includes('Strict mode was not enabled')
+    && record.includes('Runtime `.mjs` source files were not converted to `.ts`')
+    && record.includes('CI gating was not expanded to fail on known strictness debt')
+    && decision.includes('does not enable TypeScript strict mode, convert runtime source files');
+
+  if (!checks.ts_strictness_probe_script) error('ts_strictness_probe.script_missing', 'package.json and report script must expose the non-gating strictness probe.');
+  if (!checks.ts_strictness_probe_report) error('ts_strictness_probe.report_invalid', 'Strictness probe must emit JSON showing current strictness type debt without failing execution.');
+  if (!checks.ts_strictness_probe_top_codes) error('ts_strictness_probe.top_codes_missing', 'Strictness probe report must preserve diagnostic code summaries.');
+  if (!checks.ts_strictness_probe_baseline_preserved) error('ts_strictness_probe.baseline_changed', 'Strictness probe must not alter the gating TypeScript baseline or convert runtime sources.');
+  if (!checks.ts_strictness_probe_decision) error('ts_strictness_probe.decision_missing', 'Strictness probe decision must capture non-gating behavior and boundaries.');
+  if (!checks.ts_strictness_probe_record) error('ts_strictness_probe.record_missing', 'WI-CX0040 validation record must capture measured probe results and boundaries.');
+  if (!checks.ts_strictness_probe_manifest) error('ts_strictness_probe.manifest_missing', 'Manifest must register the strictness probe decision, tool, and validation record.');
+  if (!checks.ts_strictness_probe_indexes) error('ts_strictness_probe.index_missing', 'Documentation indexes must include the strictness probe artifacts.');
+  if (!checks.ts_strictness_probe_flow) error('ts_strictness_probe.flow_missing', 'Flow state must preserve user-decision priority while recording WI-CX0040 completion.');
+  if (!checks.ts_strictness_probe_boundary) error('ts_strictness_probe.boundary_missing', 'Strictness probe must preserve strict-mode, conversion, CI gating, publication, and external-contract boundaries.');
+}
 function validateAutomationRunSurfaceInstallation() {
   const automationId = 'fdp-codex-a2-worktree-wi-runner';
   const currentWi = read('.flowset/current-wi.md');
@@ -1733,7 +1841,7 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && handoff.includes('WI-CX0037-docs: Layer 2 Scope Code Decision Handback')
     && handoff.includes('A, use <CODE>')
     && handoff.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked')
-    && currentWi.includes('WI id: WI-CX0039-docs');
+    && /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi);
   checks.layer2_scope_handback_boundary2 = record.includes('No public API or external contract was stabilized')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
@@ -1788,6 +1896,7 @@ validateCollaborationResponseContract();
 validateSessionBoundaryAutomationContract();
 validateLocalWorkspaceRealignment();
 validateToolingTypeScriptBaseline();
+validateToolingStrictnessProbe();
 validateAutomationRunSurfaceInstallation();
 validateAutomationRunnerPostMergeSmoke();
 validateContextLedgerDedupePolicy();
