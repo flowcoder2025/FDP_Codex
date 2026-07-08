@@ -67,6 +67,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-context-ledger-dedupe-policy.md',
   'docs/decisions/2026-07-08-flow-state-readable-snapshot.md',
   'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md',
+  'docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -116,6 +117,7 @@ const requiredFiles = [
   'docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md',
   'docs/records/validation-wi-cx0043-docs.md',
   'docs/records/validation-wi-cx0045-test.md',
+  'docs/records/validation-wi-cx0046-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -142,6 +144,7 @@ const requiredChunkIds = [
   'decision.context-ledger-dedupe-policy',
   'decision.flow-state-readable-snapshot',
   'decision.portfolio-guardrail-validator-baseline',
+  'decision.autonomous-work-exhaustion-stop-gate',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -206,6 +209,7 @@ const requiredChunkIds = [
   'record.post-bootstrap-automation-cadence-decision-handback',
   'record.validation-wi-cx0043-docs',
   'record.validation-wi-cx0045-test',
+  'record.validation-wi-cx0046-test',
 ];
 
 const requiredLabels = [
@@ -1027,10 +1031,11 @@ function validatePortfolioGuardrailValidatorBaseline() {
   const decisionsIndex = read('docs/decisions/README.md');
   const recordsReadme = read('docs/records/README.md');
   const state = readJson('.flowset/state.json');
-  const currentValidationPath = state.current_wi?.validation_record ?? '';
-  const currentValidationRecord = currentValidationPath ? read(currentValidationPath) : '';
+  const activeValidationPath = state.current_wi?.validation_record ?? '';
+  const activeValidationRecord = activeValidationPath ? read(activeValidationPath) : '';
   const decisionPath = 'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md';
   const recordPath = 'docs/records/validation-wi-cx0045-test.md';
+  const portfolioValidationRecord = read(recordPath);
   const strategyCodes = ['FND', 'VAL', 'AUTO', 'KNOW', 'OSS', 'EVAL', 'DEBT'];
 
   const hasStrategyFields = (body) => {
@@ -1052,16 +1057,16 @@ function validatePortfolioGuardrailValidatorBaseline() {
     && policy.includes('ESC must include E5 Portfolio Balance Review')
     && policy.includes('does not rewrite or reinterpret historical validation records');
   checks.portfolio_guardrail_current_wi_strategy = hasStrategyFields(currentWi)
-    && currentWi.includes('WI id: WI-CX0045-test')
-    && currentWi.includes('WTC: VAL')
     && currentWi.includes('Primary evaluator stance')
     && currentWi.includes('Validator stance');
-  checks.portfolio_guardrail_current_record_strategy = currentValidationPath === recordPath
-    && hasStrategyFields(currentValidationRecord)
-    && currentValidationRecord.includes('Portfolio guardrails are deterministic for current and future active WIs')
-    && currentValidationRecord.includes('Historical validation records were not rewritten')
-    && currentValidationRecord.includes('WTC: VAL')
-    && currentValidationRecord.includes('ESC: E1+E3+E5+E6');
+  checks.portfolio_guardrail_current_record_strategy = activeValidationPath !== ''
+    && hasStrategyFields(activeValidationRecord)
+    && activeValidationRecord.includes('Primary evaluator stance')
+    && activeValidationRecord.includes('Validator stance')
+    && portfolioValidationRecord.includes('Portfolio guardrails are deterministic for current and future active WIs')
+    && portfolioValidationRecord.includes('Historical validation records were not rewritten')
+    && portfolioValidationRecord.includes('WTC: VAL')
+    && portfolioValidationRecord.includes('ESC: E1+E3+E5+E6');
   checks.portfolio_guardrail_queue_repaid = !fixPlan.includes('Whether portfolio guardrails become deterministic validator rules')
     && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no');
@@ -1073,20 +1078,18 @@ function validatePortfolioGuardrailValidatorBaseline() {
     && docsIndex.includes(recordPath)
     && decisionsIndex.includes(decisionPath)
     && recordsReadme.includes(recordPath);
-  checks.portfolio_guardrail_flow = state.current_wi?.id === 'WI-CX0045-test'
-    && state.current_wi?.validation_record === recordPath
-    && state.current_priority?.kind === 'user_decision'
+  checks.portfolio_guardrail_flow = state.current_priority?.kind === 'user_decision'
     && handoff.includes('WI-CX0045-test: Portfolio Guardrail Validator Baseline')
     && handoff.includes('Portfolio guardrail validator baseline is accepted')
     && handoff.includes('Current and future active WIs must record PSC, WTC, Risk, and ESC with E5 included');
   checks.portfolio_guardrail_boundary = decision.includes('does not choose the Layer 2 project scope code rule')
     && decision.includes('does not change automation cadence, A2/A3 authority, merge authority, or publication authority')
-    && currentValidationRecord.includes('No release publication, deployment, package publication, OSS program submission')
-    && currentValidationRecord.includes('A3 publication behavior')
-    && currentValidationRecord.includes('production dependency addition')
-    && currentValidationRecord.includes('public API or external contract change')
-    && currentValidationRecord.includes('first Layer 2 scaffold generation')
-    && currentValidationRecord.includes('destructive filesystem or git operation occurred');
+    && activeValidationRecord.includes('No release publication, deployment, package publication, OSS program submission')
+    && activeValidationRecord.includes('A3 publication behavior')
+    && activeValidationRecord.includes('production dependency addition')
+    && activeValidationRecord.includes('public API or external contract change')
+    && activeValidationRecord.includes('first Layer 2 scaffold generation')
+    && activeValidationRecord.includes('destructive filesystem or git operation occurred');
 
   if (!checks.portfolio_guardrail_decision) error('portfolio_guardrail.decision_missing', 'Portfolio guardrail decision must define current-and-forward enforcement, E5 requirement, and no historical rewrite.');
   if (!checks.portfolio_guardrail_policy) error('portfolio_guardrail.policy_missing', 'Triage policy must document the validator baseline.');
@@ -1098,6 +1101,86 @@ function validatePortfolioGuardrailValidatorBaseline() {
   if (!checks.portfolio_guardrail_flow) error('portfolio_guardrail.flow_missing', 'Flow state and handoff must record WI-CX0045 and preserve the user-decision priority.');
   if (!checks.portfolio_guardrail_boundary) error('portfolio_guardrail.boundary_missing', 'WI-CX0045 must preserve Layer 2, automation authority, publication, dependency, public API, and destructive-operation boundaries.');
 }
+function validateAutonomousWorkExhaustionStopGate() {
+  const decision = read('docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md');
+  const policy = read('docs/policies/autonomy-and-approval.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsIndex = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const recordPath = 'docs/records/validation-wi-cx0046-test.md';
+  const decisionPath = 'docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md';
+  const record = read(recordPath);
+
+  checks.autonomous_exhaustion_decision = decision.includes('Status: accepted')
+    && decision.includes('must stop autonomous WI creation and hand back the decision surface')
+    && decision.includes('the current user decision that blocks the primary path')
+    && decision.includes('triggered work that is waiting for external evidence')
+    && decision.includes('separate-reviewer availability')
+    && decision.includes('must not start another independent WI merely to avoid stopping');
+  checks.autonomous_exhaustion_policy = policy.includes('## Autonomous Work Exhaustion Stop Gate')
+    && policy.includes('Codex must stop autonomous WI creation and hand back the decision surface')
+    && policy.includes('Codex must not start another independent WI merely to avoid stopping')
+    && policy.includes('A new autonomous WI may start only when the user supplies a decision or approval');
+  checks.autonomous_exhaustion_current_wi = currentWi.includes('WI id: WI-CX0046-test')
+    && currentWi.includes('WTC: AUTO')
+    && currentWi.includes('ESC: E1+E3+E5+E6')
+    && currentWi.includes('No further independent autonomous WI should start unless');
+  checks.autonomous_exhaustion_record = state.current_wi?.validation_record === recordPath
+    && record.includes('Autonomous work exhaustion is now a validator-backed handback point')
+    && record.includes('The persistent `/goal` remains active')
+    && record.includes('S2 review remains blocked until a separate reviewer is available')
+    && record.includes('Post-bootstrap automation cadence remains user-gated')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('separate reviewer creation')
+    && record.includes('destructive filesystem or git operation occurred');
+  checks.autonomous_exhaustion_flow = state.current_wi?.id === 'WI-CX0046-test'
+    && state.current_priority?.kind === 'user_decision'
+    && state.current_priority?.item === 'Layer 2 project scope code rule'
+    && Array.isArray(state.triggered_work)
+    && state.triggered_work.some((item) => item.wi_id === 'WI-CX0035-test' && item.status === 'blocked-until-trigger')
+    && fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule')
+    && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
+    && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
+    && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
+  checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
+    && handoff.includes('No further independent autonomous WI should start unless')
+    && handoff.includes('Ask the user to choose the Layer 2 project scope code rule')
+    && handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
+    && handoff.includes('Generalized A2/A3 expansion is blocked on S2 blind review debt')
+    && handoff.includes('Long-lived post-bootstrap automation cadence and authority is blocked');
+  checks.autonomous_exhaustion_manifest = manifest.includes('id: decision.autonomous-work-exhaustion-stop-gate')
+    && manifest.includes(decisionPath)
+    && manifest.includes('id: record.validation-wi-cx0046-test')
+    && manifest.includes(recordPath);
+  checks.autonomous_exhaustion_indexes = docsIndex.includes(decisionPath)
+    && docsIndex.includes(recordPath)
+    && decisionsIndex.includes(decisionPath)
+    && recordsReadme.includes(recordPath);
+  checks.autonomous_exhaustion_boundary = decision.includes('does not mark the persistent `/goal` complete')
+    && decision.includes('does not choose the Layer 2 project scope code rule')
+    && decision.includes('does not choose the post-bootstrap automation cadence')
+    && decision.includes('does not execute S2 review or create a separate reviewer')
+    && decision.includes('does not change automation schedule, prompt, merge authority, A2/A3 authority')
+    && record.includes('first Layer 2 scaffold generation')
+    && record.includes('automation cadence change')
+    && record.includes('merge authority change');
+
+  if (!checks.autonomous_exhaustion_decision) error('autonomous_exhaustion.decision_missing', 'Stop gate decision must define autonomous exhaustion and handback conditions.');
+  if (!checks.autonomous_exhaustion_policy) error('autonomous_exhaustion.policy_missing', 'Autonomy policy must document the stop gate rule.');
+  if (!checks.autonomous_exhaustion_current_wi) error('autonomous_exhaustion.current_wi_missing', 'Current WI must record AUTO/R2/E5 strategy and no-further-independent-WI handback.');
+  if (!checks.autonomous_exhaustion_record) error('autonomous_exhaustion.record_missing', 'WI-CX0046 validation record must capture stop-gate result and boundaries.');
+  if (!checks.autonomous_exhaustion_flow) error('autonomous_exhaustion.flow_missing', 'Flow and fix_plan must preserve user-decision priority, triggered work, and gated next candidates.');
+  if (!checks.autonomous_exhaustion_handoff) error('autonomous_exhaustion.handoff_missing', 'Handoff must expose the stop gate, current user decision, triggered work, and gated work.');
+  if (!checks.autonomous_exhaustion_manifest) error('autonomous_exhaustion.manifest_missing', 'Manifest must register the stop gate decision and WI-CX0046 validation record.');
+  if (!checks.autonomous_exhaustion_indexes) error('autonomous_exhaustion.index_missing', 'Documentation indexes must include the stop gate decision and validation record.');
+  if (!checks.autonomous_exhaustion_boundary) error('autonomous_exhaustion.boundary_missing', 'Stop gate must preserve goal, Layer 2, S2, automation cadence, authority, publication, and destructive-operation boundaries.');
+}
+
 function validateKiIdentityPolicy() {
   const lifecycle = read('docs/policies/work-item-lifecycle.md');
   const fixPlan = read('.flowset/fix_plan.md');
@@ -2142,6 +2225,7 @@ validateContextPackCommandSurface();
 validateContextSelectionRuleTable();
 validateDecisionQueue();
 validatePortfolioGuardrailValidatorBaseline();
+validateAutonomousWorkExhaustionStopGate();
 validateKiIdentityPolicy();
 validateHandoffSizePolicy();
 validateAutonomyDefaultOptionsPacket();

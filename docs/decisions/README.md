@@ -25,6 +25,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`: accepted per-target-project Layer 2 chunk id scope policy.
 - `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`: accepted compact machine-readable Layer 1 flow-state snapshot.
 - `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`: accepted current-and-forward portfolio guardrail validator baseline.
+- `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`: accepted autonomous work exhaustion stop gate.
 
 Decision Needed:
 
