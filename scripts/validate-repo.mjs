@@ -39,6 +39,7 @@ const requiredFiles = [
   'docs/policies/triage-strategy.md',
   'docs/policies/evaluation-strategy.md',
   'docs/policies/verification-economy.md',
+  'docs/policies/decision-queue.md',
   'docs/specifications/knowledge-system.md',
   'docs/specifications/context-pack-builder.md',
   'docs/decisions/2026-07-08-fdp-codex-operating-foundation.md',
@@ -48,6 +49,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-evaluation-surface-baseline.md',
   'docs/decisions/2026-07-08-context-pack-command-surface.md',
   'docs/decisions/2026-07-08-context-selection-rule-table.md',
+  'docs/decisions/2026-07-08-decision-queue-state-codes.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -66,6 +68,7 @@ const requiredFiles = [
   'scripts/build-context-pack.mjs',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
+  'docs/records/validation-wi-cx0022-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -79,6 +82,7 @@ const requiredChunkIds = [
   'decision.evaluation-surface-baseline',
   'decision.context-pack-command-surface',
   'decision.context-selection-rule-table',
+  'decision.decision-queue-state-codes',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -91,6 +95,7 @@ const requiredChunkIds = [
   'policy.autonomy-and-approval',
   'policy.triage-strategy',
   'policy.evaluation-strategy',
+  'policy.decision-queue',
   'policy.verification-economy',
   'spec.knowledge-system',
   'spec.context-pack-builder',
@@ -110,6 +115,7 @@ const requiredChunkIds = [
   'tool.build-context-pack',
   'record.validation-wi-cx0020-feat',
   'record.validation-wi-cx0021-feat',
+  'record.validation-wi-cx0022-docs',
 ];
 
 const requiredLabels = [
@@ -670,6 +676,54 @@ function validateContextSelectionRuleTable() {
   if (!checks.context_selection_sample_no_append) error('context_selection.default_append_failed', 'Rule-table sample must keep default no-append behavior.');
   if (!checks.context_selection_sample_no_bodies) error('context_selection.body_contract_failed', 'Rule-table sample must forbid chunk bodies.');
 }
+function validateDecisionQueue() {
+  const policy = read('docs/policies/decision-queue.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const decisionsIndex = read('docs/decisions/README.md');
+  const decision = read('docs/decisions/2026-07-08-decision-queue-state-codes.md');
+  const allowedStates = ['DQ-USER', 'DQ-POLICY', 'DQ-DEBT', 'DQ-EXTERNAL', 'DQ-ACCEPTED'];
+  const allowedOwnerGates = ['CODEX', 'USER', 'H1', 'REPO'];
+  const allowedLockBlockers = ['yes', 'no', 'conditional'];
+
+  const missingPolicyStates = allowedStates.filter((state) => !policy.includes(`\`${state}\``));
+  const queueBlock = /## Decision Needed Queue\n\n([\s\S]*?)(?:\n## |$)/.exec(fixPlan)?.[1] ?? '';
+  const rowMatches = [...queueBlock.matchAll(/^\| (?!---)(.+?) \| (DQ-[A-Z]+) \| ([A-Z0-9+]+) \| (yes|no|conditional) \| (.+?) \|$/gm)];
+  const rows = rowMatches.map((match) => ({
+    item: match[1],
+    state: match[2],
+    ownerGate: match[3],
+    lockBlocker: match[4],
+    trigger: match[5],
+  }));
+  const invalidStates = rows.filter((row) => !allowedStates.includes(row.state)).map((row) => `${row.item}:${row.state}`);
+  const invalidOwners = rows.filter((row) => !allowedOwnerGates.includes(row.ownerGate)).map((row) => `${row.item}:${row.ownerGate}`);
+  const invalidBlockers = rows.filter((row) => !allowedLockBlockers.includes(row.lockBlocker)).map((row) => `${row.item}:${row.lockBlocker}`);
+  const debtWithoutTrigger = rows
+    .filter((row) => row.state === 'DQ-DEBT' && (!row.trigger || row.trigger.length < 12))
+    .map((row) => row.item);
+
+  checks.decision_queue_policy_missing_states = missingPolicyStates;
+  checks.decision_queue_row_count = rows.length;
+  checks.decision_queue_invalid_states = invalidStates;
+  checks.decision_queue_invalid_owner_gates = invalidOwners;
+  checks.decision_queue_invalid_lock_blockers = invalidBlockers;
+  checks.decision_queue_debt_without_trigger = debtWithoutTrigger;
+  checks.decision_queue_has_lock_blocker = rows.some((row) => row.lockBlocker === 'yes');
+  checks.decision_queue_index_points_to_fix_plan = decisionsIndex.includes('`.flowset/fix_plan.md`') && decisionsIndex.includes('docs/policies/decision-queue.md');
+  checks.decision_queue_index_not_duplicated = !decisionsIndex.includes('Chunk id scope: global');
+  checks.decision_queue_decision_accepts_codes = decision.includes('DQ-USER') && decision.includes('DQ-ACCEPTED');
+
+  if (missingPolicyStates.length) error('decision_queue.policy_states_missing', 'Decision queue policy must define all state codes.', missingPolicyStates);
+  if (rows.length < 10) error('decision_queue.too_few_rows', 'Decision Needed queue must remain a state-coded table with the live unresolved items.', rows.length);
+  if (invalidStates.length) error('decision_queue.invalid_states', 'Decision Needed rows contain invalid state codes.', invalidStates);
+  if (invalidOwners.length) error('decision_queue.invalid_owner_gates', 'Decision Needed rows contain invalid owner gates.', invalidOwners);
+  if (invalidBlockers.length) error('decision_queue.invalid_lock_blockers', 'Decision Needed rows contain invalid lock blocker values.', invalidBlockers);
+  if (debtWithoutTrigger.length) error('decision_queue.debt_without_trigger', 'DQ-DEBT rows must include repayment triggers.', debtWithoutTrigger);
+  if (!checks.decision_queue_has_lock_blocker) error('decision_queue.no_lock_blocker', 'Decision queue must identify at least one real lock blocker when one exists.');
+  if (!checks.decision_queue_index_points_to_fix_plan) error('decision_queue.index_pointer_missing', 'Decisions README must point to the live fix_plan queue and policy.');
+  if (!checks.decision_queue_index_not_duplicated) error('decision_queue.index_duplicates_live_queue', 'Decisions README must not duplicate the live queue.');
+  if (!checks.decision_queue_decision_accepts_codes) error('decision_queue.decision_codes_missing', 'Decision record must accept the state-code set.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -697,6 +751,7 @@ validatePublicReadiness();
 validateEvaluationSurface();
 validateContextPackCommandSurface();
 validateContextSelectionRuleTable();
+validateDecisionQueue();
 validatePackage();
 
 const result = {

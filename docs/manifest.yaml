@@ -228,6 +228,18 @@ chunks:
       - handoff
     body_carryover: forbidden
 
+  - id: decision.decision-queue-state-codes
+    title: Decision Queue State Codes
+    source: docs/decisions/2026-07-08-decision-queue-state-codes.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - decision-needed
+      - operating-policy-lock
+      - handoff
+      - validation
+    body_carryover: forbidden
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
@@ -241,6 +253,18 @@ chunks:
       - review
     body_carryover: forbidden
 
+  - id: policy.decision-queue
+    title: Decision Queue Policy
+    source: docs/policies/decision-queue.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - decision-needed
+      - operating-policy-lock
+      - handoff
+      - validation
+    body_carryover: forbidden
   - id: policy.work-item-lifecycle
     title: Work Item and Known Issue Lifecycle
     source: docs/policies/work-item-lifecycle.md
@@ -796,6 +820,18 @@ chunks:
       - audit
       - handoff
       - context-selection-rule-table
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0022-docs
+    title: WI-CX0022-docs Validation Record
+    source: docs/records/validation-wi-cx0022-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - decision-needed
     body_carryover: forbidden
 
 hook_contract:
