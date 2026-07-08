@@ -108,6 +108,20 @@ New thread creation:
 
 Ask once for the envelope, then avoid repeated prompts inside that envelope. Ask again only at a hard stop, when the envelope expires, or when evidence contradicts the envelope assumptions.
 
+## Decision Framing UX
+
+Decision-bearing replies should make the user decision explicit instead of burying it in a long explanation.
+
+Use this order by default:
+
+1. Current situation.
+2. Codex judgment.
+3. User Decision Needed.
+4. Options A/B/C with tradeoffs.
+5. Recommendation.
+6. Next action and approval needed.
+
+This rule does not weaken approval gates. It makes the approval surface clearer before Codex proceeds.
 ## Decision Needed
 
 Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

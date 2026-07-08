@@ -16,6 +16,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-handoff-size-policy.md`: accepted Layer 1 220-line handoff limit.
 - `docs/decisions/2026-07-08-autonomy-default-options-packet.md`: accepted autonomy default options packet and user-intervention boundaries.
 - `docs/decisions/2026-07-08-operating-policy-lock.md`: accepted Layer 1 operating policy lock v0.
+- `docs/decisions/2026-07-08-collaboration-response-contract.md`: accepted user-facing decision framing and conversational Korean tone contract.
 
 Decision Needed:
 
