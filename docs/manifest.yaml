@@ -254,6 +254,19 @@ chunks:
       - operating-policy-lock
       - handoff
     body_carryover: forbidden
+
+  - id: decision.handoff-size-policy
+    title: Handoff Size Policy
+    source: docs/decisions/2026-07-08-handoff-size-policy.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - handoff
+      - context-hygiene
+      - operating-policy-lock
+      - validation
+    body_carryover: forbidden
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
@@ -858,6 +871,18 @@ chunks:
       - audit
       - handoff
       - ki-triage
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0024-docs
+    title: WI-CX0024-docs Validation Record
+    source: docs/records/validation-wi-cx0024-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - context-hygiene
     body_carryover: forbidden
 
 hook_contract:

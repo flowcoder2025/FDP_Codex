@@ -51,6 +51,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-context-selection-rule-table.md',
   'docs/decisions/2026-07-08-decision-queue-state-codes.md',
   'docs/decisions/2026-07-08-ki-identity-severity-policy.md',
+  'docs/decisions/2026-07-08-handoff-size-policy.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -71,6 +72,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
   'docs/records/validation-wi-cx0023-docs.md',
+  'docs/records/validation-wi-cx0024-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -86,6 +88,7 @@ const requiredChunkIds = [
   'decision.context-selection-rule-table',
   'decision.decision-queue-state-codes',
   'decision.ki-identity-severity-policy',
+  'decision.handoff-size-policy',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -120,6 +123,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0021-feat',
   'record.validation-wi-cx0022-docs',
   'record.validation-wi-cx0023-docs',
+  'record.validation-wi-cx0024-docs',
 ];
 
 const requiredLabels = [
@@ -745,6 +749,25 @@ function validateKiIdentityPolicy() {
   if (!checks.ki_identity_queue_removed) error('ki_identity.queue_item_not_closed', 'KI id severity encoding item must leave the live Decision Needed queue after accepted decision.');
   if (!checks.ki_identity_future_namespace_allowed) error('ki_identity.future_namespace_missing', 'Decision should preserve room for non-severity namespace or sequence naming rules.');
 }
+function validateHandoffSizePolicy() {
+  const hygiene = read('docs/policies/context-hygiene.md');
+  const handoff = read('.flowset/handoff.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const decision = read('docs/decisions/2026-07-08-handoff-size-policy.md');
+  const handoffLines = handoff.split('\n').length;
+
+  checks.handoff_size_policy_section = hygiene.includes('## Handoff Size Rule');
+  checks.handoff_size_policy_limit = hygiene.includes('must not exceed 220 lines') && decision.includes('maximum of 220 lines');
+  checks.handoff_size_validator_aligned = handoffLines <= 220;
+  checks.handoff_size_queue_removed = !fixPlan.includes('Whether handoff maximum line count should be 220');
+  checks.handoff_size_profile_future = decision.includes('Profile-dependent or larger limits are out of scope');
+
+  if (!checks.handoff_size_policy_section) error('handoff_size.policy_section_missing', 'Context hygiene policy must include Handoff Size Rule.');
+  if (!checks.handoff_size_policy_limit) error('handoff_size.limit_missing', 'Policy and decision must state the 220-line Layer 1 handoff limit.');
+  if (!checks.handoff_size_validator_aligned) error('handoff_size.current_handoff_too_long', 'Current handoff must satisfy the accepted 220-line limit.', handoffLines);
+  if (!checks.handoff_size_queue_removed) error('handoff_size.queue_item_not_closed', 'Handoff maximum line-count item must leave the live Decision Needed queue after accepted decision.');
+  if (!checks.handoff_size_profile_future) error('handoff_size.future_profile_missing', 'Decision must reserve larger profile-specific limits for future policy work.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -774,6 +797,7 @@ validateContextPackCommandSurface();
 validateContextSelectionRuleTable();
 validateDecisionQueue();
 validateKiIdentityPolicy();
+validateHandoffSizePolicy();
 validatePackage();
 
 const result = {
