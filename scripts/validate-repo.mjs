@@ -120,6 +120,9 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0046-test.md',
   'docs/records/session-orchestration-control-plane-audit-2026-07-08.md',
   'docs/records/validation-wi-cx0047-test.md',
+  '.flowset/runtime-snapshot.json',
+  'docs/specifications/runtime-snapshot.md',
+  'docs/records/validation-wi-cx0048-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -149,6 +152,9 @@ const requiredChunkIds = [
   'decision.autonomous-work-exhaustion-stop-gate',
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
+  'spec.runtime-snapshot',
+  'flow.runtime-snapshot',
+  'record.validation-wi-cx0048-test',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -2251,18 +2257,16 @@ function validateSessionOrchestrationControlPlaneAudit() {
     && audit.includes('WI-CX0048-test Runtime Snapshot Validator')
     && audit.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
     && audit.includes('WI-CX0050-test Worktree Isolation Verification');
-  checks.session_orchestration_priority = fixPlan.includes('WI-CX0048-test Runtime Snapshot Validator')
-    && fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
-    && fixPlan.indexOf('WI-CX0048-test Runtime Snapshot Validator') < fixPlan.indexOf('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
-    && handoff.includes('Next priority is WI-CX0048-test Runtime Snapshot Validator')
-    && handoff.includes('Start WI-CX0048-test Runtime Snapshot Validator')
-    && handoff.includes('control-plane confidence checks');
-  checks.session_orchestration_flow = currentWi.includes('WI id: WI-CX0047-test')
-    && currentWi.includes('WTC: VAL')
-    && state.current_wi?.id === 'WI-CX0047-test'
-    && state.current_priority?.kind === 'wi'
-    && state.current_priority?.wi_id === 'WI-CX0048-test'
-    && state.current_priority?.owner_gate === 'CODEX'
+  checks.session_orchestration_priority = audit.includes('WI-CX0048-test Runtime Snapshot Validator')
+    && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
+    && fixPlan.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
+    && handoff.includes('Start WI-CX0049-docs A2 Handoff Receiver Contract')
+    && exists('.flowset/runtime-snapshot.json');
+  checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
+    && currentWi.includes('Status: validated')
+    && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
+    && ['user_decision', 'wi'].includes(state.current_priority?.kind)
+    && state.current_priority?.owner_gate
     && state.current_priority?.strategy?.ESC === 'E1+E3+E5+E6';
   checks.session_orchestration_manifest = manifest.includes('id: record.session-orchestration-control-plane-audit')
     && manifest.includes(auditPath)
@@ -2296,12 +2300,155 @@ function validateSessionOrchestrationControlPlaneAudit() {
   if (!checks.session_orchestration_policy) error('session_orchestration.policy_missing', 'Autonomy policy must require control-plane runtime validation before fresh-run claims.');
   if (!checks.session_orchestration_audit_evidence) error('session_orchestration.audit_evidence_missing', 'Audit record must capture parent thread, automation, runner ids, duplicate-stop evidence, and the validation gap.');
   if (!checks.session_orchestration_ki_repayment) error('session_orchestration.ki_repayment_missing', 'Audit record must register KI debt and repayment WIs.');
-  if (!checks.session_orchestration_priority) error('session_orchestration.priority_missing', 'Fix plan and handoff must prioritize WI-CX0048 before Layer 2 progression.');
-  if (!checks.session_orchestration_flow) error('session_orchestration.flow_missing', 'Current WI and state snapshot must record WI-CX0047 and next WI-CX0048.');
+  if (!checks.session_orchestration_priority) error('session_orchestration.priority_missing', 'Fix plan and handoff must preserve WI-CX0047 audit evidence and advance to the next control-plane repayment WI.');
+  if (!checks.session_orchestration_flow) error('session_orchestration.flow_missing', 'Current WI and state snapshot must preserve a validated flow state after WI-CX0047.');
   if (!checks.session_orchestration_manifest) error('session_orchestration.manifest_missing', 'Manifest must register the session orchestration audit and validation record.');
   if (!checks.session_orchestration_indexes) error('session_orchestration.index_missing', 'Documentation indexes must include the session orchestration audit and validation record.');
   if (!checks.session_orchestration_validation_record) error('session_orchestration.validation_record_missing', 'WI-CX0047 validation record must capture context pack evidence, result, and strategy.');
   if (!checks.session_orchestration_boundary) error('session_orchestration.boundary_missing', 'WI-CX0047 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
+}
+function validateRuntimeSnapshotValidator() {
+  const snapshotPath = '.flowset/runtime-snapshot.json';
+  const specPath = 'docs/specifications/runtime-snapshot.md';
+  const recordPath = 'docs/records/validation-wi-cx0048-test.md';
+  const snapshot = readJson(snapshotPath);
+  const spec = read(specPath);
+  const record = read(recordPath);
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const runnerResults = Array.isArray(snapshot.runner_results) ? snapshot.runner_results : [];
+  const runnerIds = Array.isArray(snapshot.runner_discovery?.runner_thread_ids) ? snapshot.runner_discovery.runner_thread_ids : [];
+  const duplicateStops = runnerResults.filter((item) => item.receiver_result === 'duplicate-stop');
+  const hardStops = Array.isArray(snapshot.hard_stops_preserved) ? snapshot.hard_stops_preserved : [];
+  const requiredHardStops = [
+    'release_publication',
+    'deployment',
+    'package_publication',
+    'oss_submission',
+    'a3_publication_behavior',
+    'public_api_or_external_contract_change',
+    'production_dependency_addition',
+    'destructive_filesystem_or_git_operation',
+    'first_layer2_target_project_scaffold_generation',
+  ];
+
+  checks.runtime_snapshot_schema = snapshot.schema_version === 1
+    && snapshot.kind === 'fdp-codex-runtime-snapshot'
+    && snapshot.layer === 'layer1'
+    && snapshot.wi_id === 'WI-CX0048-test'
+    && snapshot.repo?.path === String.raw`C:\dev\FDP_Codex`
+    && snapshot.repo?.branch === 'wi/cx0048-test-runtime-snapshot-validator'
+    && String(snapshot.repo?.base_main_commit ?? '').startsWith('614e966');
+  checks.runtime_snapshot_parent_goal = snapshot.parent_thread?.id === '019f3d8b-76ae-7420-9337-d26582b51678'
+    && snapshot.parent_thread?.title === '안녕'
+    && snapshot.parent_thread?.cwd === String.raw`C:\dev\FDP_Codex`
+    && snapshot.parent_thread?.status === 'active'
+    && snapshot.parent_thread?.role === 'goal-carrier-parent-thread'
+    && snapshot.goal?.thread_id === snapshot.parent_thread?.id
+    && snapshot.goal?.status === 'blocked'
+    && Array.isArray(snapshot.goal?.objective_contains)
+    && snapshot.goal.objective_contains.includes('컨텍스트 오염 방지');
+  checks.runtime_snapshot_automation = snapshot.automation?.id === 'fdp-codex-a2-worktree-wi-runner'
+    && snapshot.automation?.name === 'FDP_Codex A2 Worktree WI Runner'
+    && snapshot.automation?.kind === 'cron'
+    && snapshot.automation?.status === 'ACTIVE'
+    && snapshot.automation?.execution_environment === 'worktree'
+    && Array.isArray(snapshot.automation?.cwds)
+    && snapshot.automation.cwds.includes(String.raw`C:\dev\FDP_Codex`)
+    && String(snapshot.automation?.config_path ?? '').includes('automation.toml')
+    && String(snapshot.automation?.memory_path ?? '').includes('memory.md');
+  checks.runtime_snapshot_runner_discovery = snapshot.runner_discovery?.title_query === 'FDP_Codex A2 Worktree'
+    && snapshot.runner_discovery?.title_query_count >= 4
+    && snapshot.runner_discovery?.automation_id_query === 'fdp-codex-a2-worktree-wi-runner'
+    && snapshot.runner_discovery?.automation_id_query_count === 0
+    && String(snapshot.runner_discovery?.query_gap ?? '').includes('direct automation-id thread search returned no thread summaries')
+    && snapshot.runner_discovery?.latest_runner_thread_id === '019f414e-1d1f-75f1-9070-111e535c29ef'
+    && runnerIds.includes('019f414e-1d1f-75f1-9070-111e535c29ef')
+    && runnerIds.includes('019f4115-caf6-7061-a1b8-9c08062c939c')
+    && runnerIds.includes('019f40dd-7758-7b23-b837-f3199c99b7ee')
+    && runnerIds.includes('019f40a6-8574-79a2-b322-ee6e42a2fcc5');
+  checks.runtime_snapshot_runner_results = duplicateStops.length >= 4
+    && runnerResults.some((item) => item.thread_id === '019f414e-1d1f-75f1-9070-111e535c29ef'
+      && item.receiver_result === 'duplicate-stop'
+      && String(item.receiver_evidence ?? '').includes('WI-CX0047-test')
+      && item.repository_changes === 'none')
+    && runnerResults.some((item) => item.thread_id === '019f4115-caf6-7061-a1b8-9c08062c939c'
+      && item.receiver_result === 'duplicate-stop'
+      && String(item.receiver_evidence ?? '').includes('WI-CX0046')
+      && item.repository_changes === 'none');
+  checks.runtime_snapshot_receiver_state = snapshot.handoff_receiver_assessment?.status === 'not_proven'
+    && String(snapshot.handoff_receiver_assessment?.reason ?? '').includes('did not produce a branch, PR, output record')
+    && Array.isArray(snapshot.handoff_receiver_assessment?.blocks)
+    && snapshot.handoff_receiver_assessment.blocks.includes('generalized A2/A3 autonomy expansion')
+    && snapshot.handoff_receiver_assessment.blocks.includes('first Layer 2 target-project scaffold confidence claims')
+    && Array.isArray(snapshot.handoff_receiver_assessment?.repayment_wis)
+    && snapshot.handoff_receiver_assessment.repayment_wis.includes('WI-CX0049-docs')
+    && snapshot.handoff_receiver_assessment.repayment_wis.includes('WI-CX0050-test')
+    && !runnerResults.some((item) => item.receiver_result === 'success');
+  checks.runtime_snapshot_worktree_isolation = snapshot.worktree_isolation?.status === 'not_proven'
+    && String(snapshot.worktree_isolation?.reason ?? '').includes('existing local WI branches')
+    && snapshot.worktree_isolation?.repayment_wi === 'WI-CX0050-test';
+  checks.runtime_snapshot_spec = spec.includes('Status: draft')
+    && spec.includes('metadata-only operating snapshot')
+    && spec.includes('`.flowset/runtime-snapshot.json`')
+    && spec.includes('parent_thread.id')
+    && spec.includes('runner_discovery.title_query_count')
+    && spec.includes('No runner result claims effective handoff receiver success')
+    && spec.includes('Worktree isolation remains `not_proven` until WI-CX0050-test repays it');
+  checks.runtime_snapshot_manifest = manifest.includes('id: spec.runtime-snapshot')
+    && manifest.includes(specPath)
+    && manifest.includes('id: flow.runtime-snapshot')
+    && manifest.includes(snapshotPath)
+    && manifest.includes('id: record.validation-wi-cx0048-test')
+    && manifest.includes(recordPath);
+  checks.runtime_snapshot_indexes = docsIndex.includes(specPath)
+    && docsIndex.includes(snapshotPath)
+    && docsIndex.includes(recordPath)
+    && recordsReadme.includes(snapshotPath)
+    && recordsReadme.includes(recordPath);
+  checks.runtime_snapshot_flow = currentWi.includes('WI id: WI-CX0048-test')
+    && currentWi.includes('WTC: VAL')
+    && state.current_wi?.id === 'WI-CX0048-test'
+    && state.current_priority?.kind === 'wi'
+    && state.current_priority?.wi_id === 'WI-CX0049-docs'
+    && fixPlan.includes('WI-CX0049-docs A2 Handoff Receiver Contract')
+    && handoff.includes('Start WI-CX0049-docs A2 Handoff Receiver Contract')
+    && handoff.includes('Runtime snapshot: `.flowset/runtime-snapshot.json`');
+  checks.runtime_snapshot_record = record.includes('WI: WI-CX0048-test')
+    && record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0048-test-20260708105523')
+    && record.includes('Runner title query')
+    && record.includes('Automation-id query')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance');
+  checks.runtime_snapshot_hard_stops = requiredHardStops.every((item) => hardStops.includes(item))
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('A3 publication behavior')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('destructive filesystem or git operation occurred')
+    && record.includes('first Layer 2 scaffold generation occurred')
+    && spec.includes('does not create or update Codex app automations')
+    && spec.includes('generate a Layer 2 target-project scaffold');
+
+  if (!checks.runtime_snapshot_schema) error('runtime_snapshot.schema_missing', 'Runtime snapshot must use the Layer 1 runtime snapshot schema and record repo branch/base evidence.');
+  if (!checks.runtime_snapshot_parent_goal) error('runtime_snapshot.parent_goal_missing', 'Runtime snapshot must record parent goal thread identity and blocked goal status.');
+  if (!checks.runtime_snapshot_automation) error('runtime_snapshot.automation_missing', 'Runtime snapshot must record A2 automation identity, status, and worktree config.');
+  if (!checks.runtime_snapshot_runner_discovery) error('runtime_snapshot.runner_discovery_missing', 'Runtime snapshot must record runner discovery, thread ids, latest runner, and query gap.');
+  if (!checks.runtime_snapshot_runner_results) error('runtime_snapshot.runner_results_missing', 'Runtime snapshot must record duplicate-stop receiver results for observed runners.');
+  if (!checks.runtime_snapshot_receiver_state) error('runtime_snapshot.receiver_state_invalid', 'Runtime snapshot must keep receiver status not_proven until a successful receiver output exists.');
+  if (!checks.runtime_snapshot_worktree_isolation) error('runtime_snapshot.worktree_isolation_invalid', 'Runtime snapshot must keep worktree isolation not_proven until WI-CX0050 repays it.');
+  if (!checks.runtime_snapshot_spec) error('runtime_snapshot.spec_missing', 'Runtime snapshot spec must define metadata-only fields and validation rules.');
+  if (!checks.runtime_snapshot_manifest) error('runtime_snapshot.manifest_missing', 'Manifest must register runtime snapshot, spec, and validation record.');
+  if (!checks.runtime_snapshot_indexes) error('runtime_snapshot.index_missing', 'Indexes must include runtime snapshot artifacts.');
+  if (!checks.runtime_snapshot_flow) error('runtime_snapshot.flow_missing', 'Flow state and handoff must record WI-CX0048 and advance to WI-CX0049.');
+  if (!checks.runtime_snapshot_record) error('runtime_snapshot.record_missing', 'WI-CX0048 validation record must capture evidence, result, and strategy.');
+  if (!checks.runtime_snapshot_hard_stops) error('runtime_snapshot.boundary_missing', 'WI-CX0048 must preserve hard stops and avoid automation authority or Layer 2 generation changes.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));

@@ -33,6 +33,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/specifications/knowledge-system.md`
 - `docs/specifications/context-pack-builder.md`
 - `docs/specifications/layer-2-knowledge-scaffold.md`
+- `docs/specifications/runtime-snapshot.md`
 
 ## Decisions
 
@@ -118,6 +119,8 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0046-test.md`
 - `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`
 - `docs/records/validation-wi-cx0047-test.md`
+- `.flowset/runtime-snapshot.json`
+- `docs/records/validation-wi-cx0048-test.md`
 
 ## Tooling
 
@@ -140,6 +143,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 
 - `.flowset/current-wi.md`
 - `.flowset/state.json`
+- `.flowset/runtime-snapshot.json`
 - `.flowset/fix_plan.md`
 - `.flowset/context-ledger.jsonl`
 - `.flowset/handoff.md`
