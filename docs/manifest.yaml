@@ -323,6 +323,19 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: decision.tooling-typescript-baseline
+    title: Tooling TypeScript Baseline
+    source: docs/decisions/2026-07-08-tooling-typescript-baseline.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - tooling
+      - validation
+      - ci
+      - wi-start
+      - handoff
+    body_carryover: forbidden
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
@@ -513,6 +526,29 @@ chunks:
       - context-pack-building
     body_carryover: forbidden
 
+  - id: tool.package-lock
+    title: Node Package Lockfile
+    source: package-lock.json
+    type: tool-lock
+    layer: layer1
+    status: generated
+    loads_for:
+      - validation
+      - tooling
+      - ci
+    body_carryover: forbidden
+
+  - id: tool.tsconfig
+    title: TypeScript Tooling Config
+    source: tsconfig.json
+    type: tool-config
+    layer: layer1
+    status: accepted
+    loads_for:
+      - validation
+      - tooling
+      - ci
+    body_carryover: forbidden
   - id: tool.manifest-lib
     title: Manifest Parser Library
     source: scripts/lib/manifest.mjs
@@ -997,6 +1033,18 @@ chunks:
       - audit
       - handoff
       - local-workspace-realignment
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0028-chore
+    title: WI-CX0028-chore Validation Record
+    source: docs/records/validation-wi-cx0028-chore.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - tooling
+      - validation
     body_carryover: forbidden
 hook_contract:
   status: implemented-v1

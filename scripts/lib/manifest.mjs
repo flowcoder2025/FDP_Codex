@@ -1,3 +1,13 @@
+/**
+ * @typedef {{[key: string]: string | undefined, id: string, source?: string, reason?: string}} ManifestAlwaysOn
+ * @typedef {{[key: string]: string | string[] | undefined, id: string, source?: string, type?: string, layer?: string, status?: string, body_carryover?: string, loads_for?: string[]}} ManifestChunk
+ * @typedef {{[key: string]: string | string[] | undefined, input: string[], output: string[], forbidden_output: string[], status?: string, implementation?: string}} ManifestHookContract
+ */
+
+/**
+ * @param {string} manifestText
+ * @returns {{alwaysOn: ManifestAlwaysOn[], chunks: ManifestChunk[], hookContract: ManifestHookContract}}
+ */
 export function parseManifest(manifestText) {
   const normalized = manifestText.replace(/\r\n/g, '\n');
   return {
@@ -7,9 +17,15 @@ export function parseManifest(manifestText) {
   };
 }
 
+/**
+ * @param {string} manifestText
+ * @returns {ManifestAlwaysOn[]}
+ */
 function parseAlwaysOn(manifestText) {
+  /** @type {ManifestAlwaysOn[]} */
   const alwaysOn = [];
   let inAlwaysOn = false;
+  /** @type {ManifestAlwaysOn | null} */
   let current = null;
 
   for (const line of manifestText.split('\n')) {
@@ -41,10 +57,17 @@ function parseAlwaysOn(manifestText) {
   return alwaysOn;
 }
 
+/**
+ * @param {string} manifestText
+ * @returns {ManifestChunk[]}
+ */
 function parseChunks(manifestText) {
+  /** @type {ManifestChunk[]} */
   const chunks = [];
   let inChunks = false;
+  /** @type {ManifestChunk | null} */
   let current = null;
+  /** @type {string | null} */
   let activeList = null;
 
   for (const line of manifestText.split('\n')) {
@@ -82,16 +105,23 @@ function parseChunks(manifestText) {
 
     const listMatch = /^      - (.+)$/.exec(line);
     if (listMatch && activeList) {
-      current[activeList].push(listMatch[1].trim());
+      const list = current[activeList];
+      if (Array.isArray(list)) list.push(listMatch[1].trim());
     }
   }
 
   return chunks;
 }
 
+/**
+ * @param {string} manifestText
+ * @returns {ManifestHookContract}
+ */
 function parseHookContract(manifestText) {
+  /** @type {ManifestHookContract} */
   const hook = { input: [], output: [], forbidden_output: [] };
   let inHook = false;
+  /** @type {string | null} */
   let activeList = null;
 
   for (const line of manifestText.split('\n')) {
@@ -116,7 +146,8 @@ function parseHookContract(manifestText) {
 
     const listMatch = /^    - (.+)$/.exec(line);
     if (listMatch && activeList) {
-      hook[activeList].push(listMatch[1].trim());
+      const list = hook[activeList];
+      if (Array.isArray(list)) list.push(listMatch[1].trim());
     }
   }
 

@@ -21,6 +21,11 @@ const allowedCategories = new Set([
   'revert',
 ]);
 
+/**
+ * @typedef {{id: string, source?: string}} ValidatorAlwaysOn
+ * @typedef {{id: string, source?: string, type?: string, status?: string, body_carryover?: string}} ValidatorManifestChunk
+ */
+
 const requiredFiles = [
   'AGENTS.md',
   'README.md',
@@ -56,6 +61,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-operating-policy-lock.md',
   'docs/decisions/2026-07-08-collaboration-response-contract.md',
   'docs/decisions/2026-07-08-session-boundary-automation-contract.md',
+  'docs/decisions/2026-07-08-tooling-typescript-baseline.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -66,6 +72,8 @@ const requiredFiles = [
   '.github/ISSUE_TEMPLATE/config.yml',
   '.github/labels.yml',
   '.github/workflows/validate.yml',
+  'package-lock.json',
+  'tsconfig.json',
   'docs/runbooks/github-label-setup.md',
   'docs/runbooks/bootstrap-reconciliation.md',
   'package.json',
@@ -82,6 +90,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0026-docs.md',
   'docs/records/validation-wi-cx0027-docs.md',
   'docs/records/validation-wi-cx0018-chore.md',
+  'docs/records/validation-wi-cx0028-chore.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -102,6 +111,7 @@ const requiredChunkIds = [
   'decision.operating-policy-lock',
   'decision.collaboration-response-contract',
   'decision.session-boundary-automation-contract',
+  'decision.tooling-typescript-baseline',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -132,6 +142,9 @@ const requiredChunkIds = [
   'runbook.bootstrap-reconciliation',
   'tool.manifest-lib',
   'tool.build-context-pack',
+  'tool.package',
+  'tool.package-lock',
+  'tool.tsconfig',
   'record.validation-wi-cx0020-feat',
   'record.validation-wi-cx0021-feat',
   'record.validation-wi-cx0022-docs',
@@ -142,6 +155,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0026-docs',
   'record.validation-wi-cx0027-docs',
   'record.validation-wi-cx0018-chore',
+  'record.validation-wi-cx0028-chore',
 ];
 
 const requiredLabels = [
@@ -207,9 +221,15 @@ function git(args) {
   }
 }
 
+/**
+ * @param {string} manifestText
+ * @returns {ValidatorAlwaysOn[]}
+ */
 function parseManifestAlwaysOn(manifestText) {
+  /** @type {ValidatorAlwaysOn[]} */
   const alwaysOn = [];
   let inAlwaysOn = false;
+  /** @type {ValidatorAlwaysOn | null} */
   let current = null;
 
   for (const line of manifestText.split('\n')) {
@@ -238,9 +258,15 @@ function parseManifestAlwaysOn(manifestText) {
   return alwaysOn;
 }
 
+/**
+ * @param {string} manifestText
+ * @returns {ValidatorManifestChunk[]}
+ */
 function parseManifestChunks(manifestText) {
+  /** @type {ValidatorManifestChunk[]} */
   const chunks = [];
   let inChunks = false;
+  /** @type {ValidatorManifestChunk | null} */
   let current = null;
 
   for (const line of manifestText.split('\n')) {
@@ -932,33 +958,85 @@ function validateCollaborationResponseContract() {
   if (!checks.session_boundary_boundaries) error('session_boundary.boundaries_missing', 'Decision must preserve live automation, new-thread, release, and destructive realignment boundaries.');
 }
 function validateLocalWorkspaceRealignment() {
-  const currentWi = read('.flowset/current-wi.md');
   const fixPlan = read('.flowset/fix_plan.md');
   const handoff = read('.flowset/handoff.md');
   const record = read('docs/records/validation-wi-cx0018-chore.md');
+  const localRoot = String.raw`C:\dev\FDP_Codex`;
+  const backupPath = String.raw`C:\tmp\fdp-codex-dev-backup-20260708-140739`;
 
-  checks.local_realign_current_wi = currentWi.includes('WI id: WI-CX0018-chore')
-    && currentWi.includes('Status: validated')
-    && currentWi.includes('C:\\dev\\FDP_Codex');
-  checks.local_realign_backup_recorded = record.includes('C:\\tmp\\fdp-codex-dev-backup-20260708-140739')
-    && handoff.includes('C:\\tmp\\fdp-codex-dev-backup-20260708-140739');
+  checks.local_realign_record_wi = record.includes('WI: WI-CX0018-chore')
+    && record.includes('Status: evidence')
+    && record.includes(localRoot);
+  checks.local_realign_backup_recorded = record.includes(backupPath)
+    && handoff.includes(backupPath);
   checks.local_realign_head_recorded = record.includes('aeac5d0dc3406aeb8d441bc7e5b9bd1061591760')
     && handoff.includes('aeac5d0dc3406aeb8d441bc7e5b9bd1061591760');
-  checks.local_realign_canonical_handoff = handoff.includes('`C:\\dev\\FDP_Codex` is canonical after WI-CX0018 realignment')
-    && !handoff.includes('Do not treat `C:\\dev\\FDP_Codex` Git metadata as canonical');
-  checks.local_realign_next_wi = fixPlan.includes('WI-CX0028-chore Tooling TypeScript Baseline')
-    && handoff.includes('WI-CX0028-chore Tooling TypeScript Baseline');
+  checks.local_realign_canonical_handoff = handoff.includes('`' + localRoot + '` is canonical after WI-CX0018 realignment')
+    && !handoff.includes('Do not treat `' + localRoot + '` Git metadata as canonical');
+  checks.local_realign_backlog_advanced = !/^- \[ \] WI-CX0018-chore\b/m.test(fixPlan)
+    && handoff.includes('WI-CX0018-chore: Local Workspace Realignment');
   checks.local_realign_boundary = record.includes('Destructive local realignment occurred only after explicit user approval')
     && record.includes('No release publication, deployment, package publication, OSS program submission');
 
-  if (!checks.local_realign_current_wi) error('local_realign.current_wi_missing', 'Current WI must record validated local workspace realignment.');
+  if (!checks.local_realign_record_wi) error('local_realign.record_wi_missing', 'WI-CX0018 evidence record must preserve the completed local realignment facts.');
   if (!checks.local_realign_backup_recorded) error('local_realign.backup_missing', 'Realignment backup path must be recorded.');
   if (!checks.local_realign_head_recorded) error('local_realign.head_missing', 'Realigned HEAD must be recorded.');
-  if (!checks.local_realign_canonical_handoff) error('local_realign.canonical_handoff_missing', 'Handoff must mark C:\\dev\\FDP_Codex canonical after realignment.');
-  if (!checks.local_realign_next_wi) error('local_realign.next_wi_missing', 'fix_plan and handoff must advance to WI-CX0028-chore.');
+  if (!checks.local_realign_canonical_handoff) error('local_realign.canonical_handoff_missing', `Handoff must mark ${localRoot} canonical after realignment.`);
+  if (!checks.local_realign_backlog_advanced) error('local_realign.backlog_not_advanced', 'Completed WI-CX0018 must not remain the live fix_plan current priority.');
   if (!checks.local_realign_boundary) error('local_realign.boundary_missing', 'Validation record must preserve destructive approval and publication boundaries.');
 }
-function validatePackage() {
+function validateToolingTypeScriptBaseline() {
+  const pkg = JSON.parse(read('package.json'));
+  const lock = JSON.parse(read('package-lock.json'));
+  const tsconfig = JSON.parse(read('tsconfig.json'));
+  const workflow = read('.github/workflows/validate.yml');
+  const decision = read('docs/decisions/2026-07-08-tooling-typescript-baseline.md');
+  const record = read('docs/records/validation-wi-cx0028-chore.md');
+  const compilerOptions = tsconfig.compilerOptions ?? {};
+  const workflowTypecheckIndex = workflow.indexOf('run: npm run typecheck');
+  const workflowValidateIndex = workflow.indexOf('run: npm run validate');
+
+  checks.ts_baseline_dev_dependencies = pkg.devDependencies?.typescript === '^6.0.3'
+    && pkg.devDependencies?.['@types/node'] === '^20.19.43';
+  checks.ts_baseline_lockfile = lock.lockfileVersion === 3
+    && lock.packages?.['node_modules/typescript']?.version === '6.0.3'
+    && lock.packages?.['node_modules/@types/node']?.version === '20.19.43';
+  checks.ts_baseline_scripts = pkg.scripts?.typecheck === 'tsc --project tsconfig.json --noEmit'
+    && pkg.scripts?.['ci:check'] === 'npm run typecheck && npm run validate'
+    && pkg.scripts?.validate === 'node scripts/validate-repo.mjs';
+  checks.ts_baseline_tsconfig = compilerOptions.allowJs === true
+    && compilerOptions.checkJs === true
+    && compilerOptions.noEmit === true
+    && compilerOptions.module === 'NodeNext'
+    && compilerOptions.moduleResolution === 'NodeNext'
+    && compilerOptions.types?.includes('node')
+    && tsconfig.include?.includes('scripts/**/*.mjs');
+  checks.ts_baseline_workflow = workflow.includes('cache: npm')
+    && workflow.includes('run: npm ci')
+    && workflowTypecheckIndex >= 0
+    && workflowValidateIndex > workflowTypecheckIndex;
+  checks.ts_baseline_runtime_preserved = exists('scripts/validate-repo.mjs')
+    && exists('scripts/build-context-pack.mjs')
+    && exists('scripts/lib/manifest.mjs')
+    && !exists('scripts/validate-repo.ts')
+    && !exists('scripts/build-context-pack.ts');
+  checks.ts_baseline_decision = decision.includes('Adopt a TypeScript tooling baseline without converting runtime source files')
+    && decision.includes('development dependencies only')
+    && decision.includes('Keep `npm run validate` mapped to `node scripts/validate-repo.mjs`');
+  checks.ts_baseline_record = record.includes('WI: WI-CX0028-chore')
+    && record.includes('npm run typecheck')
+    && record.includes('npm run validate')
+    && record.includes('No runtime source conversion');
+
+  if (!checks.ts_baseline_dev_dependencies) error('ts_baseline.dev_dependencies_missing', 'TypeScript baseline must pin TypeScript and Node 20 type devDependencies.');
+  if (!checks.ts_baseline_lockfile) error('ts_baseline.lockfile_missing', 'TypeScript baseline lockfile entries must be present and reproducible.');
+  if (!checks.ts_baseline_scripts) error('ts_baseline.scripts_missing', 'package.json must expose typecheck and ci:check without changing validate.');
+  if (!checks.ts_baseline_tsconfig) error('ts_baseline.tsconfig_invalid', 'tsconfig must check existing .mjs scripts with allowJs/checkJs/noEmit.');
+  if (!checks.ts_baseline_workflow) error('ts_baseline.workflow_missing', 'Validate workflow must install deps, typecheck, then validate.');
+  if (!checks.ts_baseline_runtime_preserved) error('ts_baseline.runtime_changed', 'TypeScript baseline must preserve existing .mjs runtime entrypoints.');
+  if (!checks.ts_baseline_decision) error('ts_baseline.decision_missing', 'TypeScript baseline decision must preserve runtime and dependency boundaries.');
+  if (!checks.ts_baseline_record) error('ts_baseline.record_missing', 'WI-CX0028 validation record must include typecheck and validation evidence.');
+}function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
   checks.package_context_pack_script = pkg.scripts?.['context:pack'] ?? null;
@@ -993,6 +1071,7 @@ validateOperatingPolicyLock();
 validateCollaborationResponseContract();
 validateSessionBoundaryAutomationContract();
 validateLocalWorkspaceRealignment();
+validateToolingTypeScriptBaseline();
 validatePackage();
 
 const result = {
