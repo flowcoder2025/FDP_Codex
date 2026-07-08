@@ -57,6 +57,7 @@ Current validation records:
 - `docs/records/validation-wi-cx0047-test.md`
 - `docs/records/validation-wi-cx0048-test.md`
 - `docs/records/validation-wi-cx0049-docs.md`
+- `docs/records/validation-wi-cx0050-test.md`
 
 Other records:
 

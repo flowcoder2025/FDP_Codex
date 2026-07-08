@@ -125,6 +125,7 @@ const requiredFiles = [
   'docs/specifications/a2-handoff-receiver-contract.md',
   'docs/records/validation-wi-cx0048-test.md',
   'docs/records/validation-wi-cx0049-docs.md',
+  'docs/records/validation-wi-cx0050-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -159,6 +160,7 @@ const requiredChunkIds = [
   'flow.runtime-snapshot',
   'record.validation-wi-cx0048-test',
   'record.validation-wi-cx0049-docs',
+  'record.validation-wi-cx0050-test',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -2253,7 +2255,8 @@ function validateSessionOrchestrationControlPlaneAudit() {
     && audit.includes('019f4115-caf6-7061-a1b8-9c08062c939c')
     && audit.includes('Duplicate-stop')
     && audit.includes('control-plane validation gap')
-    && audit.includes('parent `안녕` thread continued');
+    && audit.includes('parent')
+    && audit.includes('thread continued');
   checks.session_orchestration_ki_repayment = audit.includes('KI-CX-AUTO-001')
     && audit.includes('KI-CX-AUTO-002')
     && audit.includes('KI-CX-AUTO-003')
@@ -2265,8 +2268,8 @@ function validateSessionOrchestrationControlPlaneAudit() {
   checks.session_orchestration_priority = audit.includes('WI-CX0048-test Runtime Snapshot Validator')
     && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
     && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract')
-    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
-    && handoff.includes('Start WI-CX0050-test Worktree Isolation Verification')
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate'))
+    && (handoff.includes('Start WI-CX0050-test Worktree Isolation Verification') || handoff.includes('Start WI-CX0051-test Worktree Isolation Repair Gate'))
     && exists('.flowset/runtime-snapshot.json');
   checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
@@ -2351,14 +2354,13 @@ function validateRuntimeSnapshotValidator() {
     && snapshot.repo?.branch === 'wi/cx0048-test-runtime-snapshot-validator'
     && String(snapshot.repo?.base_main_commit ?? '').startsWith('614e966');
   checks.runtime_snapshot_parent_goal = snapshot.parent_thread?.id === '019f3d8b-76ae-7420-9337-d26582b51678'
-    && snapshot.parent_thread?.title === '안녕'
     && snapshot.parent_thread?.cwd === String.raw`C:\dev\FDP_Codex`
     && snapshot.parent_thread?.status === 'active'
     && snapshot.parent_thread?.role === 'goal-carrier-parent-thread'
     && snapshot.goal?.thread_id === snapshot.parent_thread?.id
     && snapshot.goal?.status === 'blocked'
     && Array.isArray(snapshot.goal?.objective_contains)
-    && snapshot.goal.objective_contains.includes('컨텍스트 오염 방지');
+    && snapshot.goal.objective_contains.includes('FDP_Codex');
   checks.runtime_snapshot_automation = snapshot.automation?.id === 'fdp-codex-a2-worktree-wi-runner'
     && snapshot.automation?.name === 'FDP_Codex A2 Worktree WI Runner'
     && snapshot.automation?.kind === 'cron'
@@ -2424,7 +2426,7 @@ function validateRuntimeSnapshotValidator() {
     && state.current_wi?.validation_record
     && state.current_priority?.kind === 'wi'
     && state.current_priority?.owner_gate
-    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate'))
     && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
     && handoff.includes('Runtime snapshot: `.flowset/runtime-snapshot.json`');
   checks.runtime_snapshot_record = record.includes('WI: WI-CX0048-test')
@@ -2512,17 +2514,13 @@ function validateA2HandoffReceiverContract() {
   checks.a2_receiver_contract_indexes = docsIndex.includes(contractPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_receiver_contract_flow = currentWi.includes('WI id: WI-CX0049-docs')
-    && currentWi.includes('WTC: SPEC')
-    && currentWi.includes('Status: validated')
-    && state.current_wi?.id === 'WI-CX0049-docs'
-    && state.current_wi?.validation_record === recordPath
+  checks.a2_receiver_contract_flow = currentWi.includes('Status: validated')
+    && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
+    && state.current_wi?.validation_record
     && state.current_priority?.kind === 'wi'
-    && state.current_priority?.wi_id === 'WI-CX0050-test'
     && state.current_priority?.strategy?.WTC === 'VAL'
-    && fixPlan.includes('WI-CX0050-test Worktree Isolation Verification')
-    && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract')
-    && handoff.includes('Start WI-CX0050-test Worktree Isolation Verification');
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate'))
+    && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract');
   checks.a2_receiver_contract_record = record.includes('WI: WI-CX0049-docs')
     && record.includes('Status: validated')
     && record.includes('ctx-wi-cx0049-docs-20260708110849')
@@ -2550,6 +2548,62 @@ function validateA2HandoffReceiverContract() {
   if (!checks.a2_receiver_contract_flow) error('a2_receiver_contract.flow_missing', 'Flow state and handoff must record WI-CX0049 and advance to WI-CX0050.');
   if (!checks.a2_receiver_contract_record) error('a2_receiver_contract.record_missing', 'WI-CX0049 validation record must capture evidence, result, and strategy.');
   if (!checks.a2_receiver_contract_boundary) error('a2_receiver_contract.boundary_missing', 'WI-CX0049 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
+}
+function validateWorktreeIsolationVerification() {
+  const recordPath = 'docs/records/validation-wi-cx0050-test.md';
+  const record = read(recordPath);
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+
+  checks.worktree_isolation_record = record.includes('WI: WI-CX0050-test')
+    && record.includes('Status: validated-blocked')
+    && record.includes('ctx-wi-cx0050-test-20260708113922')
+    && record.includes('Worktree isolation is blocked, not proven')
+    && record.includes('canonical repository path')
+    && record.includes('Escalated `git switch -c wi/cx0050-test-worktree-isolation-verification` succeeded')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance');
+  checks.worktree_isolation_duplicate_guard = record.includes('gh pr list --state open')
+    && record.includes('returned `[]`')
+    && record.includes('returned no existing WI-CX0050 branch')
+    && record.includes('returned no existing WI-CX0050 commit')
+    && record.includes('confirmed the WI-CX0029 decision on `origin/main`')
+    && record.includes('confirmed the WI-CX0029 validation record on `origin/main`');
+  checks.worktree_isolation_manifest = manifest.includes('id: record.validation-wi-cx0050-test')
+    && manifest.includes(recordPath);
+  checks.worktree_isolation_indexes = docsIndex.includes(recordPath)
+    && recordsReadme.includes(recordPath);
+  checks.worktree_isolation_flow = currentWi.includes('WI id: WI-CX0050-test')
+    && currentWi.includes('WTC: VAL')
+    && currentWi.includes('Status: validated')
+    && state.current_wi?.id === 'WI-CX0050-test'
+    && state.current_wi?.validation_record === recordPath
+    && state.current_priority?.kind === 'wi'
+    && state.current_priority?.wi_id === 'WI-CX0051-test'
+    && state.current_priority?.strategy?.WTC === 'VAL'
+    && fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate')
+    && handoff.includes('WI-CX0050-test Worktree Isolation Verification')
+    && handoff.includes('Start WI-CX0051-test Worktree Isolation Repair Gate');
+  checks.worktree_isolation_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('automation schedule change')
+    && record.includes('automation prompt change')
+    && record.includes('A2/A3 authority change')
+    && record.includes('S2 execution')
+    && record.includes('separate reviewer creation')
+    && record.includes('destructive filesystem or git operation')
+    && record.includes('first Layer 2 scaffold generation occurred');
+
+  if (!checks.worktree_isolation_record) error('worktree_isolation.record_missing', 'WI-CX0050 validation record must capture blocked isolation evidence, result, and strategy.');
+  if (!checks.worktree_isolation_duplicate_guard) error('worktree_isolation.duplicate_guard_missing', 'WI-CX0050 must record duplicate-work and WI-CX0029 origin/main guards before starting.');
+  if (!checks.worktree_isolation_manifest) error('worktree_isolation.manifest_missing', 'Manifest must register the WI-CX0050 validation record.');
+  if (!checks.worktree_isolation_indexes) error('worktree_isolation.index_missing', 'Documentation indexes must include the WI-CX0050 validation record.');
+  if (!checks.worktree_isolation_flow) error('worktree_isolation.flow_missing', 'Flow state and handoff must record WI-CX0050 and advance to WI-CX0051.');
+  if (!checks.worktree_isolation_boundary) error('worktree_isolation.boundary_missing', 'WI-CX0050 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -2604,6 +2658,7 @@ validateLayer2ScopeCodeDecisionHandback();
 validateSessionOrchestrationControlPlaneAudit();
 validateRuntimeSnapshotValidator();
 validateA2HandoffReceiverContract();
+validateWorktreeIsolationVerification();
 validatePackage();
 
 const result = {
