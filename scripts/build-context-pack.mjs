@@ -18,7 +18,7 @@ const selectionRuleTable = [
     id: 'flow.wi-state',
     trigger: 'wi-start',
     reason: 'WI start flow state',
-    chunkIds: ['flow.current-wi', 'flow.fix-plan', 'flow.handoff'],
+    chunkIds: ['flow.state-snapshot', 'flow.current-wi', 'flow.fix-plan', 'flow.handoff'],
   },
   {
     id: 'risk.r2-r3-policy-baseline',

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "kind": "fdp-codex-flow-state",
+  "layer": "layer1",
+  "updated_at": "2026-07-08T08:16:12Z",
+  "source_files": [
+    ".flowset/current-wi.md",
+    ".flowset/fix_plan.md",
+    ".flowset/handoff.md"
+  ],
+  "current_wi": {
+    "id": "WI-CX0039-docs",
+    "category": "docs",
+    "title": "Flow State Readable Snapshot",
+    "status": "validated",
+    "branch": "wi/cx0039-docs-flow-state-readable-snapshot",
+    "validation_record": "docs/records/validation-wi-cx0039-docs.md"
+  },
+  "current_priority": {
+    "kind": "user_decision",
+    "item": "Layer 2 project scope code rule",
+    "state": "DQ-USER",
+    "owner_gate": "USER",
+    "lock_blocker": "conditional",
+    "prompt": "docs/records/layer-2-scope-code-decision-handback-2026-07-08.md",
+    "recommended_answer_shape": "A, use <CODE>",
+    "blocks": [
+      "WI-CX0038-docs",
+      "first Layer 2 target-project scaffold generation"
+    ]
+  },
+  "triggered_work": [
+    {
+      "wi_id": "WI-CX0035-test",
+      "title": "Automation Runner First Fresh-Run Output Review",
+      "status": "blocked-until-trigger",
+      "trigger": "new FDP_Codex runner thread, branch, PR, or recorded output for fdp-codex-a2-worktree-wi-runner"
+    }
+  ],
+  "hard_stops": [
+    "release_publication",
+    "deployment",
+    "package_publication",
+    "oss_submission",
+    "a3_publication_behavior",
+    "public_api_or_external_contract_change",
+    "production_dependency_addition",
+    "destructive_filesystem_or_git_operation",
+    "first_layer2_target_project_scaffold_generation"
+  ],
+  "hygiene": {
+    "body_storage": "forbidden",
+    "context_bodies_carried": false,
+    "snapshot_role": "machine-readable flow snapshot; not a context body store"
+  }
+}

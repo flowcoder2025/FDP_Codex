@@ -55,6 +55,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-automation-run-surface-installation.md`
 - `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`
 - `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`
+- `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`
 
 ## Runbooks
 
@@ -104,6 +105,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0036-docs.md`
 - `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`
 - `docs/records/validation-wi-cx0037-docs.md`
+- `docs/records/validation-wi-cx0039-docs.md`
 
 ## Tooling
 
@@ -124,6 +126,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 ## Flowset State
 
 - `.flowset/current-wi.md`
+- `.flowset/state.json`
 - `.flowset/fix_plan.md`
 - `.flowset/context-ledger.jsonl`
 - `.flowset/handoff.md`
