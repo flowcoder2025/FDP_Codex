@@ -349,6 +349,18 @@ chunks:
       - handoff
       - validation
     body_carryover: forbidden
+  - id: decision.context-ledger-dedupe-policy
+    title: Context Ledger Dedupe Policy
+    source: docs/decisions/2026-07-08-context-ledger-dedupe-policy.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - context-hygiene
+      - context-pack-building
+      - validation
+      - handoff
+    body_carryover: forbidden
   - id: policy.context-hygiene
     title: Context Hygiene Policy
     source: docs/policies/context-hygiene.md
@@ -1082,6 +1094,18 @@ chunks:
       - audit
       - handoff
       - automation-planning
+      - validation
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0031-chore
+    title: WI-CX0031-chore Validation Record
+    source: docs/records/validation-wi-cx0031-chore.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - context-hygiene
       - validation
     body_carryover: forbidden
 hook_contract:

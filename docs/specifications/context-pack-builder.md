@@ -94,6 +94,15 @@ The top-level `selection_rule_ids` list must summarize the unique rule ids that 
 
 The `ledger_append` object must report whether append was requested, the ledger path, actor, status, and appended entry count.
 
+## Ledger Dedupe Contract
+
+The builder append mode must keep `.flowset/context-ledger.jsonl` append-only.
+
+The builder must not deduplicate before append and must not rewrite, compact, or delete existing ledger lines.
+
+Any future ledger dedupe command must be read-only with respect to `.flowset/context-ledger.jsonl` and must emit a derived metadata-only report outside the source ledger.
+
+A dedupe report may group records by `wi_id`, `chunk_id`, `source`, and `hash`, or by `chunk_id`, `source`, and `hash` for cross-WI reporting. It must be reproducible from the source ledger and `docs/manifest.yaml`.
 ## Decision Needed
 
 - None for the implemented v1 rule table.
