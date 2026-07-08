@@ -60,6 +60,17 @@ The handoff should point to SSOT documents, validation records, decisions, PRs, 
 
 A larger handoff limit requires a future profile-specific policy WI. Until then, 220 lines is the validator-backed limit.
 
+## Append-Only Ledger And Dedupe Views
+
+`.flowset/context-ledger.jsonl` is append-only audit evidence.
+
+Repeated entries are expected when the same chunk is selected across WIs, validation reruns, or handoff updates.
+
+Do not compact, rewrite, delete, or deduplicate the source ledger in place during ordinary WI work.
+
+Dedupe is allowed only as a metadata-only derived view or report. A derived view may group entries by `wi_id`, `chunk_id`, `source`, and `hash`, or by `chunk_id`, `source`, and `hash` for an explicitly cross-WI view.
+
+A derived dedupe view must not store chunk bodies, copied SSOT text, or long summaries. It must not become SSOT and must not replace the append-only ledger.
 ## Hook Contract
 
 The context pack builder may select chunks and produce a context pack manifest. It must not become a hidden memory store.

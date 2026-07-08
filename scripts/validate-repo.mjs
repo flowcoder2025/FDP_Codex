@@ -63,6 +63,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-session-boundary-automation-contract.md',
   'docs/decisions/2026-07-08-tooling-typescript-baseline.md',
   'docs/decisions/2026-07-08-automation-run-surface-installation.md',
+  'docs/decisions/2026-07-08-context-ledger-dedupe-policy.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -94,6 +95,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0028-chore.md',
   'docs/records/validation-wi-cx0029-chore.md',
   'docs/records/validation-wi-cx0030-test.md',
+  'docs/records/validation-wi-cx0031-chore.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -116,6 +118,7 @@ const requiredChunkIds = [
   'decision.session-boundary-automation-contract',
   'decision.tooling-typescript-baseline',
   'decision.automation-run-surface-installation',
+  'decision.context-ledger-dedupe-policy',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -162,6 +165,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0028-chore',
   'record.validation-wi-cx0029-chore',
   'record.validation-wi-cx0030-test',
+  'record.validation-wi-cx0031-chore',
 ];
 
 const requiredLabels = [
@@ -1127,6 +1131,7 @@ function validateAutomationRunSurfaceInstallation() {
 }
 function validateAutomationRunnerPostMergeSmoke() {
   const record = read('docs/records/validation-wi-cx0030-test.md');
+  const currentWi = read('.flowset/current-wi.md');
   const manifest = read('docs/manifest.yaml');
   const fixPlan = read('.flowset/fix_plan.md');
   const handoff = read('.flowset/handoff.md');
@@ -1158,9 +1163,10 @@ function validateAutomationRunnerPostMergeSmoke() {
     && manifest.includes('docs/records/validation-wi-cx0030-test.md');
   checks.automation_smoke_indexes = docsIndex.includes('validation-wi-cx0030-test.md')
     && recordsReadme.includes('validation-wi-cx0030-test.md');
-  checks.automation_smoke_flow = fixPlan.includes('WI-CX0031-chore Context Ledger Dedupe Policy')
-    && handoff.includes('WI-CX0030-test: Automation Runner Post-Merge Smoke')
-    && handoff.includes('WI-CX0031-chore Context Ledger Dedupe Policy');
+  checks.automation_smoke_flow = !currentWi.includes('WI id: WI-CX0030-test')
+    && handoff.includes('WI-CX0030-test')
+    && handoff.includes('docs/records/validation-wi-cx0030-test.md')
+    && !/^- \[ \] WI-CX0030-test\b/m.test(fixPlan);
   checks.automation_smoke_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
     && record.includes('destructive local realignment occurred');
@@ -1170,8 +1176,65 @@ function validateAutomationRunnerPostMergeSmoke() {
   if (!checks.automation_smoke_handoff_hygiene) error('automation_smoke.handoff_hygiene_missing', 'WI-CX0030 must repair and record handoff Windows path hygiene.');
   if (!checks.automation_smoke_manifest) error('automation_smoke.manifest_missing', 'Manifest must register WI-CX0030 validation record.');
   if (!checks.automation_smoke_indexes) error('automation_smoke.index_missing', 'Record indexes must include WI-CX0030 validation record.');
-  if (!checks.automation_smoke_flow) error('automation_smoke.flow_missing', 'Flow state must advance to WI-CX0031 and handoff must mention WI-CX0030.');
+  if (!checks.automation_smoke_flow) error('automation_smoke.flow_missing', 'Flow state must preserve WI-CX0030 handoff evidence while advancing beyond WI-CX0030.');
   if (!checks.automation_smoke_boundary) error('automation_smoke.boundary_missing', 'WI-CX0030 record must preserve excluded publication, dependency, and destructive boundaries.');
+}
+function validateContextLedgerDedupePolicy() {
+  const hygiene = read('docs/policies/context-hygiene.md');
+  const spec = read('docs/specifications/context-pack-builder.md');
+  const decision = read('docs/decisions/2026-07-08-context-ledger-dedupe-policy.md');
+  const record = read('docs/records/validation-wi-cx0031-chore.md');
+  const manifest = read('docs/manifest.yaml');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const docsIndex = read('docs/index.md');
+
+  checks.ledger_dedupe_decision = decision.includes('Do not compact, rewrite, delete, or deduplicate `.flowset/context-ledger.jsonl` in place')
+    && decision.includes('append-only audit evidence')
+    && decision.includes('metadata-only derived view or report')
+    && decision.includes('must not store chunk bodies')
+    && decision.includes('must not become the source of truth');
+  checks.ledger_dedupe_policy = hygiene.includes('## Append-Only Ledger And Dedupe Views')
+    && hygiene.includes('append-only audit evidence')
+    && hygiene.includes('Do not compact, rewrite, delete, or deduplicate the source ledger in place')
+    && hygiene.includes('metadata-only derived view or report')
+    && hygiene.includes('must not replace the append-only ledger');
+  checks.ledger_dedupe_spec = spec.includes('## Ledger Dedupe Contract')
+    && spec.includes('must not deduplicate before append')
+    && spec.includes('must not rewrite, compact, or delete existing ledger lines')
+    && spec.includes('read-only with respect to `.flowset/context-ledger.jsonl`')
+    && spec.includes('derived metadata-only report');
+  checks.ledger_dedupe_record = record.includes('WI: WI-CX0031-chore')
+    && record.includes('Source ledger `.flowset/context-ledger.jsonl` remains append-only audit evidence')
+    && record.includes('Dedupe is allowed only as a metadata-only derived view or report')
+    && record.includes('No source ledger rewrite');
+  checks.ledger_dedupe_manifest = manifest.includes('decision.context-ledger-dedupe-policy')
+    && manifest.includes('docs/decisions/2026-07-08-context-ledger-dedupe-policy.md')
+    && manifest.includes('record.validation-wi-cx0031-chore')
+    && manifest.includes('docs/records/validation-wi-cx0031-chore.md');
+  checks.ledger_dedupe_indexes = decisionsReadme.includes('2026-07-08-context-ledger-dedupe-policy.md')
+    && recordsReadme.includes('validation-wi-cx0031-chore.md')
+    && docsIndex.includes('2026-07-08-context-ledger-dedupe-policy.md')
+    && docsIndex.includes('validation-wi-cx0031-chore.md');
+  checks.ledger_dedupe_flow = fixPlan.includes('WI-CX0032-docs Layer 2 Knowledge Scaffold Contract')
+    && handoff.includes('WI-CX0031-chore Context Ledger Dedupe Policy')
+    && handoff.includes('append-only audit evidence')
+    && handoff.includes('WI-CX0032-docs Layer 2 Knowledge Scaffold Contract');
+  checks.ledger_dedupe_boundary = decision.includes('does not rewrite `.flowset/context-ledger.jsonl`')
+    && decision.includes('delete historical ledger entries')
+    && record.includes('No source ledger rewrite')
+    && record.includes('destructive local realignment occurred');
+
+  if (!checks.ledger_dedupe_decision) error('ledger_dedupe.decision_missing', 'Ledger dedupe decision must forbid in-place compaction and allow derived metadata-only views.');
+  if (!checks.ledger_dedupe_policy) error('ledger_dedupe.policy_missing', 'Context hygiene policy must define append-only source ledger and derived-view-only dedupe.');
+  if (!checks.ledger_dedupe_spec) error('ledger_dedupe.spec_missing', 'Context pack spec must preserve append-only append behavior and read-only dedupe reports.');
+  if (!checks.ledger_dedupe_record) error('ledger_dedupe.record_missing', 'WI-CX0031 validation record must capture the dedupe decision.');
+  if (!checks.ledger_dedupe_manifest) error('ledger_dedupe.manifest_missing', 'Manifest must register the ledger dedupe decision and validation record.');
+  if (!checks.ledger_dedupe_indexes) error('ledger_dedupe.index_missing', 'Decision and record indexes must include WI-CX0031 artifacts.');
+  if (!checks.ledger_dedupe_flow) error('ledger_dedupe.flow_missing', 'Flow state must advance to the Layer 2 knowledge scaffold WI.');
+  if (!checks.ledger_dedupe_boundary) error('ledger_dedupe.boundary_missing', 'Ledger dedupe policy must preserve source ledger and hard-stop boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1211,6 +1274,7 @@ validateLocalWorkspaceRealignment();
 validateToolingTypeScriptBaseline();
 validateAutomationRunSurfaceInstallation();
 validateAutomationRunnerPostMergeSmoke();
+validateContextLedgerDedupePolicy();
 validatePackage();
 
 const result = {
