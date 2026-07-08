@@ -18,11 +18,15 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0033-test Automation Runner First Fresh-Run Evidence: inspect the next actual standalone runner output once Codex app produces it, without expanding automation authority. Expected strategy: PSC=P2, WTC=AUTO, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0034-docs Layer 2 Scope Code Options Packet: prepare user-facing options for the Layer 2 project scope code rule without deciding it. Expected strategy: PSC=P2, WTC=KNOW, Risk=R2, ESC=E1+E3+E5+E6.
+
+## Triggered Work
+
+- WI-CX0035-test Automation Runner First Fresh-Run Output Review: inspect the next actual standalone A2 worktree runner output after Codex app produces it, without expanding automation authority. Trigger only when a new FDP_Codex runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`. Expected strategy: PSC=P2, WTC=AUTO, Risk=R2, ESC=E1+E2+E3+E5+E6.
 
 ## Next Candidates
 
-- WI-CX0034-docs Layer 2 Scope Code Options Packet: prepare user-facing options for the Layer 2 project scope code rule without deciding it.
+- None selected until WI-CX0034-docs produces the user-facing options packet.
 
 ## Decision Needed Queue
 

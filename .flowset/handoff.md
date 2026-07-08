@@ -6,9 +6,11 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0032-docs Layer 2 Knowledge Scaffold Contract.
+Current WI: WI-CX0033-test Automation Runner Fresh-Run Evidence Gate.
 
-WI-CX0032-docs status: validated.
+WI-CX0033-test status: validated.
+
+No standalone A2 runner fresh-run output exists yet. The actual first fresh-run output review remains triggered work and must not be treated as complete until a new runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 
 Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule and chunk id scope rule with a hard stop.
 
@@ -25,6 +27,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0030-test: Automation Runner Post-Merge Smoke. Evidence: `docs/records/validation-wi-cx0030-test.md`.
 - WI-CX0031-chore: Context Ledger Dedupe Policy. Evidence: `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md` and `docs/records/validation-wi-cx0031-chore.md`.
 - WI-CX0032-docs: Layer 2 Knowledge Scaffold Contract. Evidence: `docs/specifications/layer-2-knowledge-scaffold.md` and `docs/records/validation-wi-cx0032-docs.md`.
+- WI-CX0033-test: Automation Runner Fresh-Run Evidence Gate. Evidence: `docs/records/validation-wi-cx0033-test.md`; no standalone runner output was found, so actual output review moved to triggered work.
 
 ## Orientation SSOT
 
@@ -44,6 +47,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
 - First Layer 2 target-project scaffold generation is blocked on the scope code and chunk namespace decisions.
 - The installed runner is bounded A2 worktree automation and must boot from repository SSOT.
+- Actual first fresh-run output review remains triggered by future standalone A2 runner output.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 
@@ -52,7 +56,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0032-docs-layer-2-knowledge-scaffold-contract`.
+- Active WI branch for this cycle: `wi/cx0033-test-automation-runner-fresh-run-evidence-gate`.
 
 ## Next Action
 
@@ -60,10 +64,11 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0033-test Automation Runner First Fresh-Run Evidence.
+- WI-CX0034-docs Layer 2 Scope Code Options Packet.
 
 ## Blocked Work
 
+- WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and chunk id scope rule.
 - Release publication is not approved.
 - Deployment is not approved.
