@@ -62,6 +62,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-collaboration-response-contract.md',
   'docs/decisions/2026-07-08-session-boundary-automation-contract.md',
   'docs/decisions/2026-07-08-tooling-typescript-baseline.md',
+  'docs/decisions/2026-07-08-automation-run-surface-installation.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -91,6 +92,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0027-docs.md',
   'docs/records/validation-wi-cx0018-chore.md',
   'docs/records/validation-wi-cx0028-chore.md',
+  'docs/records/validation-wi-cx0029-chore.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -112,6 +114,7 @@ const requiredChunkIds = [
   'decision.collaboration-response-contract',
   'decision.session-boundary-automation-contract',
   'decision.tooling-typescript-baseline',
+  'decision.automation-run-surface-installation',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -156,6 +159,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0027-docs',
   'record.validation-wi-cx0018-chore',
   'record.validation-wi-cx0028-chore',
+  'record.validation-wi-cx0029-chore',
 ];
 
 const requiredLabels = [
@@ -1036,7 +1040,84 @@ function validateToolingTypeScriptBaseline() {
   if (!checks.ts_baseline_runtime_preserved) error('ts_baseline.runtime_changed', 'TypeScript baseline must preserve existing .mjs runtime entrypoints.');
   if (!checks.ts_baseline_decision) error('ts_baseline.decision_missing', 'TypeScript baseline decision must preserve runtime and dependency boundaries.');
   if (!checks.ts_baseline_record) error('ts_baseline.record_missing', 'WI-CX0028 validation record must include typecheck and validation evidence.');
-}function validatePackage() {
+}
+function validateAutomationRunSurfaceInstallation() {
+  const automationId = 'fdp-codex-a2-worktree-wi-runner';
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const decision = read('docs/decisions/2026-07-08-automation-run-surface-installation.md');
+  const record = read('docs/records/validation-wi-cx0029-chore.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const docsIndex = read('docs/index.md');
+
+  checks.automation_surface_decision = decision.includes('Install a Codex app standalone worktree cron automation')
+    && decision.includes(automationId)
+    && decision.includes('not a same-thread heartbeat')
+    && decision.includes('not a new user-owned local thread');
+  checks.automation_surface_startup_gate = decision.includes('WI-CX0029-chore is still current')
+    && decision.includes('origin/main')
+    && decision.includes('stop without making repository changes')
+    && decision.includes('open PRs')
+    && decision.includes('duplicate work');
+  checks.automation_surface_bootstrap = decision.includes('AGENTS.md')
+    && decision.includes('docs/manifest.yaml')
+    && decision.includes('.flowset/handoff.md')
+    && decision.includes('work on exactly one Current Priority WI')
+    && decision.includes('context pack command and ledger metadata append');
+  checks.automation_surface_hard_stops = decision.includes('release publication')
+    && decision.includes('deployment')
+    && decision.includes('package publication')
+    && decision.includes('OSS program submission')
+    && decision.includes('new production dependencies')
+    && decision.includes('destructive filesystem or git operations')
+    && decision.includes('public API or external contract changes')
+    && decision.includes('A3 publication behavior');
+  checks.automation_surface_record = record.includes('WI: WI-CX0029-chore')
+    && record.includes('codex_app.automation_update')
+    && record.includes(automationId)
+    && record.includes('Execution environment: worktree')
+    && record.includes('Status after creation: active')
+    && record.includes('not a same-thread heartbeat')
+    && record.includes('metadata-only ledger entries')
+    && record.includes('duplicate work')
+    && record.includes('S1 Adversarial Review');
+  checks.automation_surface_manifest = manifest.includes('decision.automation-run-surface-installation')
+    && manifest.includes('docs/decisions/2026-07-08-automation-run-surface-installation.md')
+    && manifest.includes('record.validation-wi-cx0029-chore')
+    && manifest.includes('docs/records/validation-wi-cx0029-chore.md');
+  checks.automation_surface_indexes = decisionsReadme.includes('2026-07-08-automation-run-surface-installation.md')
+    && recordsReadme.includes('validation-wi-cx0029-chore.md')
+    && docsIndex.includes('2026-07-08-automation-run-surface-installation.md')
+    && docsIndex.includes('validation-wi-cx0029-chore.md');
+  checks.automation_surface_flow = currentWi.includes('WI id: WI-CX0029-chore')
+    && currentWi.includes('Status: validated')
+    && handoff.includes('WI-CX0029-chore: Automation Run Surface Installation')
+    && handoff.includes(automationId)
+    && !/^- \[ \] WI-CX0029-chore\b/m.test(fixPlan)
+    && fixPlan.includes('WI-CX0030-test Automation Runner Post-Merge Smoke');
+  checks.automation_surface_evaluation = record.includes('ESC: E1+E2+E3+E5+E6')
+    && record.includes('S1 adversarial review')
+    && record.includes('E2/S2 blind review');
+  checks.automation_surface_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('production dependency addition')
+    && record.includes('new user-owned local thread creation')
+    && record.includes('destructive local realignment occurred');
+
+  if (!checks.automation_surface_decision) error('automation_surface.decision_missing', 'Automation run surface decision must name the installed worktree automation and avoid heartbeat/new-thread overclaiming.');
+  if (!checks.automation_surface_startup_gate) error('automation_surface.startup_gate_missing', 'Automation must gate itself until WI-CX0029 is merged and accepted on origin/main.');
+  if (!checks.automation_surface_bootstrap) error('automation_surface.bootstrap_missing', 'Automation must boot from repository SSOT and rebuild context metadata.');
+  if (!checks.automation_surface_hard_stops) error('automation_surface.hard_stops_missing', 'Automation decision must preserve the hard stops.');
+  if (!checks.automation_surface_record) error('automation_surface.record_missing', 'WI-CX0029 validation record must capture tool evidence and safety controls.');
+  if (!checks.automation_surface_manifest) error('automation_surface.manifest_missing', 'Manifest must register the automation decision and validation record chunks.');
+  if (!checks.automation_surface_indexes) error('automation_surface.index_missing', 'Documentation indexes must include the WI-CX0029 decision and record.');
+  if (!checks.automation_surface_flow) error('automation_surface.flow_not_advanced', 'Flow state must mark WI-CX0029 validated and advance the live backlog.');
+  if (!checks.automation_surface_evaluation) error('automation_surface.evaluation_missing', 'Automation WI must record evaluator strategy and blind/adversarial review handling.');
+  if (!checks.automation_surface_boundary) error('automation_surface.boundary_missing', 'Automation WI record must preserve excluded release, dependency, thread, and destructive boundaries.');
+}
+function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
   checks.package_context_pack_script = pkg.scripts?.['context:pack'] ?? null;
@@ -1072,6 +1153,7 @@ validateCollaborationResponseContract();
 validateSessionBoundaryAutomationContract();
 validateLocalWorkspaceRealignment();
 validateToolingTypeScriptBaseline();
+validateAutomationRunSurfaceInstallation();
 validatePackage();
 
 const result = {

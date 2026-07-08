@@ -19,6 +19,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-collaboration-response-contract.md`: accepted user-facing decision framing and conversational Korean tone contract.
 - `docs/decisions/2026-07-08-session-boundary-automation-contract.md`: accepted session boundary automation contract for auto-compact, thread automation, fresh-run automation, new local threads, and Goal mode.
 - `docs/decisions/2026-07-08-tooling-typescript-baseline.md`: accepted TypeScript tooling baseline for repository scripts without runtime source conversion.
+- `docs/decisions/2026-07-08-automation-run-surface-installation.md`: accepted Codex app worktree automation runner installation and safety gate.
 
 Decision Needed:
 

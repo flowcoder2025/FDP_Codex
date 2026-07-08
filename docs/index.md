@@ -48,6 +48,10 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-handoff-size-policy.md`
 - `docs/decisions/2026-07-08-autonomy-default-options-packet.md`
 - `docs/decisions/2026-07-08-operating-policy-lock.md`
+- `docs/decisions/2026-07-08-collaboration-response-contract.md`
+- `docs/decisions/2026-07-08-session-boundary-automation-contract.md`
+- `docs/decisions/2026-07-08-tooling-typescript-baseline.md`
+- `docs/decisions/2026-07-08-automation-run-surface-installation.md`
 
 ## Runbooks
 
@@ -83,6 +87,11 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0024-docs.md`
 - `docs/records/validation-wi-cx0025-docs.md`
 - `docs/records/validation-wi-cx0016-docs.md`
+- `docs/records/validation-wi-cx0026-docs.md`
+- `docs/records/validation-wi-cx0027-docs.md`
+- `docs/records/validation-wi-cx0018-chore.md`
+- `docs/records/validation-wi-cx0028-chore.md`
+- `docs/records/validation-wi-cx0029-chore.md`
 
 ## Tooling
 
