@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0022-docs Decision Queue State Codes.
+Current WI: WI-CX0023-docs KI Identity Severity Policy.
 
-WI-CX0022-docs status: validated.
+WI-CX0023-docs status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -22,6 +22,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0020-feat: Context Pack Command Surface. Evidence: `docs/decisions/2026-07-08-context-pack-command-surface.md` and `docs/records/validation-wi-cx0020-feat.md`.
 - WI-CX0021-feat: Context Selection Rule Table. Evidence: `docs/decisions/2026-07-08-context-selection-rule-table.md` and `docs/records/validation-wi-cx0021-feat.md`.
 - WI-CX0022-docs: Decision Queue State Codes. Evidence: `docs/policies/decision-queue.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, and `docs/records/validation-wi-cx0022-docs.md`.
+- WI-CX0023-docs: KI Identity Severity Policy. Evidence: `docs/decisions/2026-07-08-ki-identity-severity-policy.md` and `docs/records/validation-wi-cx0023-docs.md`.
 
 ## Orientation SSOT
 
@@ -31,7 +32,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Decision queue policy: `docs/policies/decision-queue.md`.
-- Context selection rule decision: `docs/decisions/2026-07-08-context-selection-rule-table.md`.
+- KI identity decision: `docs/decisions/2026-07-08-ki-identity-severity-policy.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 
 ## Locked For This Scaffold
@@ -42,6 +43,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Ledger mutation requires explicit `--append-ledger`.
 - Context selection uses stable rule ids and emits `selection_rule_ids` plus per-chunk `selection_rules`.
 - Decision Needed items use state codes from `docs/policies/decision-queue.md`.
+- KI ids must not encode severity; severity is field-only.
 - Public status is `public bootstrap, pre-release`.
 - E2 Blind Independent Review requires S2 Separate Blind Review.
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
@@ -59,7 +61,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0023-docs KI Identity Severity Policy.
+- WI-CX0024-docs Handoff Size Policy.
 
 ## Blocked Work
 

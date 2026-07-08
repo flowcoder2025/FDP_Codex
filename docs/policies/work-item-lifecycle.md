@@ -76,6 +76,17 @@ A KI should record:
 
 GitHub Issue handling for KI repayment and external intake is defined in `docs/policies/github-issue-governance.md`.
 
+
+## KI Identity Rule
+
+KI ids are stable identifiers. They must not encode severity.
+
+Severity is a field-only classification. It may change during triage without renaming the KI, GitHub Issue, validation record, or repayment reference.
+
+A KI id may encode repository/project namespace, sequence, or category only after a later naming policy explicitly defines that format.
+
+Use severity labels, severity fields, and queue state to express urgency rather than changing the id.
+
 ## KI Severity
 
 Critical:
