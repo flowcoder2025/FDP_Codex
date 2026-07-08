@@ -66,6 +66,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-automation-run-surface-installation.md',
   'docs/decisions/2026-07-08-context-ledger-dedupe-policy.md',
   'docs/decisions/2026-07-08-flow-state-readable-snapshot.md',
+  'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -114,6 +115,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0041-docs.md',
   'docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md',
   'docs/records/validation-wi-cx0043-docs.md',
+  'docs/records/validation-wi-cx0045-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -139,6 +141,7 @@ const requiredChunkIds = [
   'decision.automation-run-surface-installation',
   'decision.context-ledger-dedupe-policy',
   'decision.flow-state-readable-snapshot',
+  'decision.portfolio-guardrail-validator-baseline',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -202,6 +205,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0041-docs',
   'record.post-bootstrap-automation-cadence-decision-handback',
   'record.validation-wi-cx0043-docs',
+  'record.validation-wi-cx0045-test',
 ];
 
 const requiredLabels = [
@@ -1012,6 +1016,88 @@ function validateDecisionQueue() {
   if (!checks.decision_queue_index_not_duplicated) error('decision_queue.index_duplicates_live_queue', 'Decisions README must not duplicate the live queue.');
   if (!checks.decision_queue_decision_accepts_codes) error('decision_queue.decision_codes_missing', 'Decision record must accept the state-code set.');
 }
+function validatePortfolioGuardrailValidatorBaseline() {
+  const decision = read('docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md');
+  const policy = read('docs/policies/triage-strategy.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsIndex = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const currentValidationPath = state.current_wi?.validation_record ?? '';
+  const currentValidationRecord = currentValidationPath ? read(currentValidationPath) : '';
+  const decisionPath = 'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md';
+  const recordPath = 'docs/records/validation-wi-cx0045-test.md';
+  const strategyCodes = ['FND', 'VAL', 'AUTO', 'KNOW', 'OSS', 'EVAL', 'DEBT'];
+
+  const hasStrategyFields = (body) => {
+    const psc = /- PSC: P[0-6]\b/.test(body);
+    const wtc = new RegExp(`- WTC: (${strategyCodes.join('|')})\\b`).test(body);
+    const risk = /- Risk: R[0-3]\b/.test(body);
+    const esc = /- ESC: [^\r\n]*\bE5\b/.test(body);
+    return psc && wtc && risk && esc;
+  };
+
+  checks.portfolio_guardrail_decision = decision.includes('Status: accepted')
+    && decision.includes('Starting with WI-CX0045-test')
+    && decision.includes('current-and-forward enforcement')
+    && decision.includes('does not rewrite historical validation records')
+    && decision.includes('ESC with E5 included')
+    && decision.includes('portfolio guardrail DQ-POLICY row leaves the live Decision Needed queue');
+  checks.portfolio_guardrail_policy = policy.includes('## Portfolio Guardrail Validator Baseline')
+    && policy.includes('Starting with WI-CX0045-test')
+    && policy.includes('ESC must include E5 Portfolio Balance Review')
+    && policy.includes('does not rewrite or reinterpret historical validation records');
+  checks.portfolio_guardrail_current_wi_strategy = hasStrategyFields(currentWi)
+    && currentWi.includes('WI id: WI-CX0045-test')
+    && currentWi.includes('WTC: VAL')
+    && currentWi.includes('Primary evaluator stance')
+    && currentWi.includes('Validator stance');
+  checks.portfolio_guardrail_current_record_strategy = currentValidationPath === recordPath
+    && hasStrategyFields(currentValidationRecord)
+    && currentValidationRecord.includes('Portfolio guardrails are deterministic for current and future active WIs')
+    && currentValidationRecord.includes('Historical validation records were not rewritten')
+    && currentValidationRecord.includes('WTC: VAL')
+    && currentValidationRecord.includes('ESC: E1+E3+E5+E6');
+  checks.portfolio_guardrail_queue_repaid = !fixPlan.includes('Whether portfolio guardrails become deterministic validator rules')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+    && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no');
+  checks.portfolio_guardrail_manifest = manifest.includes('id: decision.portfolio-guardrail-validator-baseline')
+    && manifest.includes(decisionPath)
+    && manifest.includes('id: record.validation-wi-cx0045-test')
+    && manifest.includes(recordPath);
+  checks.portfolio_guardrail_indexes = docsIndex.includes(decisionPath)
+    && docsIndex.includes(recordPath)
+    && decisionsIndex.includes(decisionPath)
+    && recordsReadme.includes(recordPath);
+  checks.portfolio_guardrail_flow = state.current_wi?.id === 'WI-CX0045-test'
+    && state.current_wi?.validation_record === recordPath
+    && state.current_priority?.kind === 'user_decision'
+    && handoff.includes('WI-CX0045-test: Portfolio Guardrail Validator Baseline')
+    && handoff.includes('Portfolio guardrail validator baseline is accepted')
+    && handoff.includes('Current and future active WIs must record PSC, WTC, Risk, and ESC with E5 included');
+  checks.portfolio_guardrail_boundary = decision.includes('does not choose the Layer 2 project scope code rule')
+    && decision.includes('does not change automation cadence, A2/A3 authority, merge authority, or publication authority')
+    && currentValidationRecord.includes('No release publication, deployment, package publication, OSS program submission')
+    && currentValidationRecord.includes('A3 publication behavior')
+    && currentValidationRecord.includes('production dependency addition')
+    && currentValidationRecord.includes('public API or external contract change')
+    && currentValidationRecord.includes('first Layer 2 scaffold generation')
+    && currentValidationRecord.includes('destructive filesystem or git operation occurred');
+
+  if (!checks.portfolio_guardrail_decision) error('portfolio_guardrail.decision_missing', 'Portfolio guardrail decision must define current-and-forward enforcement, E5 requirement, and no historical rewrite.');
+  if (!checks.portfolio_guardrail_policy) error('portfolio_guardrail.policy_missing', 'Triage policy must document the validator baseline.');
+  if (!checks.portfolio_guardrail_current_wi_strategy) error('portfolio_guardrail.current_wi_strategy_missing', 'Current WI must record PSC, WTC, Risk, ESC with E5, and evaluator/validator stances.');
+  if (!checks.portfolio_guardrail_current_record_strategy) error('portfolio_guardrail.current_record_strategy_missing', 'Current validation record must record PSC, WTC, Risk, ESC with E5 and current-forward scope.');
+  if (!checks.portfolio_guardrail_queue_repaid) error('portfolio_guardrail.queue_not_repaid', 'Portfolio guardrail DQ-POLICY row must leave the live queue while user/debt rows remain.');
+  if (!checks.portfolio_guardrail_manifest) error('portfolio_guardrail.manifest_missing', 'Manifest must register the portfolio guardrail decision and WI-CX0045 validation record.');
+  if (!checks.portfolio_guardrail_indexes) error('portfolio_guardrail.index_missing', 'Documentation indexes must include the portfolio guardrail decision and validation record.');
+  if (!checks.portfolio_guardrail_flow) error('portfolio_guardrail.flow_missing', 'Flow state and handoff must record WI-CX0045 and preserve the user-decision priority.');
+  if (!checks.portfolio_guardrail_boundary) error('portfolio_guardrail.boundary_missing', 'WI-CX0045 must preserve Layer 2, automation authority, publication, dependency, public API, and destructive-operation boundaries.');
+}
 function validateKiIdentityPolicy() {
   const lifecycle = read('docs/policies/work-item-lifecycle.md');
   const fixPlan = read('.flowset/fix_plan.md');
@@ -1812,15 +1898,14 @@ function validatePostBootstrapAutomationCadenceHandback() {
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(handbackPath)
     && recordsReadme.includes(recordPath);
-  checks.automation_cadence_handback_flow = currentWi.includes('WI id: WI-CX0043-docs')
+  checks.automation_cadence_handback_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
     && currentWi.includes('Status: validated')
-    && currentWi.includes('without changing automation settings or expanding A2/A3 authority')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision')
     && fixPlan.includes(`Handback \`${handbackPath}\``)
     && handoff.includes('WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback')
     && handoff.includes(`Automation cadence handback: \`${handbackPath}\``)
     && handoff.includes('Post-bootstrap automation cadence and authority remains user-gated')
-    && state.current_wi?.id === 'WI-CX0043-docs'
+    && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.kind === 'user_decision';
   checks.automation_cadence_handback_no_authority_change = handback.includes('This handback does not change the automation schedule')
     && handback.includes('Do not use Option D as an immediate implementation step')
@@ -2056,6 +2141,7 @@ validateEvaluationSurface();
 validateContextPackCommandSurface();
 validateContextSelectionRuleTable();
 validateDecisionQueue();
+validatePortfolioGuardrailValidatorBaseline();
 validateKiIdentityPolicy();
 validateHandoffSizePolicy();
 validateAutonomyDefaultOptionsPacket();

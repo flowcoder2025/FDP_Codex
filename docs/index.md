@@ -57,6 +57,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`
 - `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`
 - `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`
+- `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`
 
 ## Runbooks
 
@@ -112,6 +113,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0041-docs.md`
 - `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`
 - `docs/records/validation-wi-cx0043-docs.md`
+- `docs/records/validation-wi-cx0045-test.md`
 
 ## Tooling
 

@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0043-docs Post-Bootstrap Automation Cadence Decision Handback.
+Current WI: WI-CX0045-test Portfolio Guardrail Validator Baseline.
 
-WI-CX0043-docs status: validated.
+WI-CX0045-test status: validated.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
@@ -25,6 +25,8 @@ No standalone A2 runner fresh-run output exists yet. The actual first fresh-run 
 Automation runner S2 review packet is available at `docs/records/automation-runner-s2-review-packet-2026-07-08.md`. It prepares S2 but does not satisfy E2 by itself.
 
 Post-bootstrap automation cadence handback is available at `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. It prepares a user decision and does not change automation settings or authority.
+
+Portfolio guardrail validator baseline is accepted at `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`. Current and future active WIs must record PSC, WTC, Risk, and ESC with E5 included.
 
 Layer 2 scaffold generation remains blocked until the user chooses the Layer 2 project scope code rule and the accepted decision is recorded.
 
@@ -49,6 +51,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0040-chore: Tooling Strictness Probe. Evidence: `scripts/report-type-strictness.mjs`, `docs/decisions/2026-07-08-tooling-strictness-probe.md`, and `docs/records/validation-wi-cx0040-chore.md`.
 - WI-CX0041-docs: Automation Runner S2 Review Packet. Evidence: `docs/records/automation-runner-s2-review-packet-2026-07-08.md` and `docs/records/validation-wi-cx0041-docs.md`.
 - WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Evidence: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0043-docs.md`.
+- WI-CX0045-test: Portfolio Guardrail Validator Baseline. Evidence: `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md` and `docs/records/validation-wi-cx0045-test.md`.
 
 ## Orientation SSOT
 
@@ -60,6 +63,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Strictness probe: `scripts/report-type-strictness.mjs` via `npm run typecheck:strict-probe`.
 - Automation runner S2 packet: `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
 - Automation cadence handback: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
+- Portfolio guardrail baseline: `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code options packet: `docs/records/layer-2-scope-code-options-2026-07-08.md`.
@@ -82,13 +86,14 @@ Release publication, deployment, package publication, and OSS program submission
 - Strict TypeScript source conversion remains DQ-DEBT; WI-CX0040 installed measurement only and did not enable strict mode.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 - Post-bootstrap automation cadence and authority remains user-gated; WI-CX0043 installed the handback only.
+- Portfolio guardrail evidence is validator-enforced for current and future active WIs; historical validation records were not rewritten.
 
 ## Git State
 
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0043-docs-post-bootstrap-automation-cadence-decision-handback`.
+- Active WI branch for this cycle: `wi/cx0045-test-portfolio-guardrail-validator-baseline`.
 
 ## Next Action
 
