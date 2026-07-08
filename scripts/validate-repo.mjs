@@ -344,7 +344,8 @@ function validateNaming() {
   }
   if (invalidWiIds.length) error('naming.fix_plan_invalid_wi_ids', 'fix_plan contains invalid WI categories.', invalidWiIds);
 
-  const currentBranch = git(['branch', '--show-current']);
+  const gitBranch = git(['branch', '--show-current']);
+  const currentBranch = gitBranch || process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || '';
   let hasHead = true;
   try {
     execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: repoRoot, stdio: 'ignore' });
@@ -354,6 +355,7 @@ function validateNaming() {
 
   const branchPattern = /^wi\/cx\d{4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
   checks.git_branch = currentBranch;
+  checks.git_branch_source = gitBranch ? 'git' : (process.env.GITHUB_HEAD_REF ? 'GITHUB_HEAD_REF' : (process.env.GITHUB_REF_NAME ? 'GITHUB_REF_NAME' : 'none'));
   checks.git_has_head = hasHead;
   checks.git_branch_format_ok = currentBranch ? branchPattern.test(currentBranch) : false;
 
