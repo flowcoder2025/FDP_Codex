@@ -39,6 +39,18 @@ A3 AutoMerge / Publication:
 - It requires explicit user approval, repository health, verification debt repayment, and policy support.
 - R3 hard stops still apply unless a future policy explicitly defines a narrower safe path.
 
+## Post-Bootstrap Default Options
+
+Durable default without an active approval envelope: A1 Assisted.
+
+Current bootstrap autonomy envelope: A2 Supervised Autopilot may continue while the user-approved envelope is active. The active envelope allows branch-first WI work, local validation, push, ready PR creation, PR merge, and branch deletion when required checks pass and approval labels are present.
+
+A2 does not imply unattended new Codex thread creation. A fresh run, automation, or new thread must boot from handoff and `docs/manifest.yaml`; user-owned visible thread creation requires explicit user request or supported automation tooling.
+
+A3 is not a default mode. A3 requires a locked release or publication envelope and does not override hard stops for release publication, deployment, package publication, or OSS program submission.
+
+If the envelope expires, contradicting evidence appears, or a hard stop is reached, FDP_Codex falls back to A1 or stops for approval.
+
 ## Approval Envelope
 
 An approval envelope must define:
