@@ -24,7 +24,7 @@ Layer 1 records must not copy private target-project history or target-project S
 
 A generated Layer 2 scaffold must define these roles before target-project work starts:
 
-- Target manifest: machine-readable SSOT registry for target-project chunks, artifact roles, status, and hashes.
+- Target manifest: machine-readable SSOT registry for target-project chunks, artifact roles, status, local chunk id namespace, and hashes.
 - Target current WI: the active target-project work item, separate from Layer 1 `WI-CXNNNN-category` work.
 - Target fix plan: compact live target-project backlog, KI repayment queue, and Decision Needed queue.
 - Target handoff: session transition aid that points to target SSOT instead of copying target SSOT bodies.
@@ -42,6 +42,23 @@ Target-project KIs must remain separate from Layer 1 KIs unless the issue affect
 KI severity remains a field-only classification. Severity must not be encoded into KI ids.
 
 A target-project KI may be promoted into a Layer 1 KI only through explicit triage that records the Layer 1 impact and source target-project evidence.
+
+## Chunk Id Namespace
+
+Layer 2 chunk ids are scoped per target project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
+
+Each target manifest owns its local chunk id namespace. Local target chunk ids must be unique within that target manifest.
+
+Local target chunk ids do not need to be globally unique across all target projects. Reusable local ids such as `flow.current-wi`, `flow.fix-plan`, and `record.context-ledger` are allowed when each id belongs to a different target manifest.
+
+Cross-manifest references must be qualified instead of assuming global uniqueness:
+
+```text
+layer1:<chunk_id>
+target:<project_scope_code>:<chunk_id>
+```
+
+Layer 1 must not store target chunk bodies or treat target-local chunk ids as Layer 1 chunk ids.
 
 ## Context Hygiene
 
@@ -63,13 +80,13 @@ Every generated Layer 2 scaffold must record:
 - Manifest chunk ids that constrained generation.
 - Whether user decisions were required or deferred.
 - The target-project identifier and scope code once that rule is approved.
+- The chunk id scope decision used for target manifest chunk ids.
 
 ## Generation Gates
 
-Do not generate the first Layer 2 target-project scaffold until these live Decision Needed items are resolved or explicitly deferred with a hard stop:
+Do not generate the first Layer 2 target-project scaffold until the Layer 2 project scope code rule is resolved or explicitly deferred with a hard stop.
 
-- Layer 2 project scope code rule.
-- Chunk id scope: global, per-layer, or per-target-project.
+Chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
 Do not use this draft specification to claim a stable public API or external contract.
 
@@ -82,12 +99,13 @@ Layer 1 validation for this contract must prove:
 - the scaffold roles are named;
 - Layer 1 and Layer 2 facts remain separated;
 - target WI/KI namespaces are separate from Layer 1 WI/KI records;
+- target chunk ids are scoped per target project;
 - context bodies remain forbidden in ledgers and handoffs;
 - provenance is required;
-- unresolved scope and chunk namespace decisions block the first generated target scaffold.
+- unresolved scope code decisions block the first generated target scaffold.
 
 ## Decision Needed
 
 The live Decision Needed queue remains in `.flowset/fix_plan.md`.
 
-This WI does not decide the Layer 2 project scope code rule and does not decide chunk id namespace scope.
+This WI does not decide the Layer 2 project scope code rule.

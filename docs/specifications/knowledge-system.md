@@ -92,14 +92,19 @@ Layer 1 policy can generate Layer 2 artifacts such as:
 
 Layer crossing must record which Layer 1 policy produced or constrained the Layer 2 artifact.
 
+Cross-manifest chunk references must qualify the source manifest instead of assuming global chunk id uniqueness.
+
 ## Layer 2 Scaffold Contract
 
 The portable Layer 2 target-project scaffold contract is defined in `docs/specifications/layer-2-knowledge-scaffold.md`.
 
-That contract defines required scaffold roles for target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt, and Layer 1 provenance.
+That contract defines required scaffold roles for target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt, Layer 1 provenance, and per-target-project chunk id namespaces.
 
-Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule and chunk id scope rule with a hard stop.
+Layer 2 chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
+
+Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule with a hard stop.
+
 ## Decision Needed
 
 - Whether Layer 2 generated artifacts should use the same folder names or a smaller target-project profile.
-- Whether chunk ids should be global, per-layer, or per-target-project scoped.
+- Layer 2 project scope code remains user-gated before first target-project scaffold generation.

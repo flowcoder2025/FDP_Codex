@@ -6,15 +6,17 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0034-docs Layer 2 Scope Code Options Packet.
+Current WI: WI-CX0036-docs Chunk Id Scope Policy.
 
-WI-CX0034-docs status: validated.
+WI-CX0036-docs status: validated.
+
+Layer 2 chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
 Layer 2 project scope code remains user-gated. The options packet recommends Option A as the primary path and Option B as a temporary fallback, but it does not choose the final rule.
 
 No standalone A2 runner fresh-run output exists yet. The actual first fresh-run output review remains triggered work and must not be treated as complete until a new runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 
-Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule and chunk id scope rule with a hard stop.
+Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule with a hard stop.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -31,6 +33,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0032-docs: Layer 2 Knowledge Scaffold Contract. Evidence: `docs/specifications/layer-2-knowledge-scaffold.md` and `docs/records/validation-wi-cx0032-docs.md`.
 - WI-CX0033-test: Automation Runner Fresh-Run Evidence Gate. Evidence: `docs/records/validation-wi-cx0033-test.md`; no standalone runner output was found, so actual output review moved to triggered work.
 - WI-CX0034-docs: Layer 2 Scope Code Options Packet. Evidence: `docs/records/layer-2-scope-code-options-2026-07-08.md` and `docs/records/validation-wi-cx0034-docs.md`; final scope code choice remains user-gated.
+- WI-CX0036-docs: Chunk Id Scope Policy. Evidence: `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md` and `docs/records/validation-wi-cx0036-docs.md`; per-target-project chunk id scope is accepted.
 
 ## Orientation SSOT
 
@@ -41,6 +44,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code options packet: `docs/records/layer-2-scope-code-options-2026-07-08.md`.
+- Layer 2 chunk id scope decision: `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
 ## Locked For This Scaffold
 
@@ -49,7 +53,8 @@ Release publication, deployment, package publication, and OSS program submission
 - Ledger dedupe must be a derived view/report and must not rewrite, delete, compact, or replace the source ledger.
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
 - Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
-- First Layer 2 target-project scaffold generation is blocked on the scope code and chunk namespace decisions.
+- Layer 2 target chunk ids are scoped per target project; cross-manifest references must be qualified.
+- First Layer 2 target-project scaffold generation is blocked on the scope code decision.
 - The installed runner is bounded A2 worktree automation and must boot from repository SSOT.
 - Actual first fresh-run output review remains triggered by future standalone A2 runner output.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
@@ -60,7 +65,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0034-docs-layer-2-scope-code-options-packet`.
+- Active WI branch for this cycle: `wi/cx0036-docs-chunk-id-scope-policy`.
 
 ## Next Action
 
@@ -68,11 +73,11 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0036-docs Chunk Id Scope Policy.
+- WI-CX0037-docs Layer 2 Scope Code Decision Handback.
 
 ## Blocked Work
 
-- First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and chunk id scope rule.
+- First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.
 - Deployment is not approved.
