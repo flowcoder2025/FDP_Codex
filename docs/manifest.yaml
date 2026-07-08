@@ -1305,6 +1305,31 @@ chunks:
       - tooling
       - validation
     body_carryover: forbidden
+  - id: record.automation-runner-s2-review-packet
+    title: Automation Runner S2 Review Packet
+    source: docs/records/automation-runner-s2-review-packet-2026-07-08.md
+    type: record
+    layer: layer1
+    status: review-needed
+    loads_for:
+      - blind-review-planning
+      - adversarial-review-planning
+      - automation-planning
+      - evaluator-strategy-selection
+      - handoff
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0041-docs
+    title: WI-CX0041-docs Validation Record
+    source: docs/records/validation-wi-cx0041-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - blind-review-planning
+      - validation
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs

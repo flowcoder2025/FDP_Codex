@@ -110,6 +110,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0037-docs.md',
   'docs/records/validation-wi-cx0039-docs.md',
   'docs/records/validation-wi-cx0040-chore.md',
+  'docs/records/automation-runner-s2-review-packet-2026-07-08.md',
+  'docs/records/validation-wi-cx0041-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -194,6 +196,8 @@ const requiredChunkIds = [
   'record.validation-wi-cx0037-docs',
   'record.validation-wi-cx0039-docs',
   'record.validation-wi-cx0040-chore',
+  'record.automation-runner-s2-review-packet',
+  'record.validation-wi-cx0041-docs',
 ];
 
 const requiredLabels = [
@@ -1338,12 +1342,12 @@ function validateToolingStrictnessProbe() {
     && docsIndex.includes('scripts/report-type-strictness.mjs')
     && decisionsReadme.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
     && recordsReadme.includes('docs/records/validation-wi-cx0040-chore.md');
-  checks.ts_strictness_probe_flow = currentWi.includes('WI id: WI-CX0040-chore')
+  checks.ts_strictness_probe_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | Probe installed by WI-CX0040')
     && handoff.includes('WI-CX0040-chore: Tooling Strictness Probe')
-    && handoff.includes('Strictness probe: `npm run typecheck:strict-probe`')
-    && state.current_wi?.id === 'WI-CX0040-chore'
+    && handoff.includes('npm run typecheck:strict-probe')
+    && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.kind === 'user_decision';
   checks.ts_strictness_probe_boundary = record.includes('Strict mode was not enabled')
     && record.includes('Runtime `.mjs` source files were not converted to `.ts`')
@@ -1672,6 +1676,89 @@ function validateAutomationRunnerFreshRunEvidenceGate() {
   if (!checks.automation_fresh_run_gate_flow) error('automation_fresh_run_gate.flow_missing', 'Flow state must record WI-CX0033 and advance current priority to WI-CX0034.');
   if (!checks.automation_fresh_run_gate_boundary) error('automation_fresh_run_gate.boundary_missing', 'WI-CX0033 must preserve automation, publication, dependency, public API, and destructive boundaries.');
 }
+function validateAutomationRunnerS2ReviewPacket() {
+  const packet = read('docs/records/automation-runner-s2-review-packet-2026-07-08.md');
+  const record = read('docs/records/validation-wi-cx0041-docs.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const automationId = 'fdp-codex-a2-worktree-wi-runner';
+  const packetPath = 'docs/records/automation-runner-s2-review-packet-2026-07-08.md';
+
+  checks.automation_s2_packet_scope = packet.includes('Status: review-needed')
+    && packet.includes('This packet is for a separate reviewer')
+    && packet.includes('It does not complete E2')
+    && packet.includes('does not repay S2 debt by itself')
+    && packet.includes('without relying on the implementer')
+    && packet.includes('separate S2 review result record');
+  checks.automation_s2_packet_sources = packet.includes('docs/decisions/2026-07-08-automation-run-surface-installation.md')
+    && packet.includes('docs/records/validation-wi-cx0029-chore.md')
+    && packet.includes('docs/records/validation-wi-cx0033-test.md')
+    && packet.includes('.flowset/state.json')
+    && packet.includes(automationId)
+    && packet.includes('automation.toml');
+  checks.automation_s2_packet_questions = packet.includes('Does the runner boot from repository SSOT')
+    && packet.includes('unresolved Decision Needed items')
+    && packet.includes('preserve hard stops')
+    && packet.includes('false green')
+    && packet.includes('absence of runner output')
+    && packet.includes('A3 automerge/publication');
+  checks.automation_s2_packet_result_shape = packet.includes('pass, conditional pass, blocked, or request-changes verdict')
+    && packet.includes('P0/P1/P2 findings')
+    && packet.includes('whether E2/S2 is satisfied')
+    && packet.includes('whether the DQ-DEBT row can be removed or must remain');
+  checks.automation_s2_packet_non_completion = packet.includes('This packet does not satisfy E2 Blind Independent Review')
+    && packet.includes('must remain open until a separate Codex thread, separate reviewer, or human reviewer completes the review');
+  checks.automation_s2_packet_record = record.includes('WI: WI-CX0041-docs')
+    && record.includes('S2 blind review is prepared but not completed')
+    && record.includes('E2 is not claimed as satisfied')
+    && record.includes('The S2 DQ-DEBT row remains open')
+    && record.includes('No automation authority expansion occurred')
+    && record.includes('S2 status: not executed in this WI');
+  checks.automation_s2_packet_manifest = manifest.includes('id: record.automation-runner-s2-review-packet')
+    && manifest.includes(packetPath)
+    && manifest.includes('status: review-needed')
+    && manifest.includes('id: record.validation-wi-cx0041-docs')
+    && manifest.includes('docs/records/validation-wi-cx0041-docs.md');
+  checks.automation_s2_packet_indexes = docsIndex.includes(packetPath)
+    && docsIndex.includes('docs/records/validation-wi-cx0041-docs.md')
+    && recordsReadme.includes(packetPath)
+    && recordsReadme.includes('docs/records/validation-wi-cx0041-docs.md');
+  checks.automation_s2_packet_flow = currentWi.includes('WI id: WI-CX0041-docs')
+    && currentWi.includes('Status: validated')
+    && fixPlan.includes('Review packet installed by WI-CX0041')
+    && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
+    && handoff.includes('WI-CX0041-docs: Automation Runner S2 Review Packet')
+    && handoff.includes(packetPath)
+    && state.current_wi?.id === 'WI-CX0041-docs'
+    && state.current_priority?.kind === 'user_decision';
+  checks.automation_s2_packet_debt_retained = fixPlan.includes('S2 blind review repayment for the automation runner. | DQ-DEBT | CODEX | conditional')
+    && !record.includes('S2 blind review is complete')
+    && !record.includes('E2 is satisfied')
+    && !packet.includes('This packet satisfies E2');
+  checks.automation_s2_packet_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('A3 publication behavior')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('first Layer 2 scaffold generation')
+    && record.includes('destructive filesystem or git operation');
+
+  if (!checks.automation_s2_packet_scope) error('automation_s2_packet.scope_missing', 'S2 packet must define separate reviewer scope and avoid overclaiming E2 completion.');
+  if (!checks.automation_s2_packet_sources) error('automation_s2_packet.sources_missing', 'S2 packet must point to automation, flow, and local config evidence sources.');
+  if (!checks.automation_s2_packet_questions) error('automation_s2_packet.questions_missing', 'S2 packet must include blind/adversarial automation review questions.');
+  if (!checks.automation_s2_packet_result_shape) error('automation_s2_packet.result_shape_missing', 'S2 packet must define required separate review result fields.');
+  if (!checks.automation_s2_packet_non_completion) error('automation_s2_packet.non_completion_missing', 'S2 packet must explicitly state it does not satisfy E2.');
+  if (!checks.automation_s2_packet_record) error('automation_s2_packet.record_missing', 'WI-CX0041 record must capture S2 preparation without claiming completion.');
+  if (!checks.automation_s2_packet_manifest) error('automation_s2_packet.manifest_missing', 'Manifest must register the S2 packet and WI-CX0041 validation record.');
+  if (!checks.automation_s2_packet_indexes) error('automation_s2_packet.index_missing', 'Documentation indexes must include the S2 packet and validation record.');
+  if (!checks.automation_s2_packet_flow) error('automation_s2_packet.flow_missing', 'Flow state must preserve user-decision priority while recording WI-CX0041 completion.');
+  if (!checks.automation_s2_packet_debt_retained) error('automation_s2_packet.debt_closed_too_early', 'S2 debt must remain open until a separate review result exists.');
+  if (!checks.automation_s2_packet_boundary) error('automation_s2_packet.boundary_missing', 'WI-CX0041 must preserve publication, A3, dependency, API, Layer 2, and destructive-operation boundaries.');
+}
 function validateLayer2ScopeCodeOptionsPacket() {
   const packet = read('docs/records/layer-2-scope-code-options-2026-07-08.md');
   const record = read('docs/records/validation-wi-cx0034-docs.md');
@@ -1902,6 +1989,7 @@ validateAutomationRunnerPostMergeSmoke();
 validateContextLedgerDedupePolicy();
 validateLayer2KnowledgeScaffoldContract();
 validateAutomationRunnerFreshRunEvidenceGate();
+validateAutomationRunnerS2ReviewPacket();
 validateLayer2ScopeCodeOptionsPacket();
 validateLayer2ChunkIdScopePolicy();
 validateLayer2ScopeCodeDecisionHandback();
