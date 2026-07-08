@@ -4,6 +4,10 @@ title: "Proposal: "
 labels:
   - fdp:triage-needed
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Public submissions are intake. They do not authorize Codex or maintainers to start implementation until triage accepts the item or links it to an approved WI.
   - type: textarea
     id: problem
     attributes:
@@ -28,6 +32,21 @@ body:
         - automation
         - validation
         - documentation
+        - security
+        - release-boundary
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: risk_guess
+    attributes:
+      label: Risk guess
+      description: Maintainers may change this during triage.
+      options:
+        - R0 documentation or formatting only
+        - R1 low-risk local change
+        - R2 policy, manifest, workflow, or cross-document consistency
+        - R3 security, release, publication, dependency, external contract, or destructive behavior
         - unknown
     validations:
       required: true
@@ -36,5 +55,12 @@ body:
     attributes:
       label: Suggested validation
       description: How should maintainers verify this?
+    validations:
+      required: false
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries or hard stops
+      description: Mention anything that must not change as part of this proposal.
     validations:
       required: false

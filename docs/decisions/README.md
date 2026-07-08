@@ -5,10 +5,27 @@ Decision records capture time-bound choices, context, consequences, and superses
 Current decisions:
 
 - `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`: accepted-v0 operating foundation for FDP_Codex.
-- `docs/decisions/2026-07-08-repository-license-binding.md`: accepted repository remote, private bootstrap visibility, and Apache-2.0 license.
+- `docs/decisions/2026-07-08-repository-license-binding.md`: accepted repository remote and Apache-2.0 license.
+- `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`: accepted bootstrap publication envelope for GitHub Actions, labels, public visibility, PR merge, and branch deletion.
+- `docs/decisions/2026-07-08-public-readiness-boundary.md`: accepted public bootstrap, pre-release boundary.
 
 Decision Needed:
 
-- First public release scope boundary.
-- Default project verification profile.
 - First hook implementation surface.
+- Chunk id scope: global, per-layer, or per-target-project.
+- Layer 2 project scope code rule.
+- Release category policy.
+- KI id severity encoding.
+- Default autonomy mode after bootstrap.
+- A2/A3 git and continuation scope.
+- Branch deletion automation default after squash merge.
+- Blind review execution surface.
+- Adversarial checklist granularity per surface type.
+- Whether portfolio guardrails become deterministic validator rules.
+- Whether every KI must become a GitHub Issue after public release.
+- Whether the validator should adopt a strict YAML parser later.
+- Whether context pack output should be written to `.flowset/context-packs/` metadata files or remain stdout-only by default.
+- Whether context pack builder runs should append ledger records automatically or require a separate explicit command.
+- Whether context pack selection should remain heuristic or move to a stricter rule table.
+- Whether handoff maximum line count should be 220, 300, or profile-dependent.
+- Whether current WI and handoff should be split into stricter machine-readable state later.

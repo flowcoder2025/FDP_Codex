@@ -2,7 +2,7 @@ schema_version: 0
 project:
   id: fdp-codex
   name: FDP_Codex
-  status: public-bootstrap
+  status: public-readiness-baseline
   purpose: Codex-native open FDP workflow kit
   repository: https://github.com/flowcoder2025/FDP_Codex.git
   visibility: public
@@ -76,6 +76,58 @@ chunks:
       - contribution
     body_carryover: forbidden
 
+  - id: public.readme
+    title: Public README
+    source: README.md
+    type: public-doc
+    layer: layer1
+    status: public-baseline
+    loads_for:
+      - project-orientation
+      - oss-readiness
+      - release-boundary
+      - contribution
+    body_carryover: forbidden
+
+  - id: public.contributing
+    title: Public Contributing Guide
+    source: CONTRIBUTING.md
+    type: public-doc
+    layer: layer1
+    status: public-baseline
+    loads_for:
+      - contribution
+      - pull-request
+      - issue-triage
+      - oss-readiness
+    body_carryover: forbidden
+
+  - id: public.security
+    title: Public Security Policy
+    source: SECURITY.md
+    type: public-doc
+    layer: layer1
+    status: public-baseline
+    loads_for:
+      - security
+      - issue-triage
+      - release-boundary
+      - oss-readiness
+    body_carryover: forbidden
+
+  - id: public.roadmap
+    title: Public Roadmap
+    source: ROADMAP.md
+    type: public-doc
+    layer: layer1
+    status: public-baseline
+    loads_for:
+      - oss-readiness
+      - release-boundary
+      - project-orientation
+      - handoff
+    body_carryover: forbidden
+
   - id: decision.operating-foundation
     title: FDP_Codex Operating Foundation
     source: docs/decisions/2026-07-08-fdp-codex-operating-foundation.md
@@ -116,6 +168,21 @@ chunks:
       - label-setup
       - public-visibility
       - ci
+      - handoff
+    body_carryover: forbidden
+
+  - id: decision.public-readiness-boundary
+    title: Public Readiness Boundary
+    source: docs/decisions/2026-07-08-public-readiness-boundary.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - oss-readiness
+      - release-boundary
+      - contribution
+      - issue-triage
+      - pull-request
       - handoff
     body_carryover: forbidden
 
@@ -625,6 +692,18 @@ chunks:
     loads_for:
       - audit
       - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0015-docs
+    title: WI-CX0015-docs Validation Record
+    source: docs/records/validation-wi-cx0015-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - oss-readiness
     body_carryover: forbidden
 
 hook_contract:

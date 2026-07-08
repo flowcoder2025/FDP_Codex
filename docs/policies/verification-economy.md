@@ -91,7 +91,12 @@ Critical:
 - R1 and above require explicit verification before merge or publication.
 - R3 requires immediate verification.
 
+## FDP_Codex Default
+
+FDP_Codex uses the Medium project profile during the public bootstrap pre-release baseline.
+
+Release-candidate work may adopt a stricter profile through a decision record.
+
 ## Decision Needed
 
-- Default project profile for FDP_Codex itself.
 - Whether public examples should include intentionally deferred verification debt.

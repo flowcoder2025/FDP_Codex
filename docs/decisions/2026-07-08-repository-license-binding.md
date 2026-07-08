@@ -14,7 +14,7 @@ FDP_Codex uses the following GitHub repository:
 https://github.com/flowcoder2025/FDP_Codex.git
 ```
 
-Current repository visibility is private during bootstrap.
+Initial repository visibility was private during bootstrap. Repository visibility is now public under `docs/decisions/2026-07-08-bootstrap-publication-envelope.md` and `docs/decisions/2026-07-08-public-readiness-boundary.md`.
 
 FDP_Codex uses Apache License 2.0.
 
@@ -34,8 +34,8 @@ License evidence:
 
 ## Boundaries
 
-This decision does not authorize push, merge, tag, release, publication, or public visibility changes.
+This decision did not authorize push, merge, tag, release, publication, or public visibility changes at the time it was accepted. Public visibility was later authorized by `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`.
 
-The first public release scope remains Decision Needed.
+The first public readiness boundary is now defined by `docs/decisions/2026-07-08-public-readiness-boundary.md`.
 
-A3 AutoMerge / Publication remains disabled until the relevant policy, validator, repository synchronization, and approval envelope exist.
+A3 AutoMerge / Publication remains limited to explicit approval envelopes. Release publication, deployment, package publication, and OSS program submission remain excluded.

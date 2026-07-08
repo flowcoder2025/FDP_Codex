@@ -7,6 +7,14 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `AGENTS.md`
 - `docs/manifest.yaml`
 
+## Public Surface
+
+- `README.md`
+- `CONTRIBUTING.md`
+- `SECURITY.md`
+- `ROADMAP.md`
+- `LICENSE`
+
 ## Policies
 
 - `docs/policies/context-hygiene.md`
@@ -30,6 +38,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`
 - `docs/decisions/2026-07-08-repository-license-binding.md`
 - `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`
+- `docs/decisions/2026-07-08-public-readiness-boundary.md`
 
 ## Runbooks
 
@@ -55,6 +64,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/decision-packet-2026-07-08.md`
 - `docs/records/validation-wi-cx0013-docs.md`
 - `docs/records/validation-wi-cx0014-chore.md`
+- `docs/records/validation-wi-cx0015-docs.md`
 
 ## Tooling
 

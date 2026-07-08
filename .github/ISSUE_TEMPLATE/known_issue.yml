@@ -5,6 +5,10 @@ labels:
   - fdp:triage-needed
   - fdp:ki
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Known Issues are repayment records. Submitting this form does not authorize Codex or maintainers to start work until triage accepts the issue or links it to an approved WI.
   - type: input
     id: ki_id
     attributes:
@@ -23,6 +27,21 @@ body:
         - low
     validations:
       required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - policy
+        - specification
+        - automation
+        - validation
+        - documentation
+        - security
+        - release-boundary
+        - unknown
+    validations:
+      required: true
   - type: input
     id: related_wi
     attributes:
@@ -30,6 +49,13 @@ body:
       placeholder: WI-CX0000-category
     validations:
       required: false
+  - type: input
+    id: owner
+    attributes:
+      label: Owner or ownership status
+      placeholder: maintainer, contributor, unassigned, or unknown
+    validations:
+      required: true
   - type: textarea
     id: trigger
     attributes:
@@ -37,6 +63,13 @@ body:
       description: What exposed this issue?
     validations:
       required: true
+  - type: textarea
+    id: defer_reason
+    attributes:
+      label: Defer reason
+      description: If this is not fixed immediately, why is deferral acceptable?
+    validations:
+      required: false
   - type: textarea
     id: repayment
     attributes:
@@ -48,6 +81,6 @@ body:
     id: evidence
     attributes:
       label: Evidence
-      description: Link records, PRs, commands, or files.
+      description: Link records, PRs, commands, files, or failing checks.
     validations:
       required: false
