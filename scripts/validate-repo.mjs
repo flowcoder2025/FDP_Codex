@@ -93,6 +93,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0018-chore.md',
   'docs/records/validation-wi-cx0028-chore.md',
   'docs/records/validation-wi-cx0029-chore.md',
+  'docs/records/validation-wi-cx0030-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -160,6 +161,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0018-chore',
   'record.validation-wi-cx0028-chore',
   'record.validation-wi-cx0029-chore',
+  'record.validation-wi-cx0030-test',
 ];
 
 const requiredLabels = [
@@ -476,6 +478,10 @@ function validateFlowState() {
   const currentPriorityMatches = [...currentPriorityBlock.matchAll(/^- \[ \] (WI-CX\d{4}-[a-z]+)\b/gm)].map((match) => match[1]);
   const completedCheckboxes = [...fixPlanText.matchAll(/^- \[[xX]\] /gm)].map((match) => match[0]);
   const handoffLines = handoffText.split('\n').length;
+  const handoffControlCharacters = [...handoffText].filter((char) => {
+    const code = char.charCodeAt(0);
+    return code < 32 && code !== 10 && code !== 13;
+  });
   const requiredHandoffSections = [
     '## Current State',
     '## Completed WIs',
@@ -498,6 +504,7 @@ function validateFlowState() {
   checks.flow_current_priority = currentPriorityMatches[0] ?? null;
   checks.flow_fix_plan_completed_checkboxes = completedCheckboxes.length;
   checks.flow_handoff_line_count = handoffLines;
+  checks.flow_handoff_control_characters = handoffControlCharacters.length;
   checks.flow_missing_handoff_sections = missingHandoffSections;
   checks.flow_current_wi_pending_markers = pendingMarkers.length;
   checks.flow_validation_record_exists = validationRecordExists;
@@ -513,6 +520,9 @@ function validateFlowState() {
   }
   if (missingHandoffSections.length) {
     error('flow.handoff_sections_missing', 'handoff is missing required operational sections.', missingHandoffSections);
+  }
+  if (handoffControlCharacters.length) {
+    error('flow.handoff_control_characters', 'handoff must not contain control characters other than line breaks.', handoffControlCharacters.map((char) => char.charCodeAt(0)));
   }
   if (handoffLines > 220) {
     error('flow.handoff_too_long', 'handoff must remain compact and should point to SSOT instead of copying it.', handoffLines);
@@ -1092,12 +1102,10 @@ function validateAutomationRunSurfaceInstallation() {
     && recordsReadme.includes('validation-wi-cx0029-chore.md')
     && docsIndex.includes('2026-07-08-automation-run-surface-installation.md')
     && docsIndex.includes('validation-wi-cx0029-chore.md');
-  checks.automation_surface_flow = currentWi.includes('WI id: WI-CX0029-chore')
-    && currentWi.includes('Status: validated')
+  checks.automation_surface_flow = !currentWi.includes('WI id: WI-CX0029-chore')
     && handoff.includes('WI-CX0029-chore: Automation Run Surface Installation')
     && handoff.includes(automationId)
-    && !/^- \[ \] WI-CX0029-chore\b/m.test(fixPlan)
-    && fixPlan.includes('WI-CX0030-test Automation Runner Post-Merge Smoke');
+    && !/^- \[ \] WI-CX0029-chore\b/m.test(fixPlan);
   checks.automation_surface_evaluation = record.includes('ESC: E1+E2+E3+E5+E6')
     && record.includes('S1 adversarial review')
     && record.includes('E2/S2 blind review');
@@ -1113,9 +1121,57 @@ function validateAutomationRunSurfaceInstallation() {
   if (!checks.automation_surface_record) error('automation_surface.record_missing', 'WI-CX0029 validation record must capture tool evidence and safety controls.');
   if (!checks.automation_surface_manifest) error('automation_surface.manifest_missing', 'Manifest must register the automation decision and validation record chunks.');
   if (!checks.automation_surface_indexes) error('automation_surface.index_missing', 'Documentation indexes must include the WI-CX0029 decision and record.');
-  if (!checks.automation_surface_flow) error('automation_surface.flow_not_advanced', 'Flow state must mark WI-CX0029 validated and advance the live backlog.');
+  if (!checks.automation_surface_flow) error('automation_surface.flow_not_advanced', 'Flow state must keep WI-CX0029 evidence while advancing the live backlog beyond WI-CX0029.');
   if (!checks.automation_surface_evaluation) error('automation_surface.evaluation_missing', 'Automation WI must record evaluator strategy and blind/adversarial review handling.');
   if (!checks.automation_surface_boundary) error('automation_surface.boundary_missing', 'Automation WI record must preserve excluded release, dependency, thread, and destructive boundaries.');
+}
+function validateAutomationRunnerPostMergeSmoke() {
+  const record = read('docs/records/validation-wi-cx0030-test.md');
+  const manifest = read('docs/manifest.yaml');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const automationId = 'fdp-codex-a2-worktree-wi-runner';
+
+  checks.automation_smoke_record = record.includes('WI: WI-CX0030-test')
+    && record.includes(automationId)
+    && record.includes('kind: `cron`')
+    && record.includes('status: `ACTIVE`')
+    && record.includes('execution environment: `worktree`')
+    && record.includes('local environment setup path: absent');
+  checks.automation_smoke_gates = record.includes('Startup gate')
+    && record.includes('Duplicate work gate')
+    && record.includes('Hard stops')
+    && record.includes('Validation gate')
+    && record.includes('npm run ci:check')
+    && record.includes('npm run validate');
+  const handoffBackupPath = String.raw`C:\tmp\fdp-codex-dev-backup-20260708-140739`;
+  const handoffControlCharacters = [...handoff].filter((char) => {
+    const code = char.charCodeAt(0);
+    return code < 32 && code !== 10 && code !== 13;
+  });
+  checks.automation_smoke_handoff_hygiene = record.includes('non-newline control character')
+    && handoff.includes(handoffBackupPath)
+    && handoffControlCharacters.length === 0;
+  checks.automation_smoke_manifest = manifest.includes('record.validation-wi-cx0030-test')
+    && manifest.includes('docs/records/validation-wi-cx0030-test.md');
+  checks.automation_smoke_indexes = docsIndex.includes('validation-wi-cx0030-test.md')
+    && recordsReadme.includes('validation-wi-cx0030-test.md');
+  checks.automation_smoke_flow = fixPlan.includes('WI-CX0031-chore Context Ledger Dedupe Policy')
+    && handoff.includes('WI-CX0030-test: Automation Runner Post-Merge Smoke')
+    && handoff.includes('WI-CX0031-chore Context Ledger Dedupe Policy');
+  checks.automation_smoke_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('production dependency addition')
+    && record.includes('destructive local realignment occurred');
+
+  if (!checks.automation_smoke_record) error('automation_smoke.record_missing', 'WI-CX0030 smoke record must capture automation status and setup absence.');
+  if (!checks.automation_smoke_gates) error('automation_smoke.gates_missing', 'WI-CX0030 smoke record must prove startup, duplicate, hard-stop, and validation gates.');
+  if (!checks.automation_smoke_handoff_hygiene) error('automation_smoke.handoff_hygiene_missing', 'WI-CX0030 must repair and record handoff Windows path hygiene.');
+  if (!checks.automation_smoke_manifest) error('automation_smoke.manifest_missing', 'Manifest must register WI-CX0030 validation record.');
+  if (!checks.automation_smoke_indexes) error('automation_smoke.index_missing', 'Record indexes must include WI-CX0030 validation record.');
+  if (!checks.automation_smoke_flow) error('automation_smoke.flow_missing', 'Flow state must advance to WI-CX0031 and handoff must mention WI-CX0030.');
+  if (!checks.automation_smoke_boundary) error('automation_smoke.boundary_missing', 'WI-CX0030 record must preserve excluded publication, dependency, and destructive boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1154,6 +1210,7 @@ validateSessionBoundaryAutomationContract();
 validateLocalWorkspaceRealignment();
 validateToolingTypeScriptBaseline();
 validateAutomationRunSurfaceInstallation();
+validateAutomationRunnerPostMergeSmoke();
 validatePackage();
 
 const result = {

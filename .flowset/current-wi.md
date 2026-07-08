@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0029-chore
+WI id: WI-CX0030-test
 
-Category: chore
+Category: test
 
-Title: Automation Run Surface Installation
+Title: Automation Runner Post-Merge Smoke
 
 Layer: Layer 1
 
@@ -12,41 +12,42 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0029-chore-automation-run-surface-installation
+Branch: wi/cx0030-test-automation-runner-post-merge-smoke
 
 Approval envelope: user delegated autonomous FDP_Codex process work through `/goal`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, destructive filesystem or git operations, public API or external contract changes, and A3 publication behavior.
 
 ## Scope
 
-Install and record a supported Codex app standalone/worktree automation surface for fresh-run FDP_Codex continuation. The automation must boot from repository SSOT, avoid treating heartbeat or auto-compact as a context hygiene reset, and stop at the existing hard stops.
+Verify after WI-CX0029 reached `origin/main` that the installed Codex app worktree runner still has its startup gate, duplicate branch/PR gate, hard stops, worktree execution surface, and no hidden local setup script. Repair any document hygiene issue found while smoke-checking the handoff path evidence.
 
 ## Triage
 
 - PSC: P2
 - WTC: AUTO
 - Risk: R2
-- ESC: E1+E2+E3+E5+E6
-- Primary evaluator stance: automation safety and context-hygiene review.
-- Validator stance: deterministic repository evidence for the installed automation contract, plus existing `npm run validate`, `npm run typecheck`, and `npm run ci:check`.
+- ESC: E1+E3+E5+E6
+- Primary evaluator stance: post-merge automation safety smoke and evidence trace.
+- Validator stance: deterministic repository evidence for automation smoke, handoff control-character hygiene, manifest registration, and existing `npm run ci:check`.
 
 ## Verification Plan
 
-- Confirm the Codex app exposes a supported automation tool surface.
-- Check for existing FDP_Codex automations before creating a duplicate.
-- Install a worktree-based standalone automation only if it can preserve the hard stops and boot from repository SSOT.
-- Record the automation id, status, and safety gate without storing raw context bodies.
-- Run `npm run typecheck`.
-- Run `npm run validate`.
+- Confirm `origin/main` contains WI-CX0029 accepted decision and validation evidence.
+- Inspect the Codex app automation file and app-rendered automation card.
+- Confirm no WI-CX0030 duplicate branch or open PR exists before starting work.
+- Confirm the automation is cron, active, worktree-based, and rooted at the repository path.
+- Confirm startup, duplicate branch/PR, hard-stop, and validation-command prompt gates remain present.
+- Confirm no hidden local setup script or local environment config file is configured.
+- Confirm `.flowset/handoff.md` contains no non-newline control characters.
 - Run `npm run ci:check`.
-- Record validation evidence in `docs/records/validation-wi-cx0029-chore.md`.
+- Record validation evidence in `docs/records/validation-wi-cx0030-test.md`.
 
 ## Completion Evidence
 
-- `docs/decisions/2026-07-08-automation-run-surface-installation.md`
-- `docs/records/validation-wi-cx0029-chore.md`
+- `docs/records/validation-wi-cx0030-test.md`
+- `.flowset/handoff.md`
 - `docs/manifest.yaml`
 - `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- Post-bootstrap automation cadence and authority remain a later Decision Needed item.
+- Long-lived post-bootstrap automation cadence and S2 blind review debt remain in `.flowset/fix_plan.md`.
