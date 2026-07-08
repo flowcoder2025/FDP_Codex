@@ -6,11 +6,11 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0031-chore Context Ledger Dedupe Policy.
+Current WI: WI-CX0032-docs Layer 2 Knowledge Scaffold Contract.
 
-WI-CX0031-chore status: validated.
+WI-CX0032-docs status: validated.
 
-Context ledger policy now treats `.flowset/context-ledger.jsonl` as append-only audit evidence. Dedupe is allowed only as a metadata-only derived view or report, not as in-place compaction or deletion.
+Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule and chunk id scope rule with a hard stop.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -24,6 +24,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0029-chore: Automation Run Surface Installation. Runner: `fdp-codex-a2-worktree-wi-runner`. Evidence: `docs/decisions/2026-07-08-automation-run-surface-installation.md` and `docs/records/validation-wi-cx0029-chore.md`.
 - WI-CX0030-test: Automation Runner Post-Merge Smoke. Evidence: `docs/records/validation-wi-cx0030-test.md`.
 - WI-CX0031-chore: Context Ledger Dedupe Policy. Evidence: `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md` and `docs/records/validation-wi-cx0031-chore.md`.
+- WI-CX0032-docs: Layer 2 Knowledge Scaffold Contract. Evidence: `docs/specifications/layer-2-knowledge-scaffold.md` and `docs/records/validation-wi-cx0032-docs.md`.
 
 ## Orientation SSOT
 
@@ -32,7 +33,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Current WI: `.flowset/current-wi.md`.
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
-- Ledger dedupe decision: `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`.
+- Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 
 ## Locked For This Scaffold
 
@@ -40,6 +41,8 @@ Release publication, deployment, package publication, and OSS program submission
 - `.flowset/context-ledger.jsonl` is append-only audit evidence.
 - Ledger dedupe must be a derived view/report and must not rewrite, delete, compact, or replace the source ledger.
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
+- Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
+- First Layer 2 target-project scaffold generation is blocked on the scope code and chunk namespace decisions.
 - The installed runner is bounded A2 worktree automation and must boot from repository SSOT.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
@@ -49,7 +52,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0031-chore-context-ledger-dedupe-policy`.
+- Active WI branch for this cycle: `wi/cx0032-docs-layer-2-knowledge-scaffold-contract`.
 
 ## Next Action
 
@@ -57,10 +60,11 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0032-docs Layer 2 Knowledge Scaffold Contract.
+- WI-CX0033-test Automation Runner First Fresh-Run Evidence.
 
 ## Blocked Work
 
+- First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and chunk id scope rule.
 - Release publication is not approved.
 - Deployment is not approved.
 - Package publication is not approved.
@@ -73,4 +77,4 @@ Immediate next WI:
 2. Read `AGENTS.md`, `docs/manifest.yaml`, this handoff, `.flowset/current-wi.md`, and `.flowset/fix_plan.md`.
 3. Build a fresh context pack for the next WI.
 4. Run `npm run validate` before declaring repository policy work complete.
-5. Stop at release, deployment, package publication, OSS submission, or destructive local realignment boundaries unless explicitly approved.
+5. Stop at Layer 2 scaffold generation, release, deployment, package publication, OSS submission, or destructive local realignment boundaries unless explicitly approved.
