@@ -10,6 +10,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-public-readiness-boundary.md`: accepted public bootstrap, pre-release boundary.
 - `docs/decisions/2026-07-08-evaluation-surface-baseline.md`: accepted evaluation execution surface boundary.
 - `docs/decisions/2026-07-08-context-pack-command-surface.md`: accepted stdout-default and explicit ledger-append context pack command surface.
+- `docs/decisions/2026-07-08-context-selection-rule-table.md`: accepted context selection rule table and rule-id metadata.
 
 Decision Needed:
 
@@ -23,6 +24,5 @@ Decision Needed:
 - Whether portfolio guardrails become deterministic validator rules.
 - Whether every KI must become a GitHub Issue after public release.
 - Whether the validator should adopt a strict YAML parser later.
-- Whether context pack selection should remain heuristic or move to a stricter rule table.
 - Whether handoff maximum line count should be 220, 300, or profile-dependent.
 - Whether current WI and handoff should be split into stricter machine-readable state later.

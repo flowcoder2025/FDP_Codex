@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0020-feat Context Pack Command Surface.
+Current WI: WI-CX0021-feat Context Selection Rule Table.
 
-WI-CX0020-feat status: validated.
+WI-CX0021-feat status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -20,6 +20,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0017-ci: Validator CI Follow-Up. Evidence: `docs/records/validation-wi-cx0017-ci.md` and PR #4.
 - WI-CX0019-docs: Evaluation Surface Baseline. Evidence: `docs/decisions/2026-07-08-evaluation-surface-baseline.md` and `docs/records/validation-wi-cx0019-docs.md`.
 - WI-CX0020-feat: Context Pack Command Surface. Evidence: `docs/decisions/2026-07-08-context-pack-command-surface.md` and `docs/records/validation-wi-cx0020-feat.md`.
+- WI-CX0021-feat: Context Selection Rule Table. Evidence: `docs/decisions/2026-07-08-context-selection-rule-table.md` and `docs/records/validation-wi-cx0021-feat.md`.
 
 ## Orientation SSOT
 
@@ -29,6 +30,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Context pack command decision: `docs/decisions/2026-07-08-context-pack-command-surface.md`.
+- Context selection rule decision: `docs/decisions/2026-07-08-context-selection-rule-table.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
 
 ## Locked For This Scaffold
@@ -37,6 +39,7 @@ Release publication, deployment, package publication, and OSS program submission
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
 - `npm run context:pack` is stdout-only by default.
 - Ledger mutation requires explicit `--append-ledger`.
+- Context selection uses stable rule ids and emits `selection_rule_ids` plus per-chunk `selection_rules`.
 - Public status is `public bootstrap, pre-release`.
 - E2 Blind Independent Review requires S2 Separate Blind Review.
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
@@ -44,7 +47,7 @@ Release publication, deployment, package publication, and OSS program submission
 
 ## Git State
 
-- Remote `main` is the repository standard after PR #1 through PR #5.
+- Remote `main` is the repository standard after completed PR merges.
 - Work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` because `C:\dev\FDP_Codex` still has no local commits.
 - Do not treat `C:\dev\FDP_Codex` Git metadata as canonical until a dedicated realignment WI handles it.
 
@@ -54,7 +57,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0021-feat Context Selection Rule Table.
+- WI-CX0022-docs Decision Queue State Codes.
 
 ## Blocked Work
 
