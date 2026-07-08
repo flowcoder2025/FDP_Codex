@@ -55,6 +55,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-autonomy-default-options-packet.md',
   'docs/decisions/2026-07-08-operating-policy-lock.md',
   'docs/decisions/2026-07-08-collaboration-response-contract.md',
+  'docs/decisions/2026-07-08-session-boundary-automation-contract.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -79,6 +80,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0025-docs.md',
   'docs/records/validation-wi-cx0016-docs.md',
   'docs/records/validation-wi-cx0026-docs.md',
+  'docs/records/validation-wi-cx0027-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -98,6 +100,7 @@ const requiredChunkIds = [
   'decision.autonomy-default-options-packet',
   'decision.operating-policy-lock',
   'decision.collaboration-response-contract',
+  'decision.session-boundary-automation-contract',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -136,6 +139,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0025-docs',
   'record.validation-wi-cx0016-docs',
   'record.validation-wi-cx0026-docs',
+  'record.validation-wi-cx0027-docs',
 ];
 
 const requiredLabels = [
@@ -887,6 +891,42 @@ function validateCollaborationResponseContract() {
   if (!checks.collaboration_response_approval) error('collaboration_response.approval_missing', 'Decision-bearing replies must state next action and approval needed.');
   if (!checks.collaboration_response_korean_tone) error('collaboration_response.korean_tone_missing', 'AGENTS and decision must preserve the conversational Korean tone instruction.');
   if (!checks.collaboration_response_boundaries) error('collaboration_response.boundaries_missing', 'Decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
+}function validateSessionBoundaryAutomationContract() {
+  const autonomy = read('docs/policies/autonomy-and-approval.md');
+  const hygiene = read('docs/policies/context-hygiene.md');
+  const decision = read('docs/decisions/2026-07-08-session-boundary-automation-contract.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+
+  checks.session_boundary_policy_section = autonomy.includes('## Session Boundary Automation Contract');
+  checks.session_boundary_auto_compact = autonomy.includes('Auto-compact is not a clean session boundary')
+    && hygiene.includes('Auto-compact is not a new WI boundary, fresh run, fresh session, or context hygiene reset')
+    && decision.includes('auto-compact as same-thread continuation');
+  checks.session_boundary_thread_automation = autonomy.includes('Thread automation')
+    && autonomy.includes('Is a heartbeat-style wake-up attached to the current thread')
+    && decision.includes('Thread automation is same-thread heartbeat behavior');
+  checks.session_boundary_standalone_automation = autonomy.includes('Standalone or project automation')
+    && autonomy.includes('Starts fresh runs on a schedule')
+    && autonomy.includes('dedicated worktree by default')
+    && decision.includes('preferred Codex app surface for independent autonomous WI progression');
+  checks.session_boundary_new_thread = autonomy.includes('New local thread')
+    && autonomy.includes('must not claim it invisibly created a new user-owned thread unless the creation is verified')
+    && decision.includes('New local thread creation remains user-owned visible UI state');
+  checks.session_boundary_goal_mode = autonomy.includes('Goal mode')
+    && /does not by itself create a fresh session or prevent auto-compact/i.test(autonomy);
+  checks.session_boundary_fixplan_a2_resolved = !fixPlan.includes('A2/A3 git and continuation scope')
+    && fixPlan.includes('A3 publication/merge envelope beyond the current bootstrap approval scope');
+  checks.session_boundary_boundaries = decision.includes('does not create a live automation')
+    && decision.includes('create a new user-owned local thread')
+    && decision.includes('destructive local realignment');
+
+  if (!checks.session_boundary_policy_section) error('session_boundary.policy_section_missing', 'Autonomy policy must define the session boundary automation contract.');
+  if (!checks.session_boundary_auto_compact) error('session_boundary.auto_compact_boundary_missing', 'Auto-compact must be classified as same-thread continuation, not a fresh boundary.');
+  if (!checks.session_boundary_thread_automation) error('session_boundary.thread_automation_missing', 'Thread automation must be same-thread heartbeat behavior.');
+  if (!checks.session_boundary_standalone_automation) error('session_boundary.standalone_automation_missing', 'Standalone/project automation must be the fresh-run continuation surface.');
+  if (!checks.session_boundary_new_thread) error('session_boundary.new_thread_boundary_missing', 'New local thread creation must not be overclaimed.');
+  if (!checks.session_boundary_goal_mode) error('session_boundary.goal_mode_boundary_missing', 'Goal mode must not be treated as a fresh session.');
+  if (!checks.session_boundary_fixplan_a2_resolved) error('session_boundary.fixplan_a2_not_resolved', 'fix_plan must resolve A2 fresh-run ambiguity while preserving A3 scope.');
+  if (!checks.session_boundary_boundaries) error('session_boundary.boundaries_missing', 'Decision must preserve live automation, new-thread, release, and destructive realignment boundaries.');
 }function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -920,6 +960,7 @@ validateHandoffSizePolicy();
 validateAutonomyDefaultOptionsPacket();
 validateOperatingPolicyLock();
 validateCollaborationResponseContract();
+validateSessionBoundaryAutomationContract();
 validatePackage();
 
 const result = {

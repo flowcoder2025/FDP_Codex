@@ -83,27 +83,51 @@ Codex must stop and request user approval when work touches:
 - manifest ambiguity that prevents safe chunk selection
 - untrusted or invalid repository state
 
-## Session Continuation Mapping
+## Session Boundary Automation Contract
 
-Same-thread heartbeat:
+Auto-compact is not a clean session boundary. It is a same-thread continuation mechanism that may summarize prior context so a long task can continue. Do not treat compaction as proof that context hygiene was preserved.
 
-- Preserves current thread context.
-- Useful for polling or long-running checks.
-- Not the default for context-hygiene-sensitive WI progression.
+Same-thread continuation:
 
-Fresh-run automation:
+- Preserves current thread context, including any summarized context after auto-compact.
+- Useful for short follow-ups, PR/CI polling, local command retries, and finishing the active WI.
+- Not the default for context-hygiene-sensitive WI-to-WI autonomous progression.
+- Must not be described as a fresh run or fresh session.
 
-- Starts an independent automation run.
-- Uses handoff and `docs/manifest.yaml` as the bootloader.
-- Rebuilds the context pack from manifest metadata.
-- Preferred for autonomous WI progression.
+Thread automation:
 
-New thread creation:
+- Is a heartbeat-style wake-up attached to the current thread.
+- Preserves the thread context by design.
+- Useful when the result should stay in the same conversation.
+- Not a context hygiene reset and not the default for independent WI progression.
 
-- May be used when a user-approved envelope allows Codex to create background threads.
+Standalone or project automation:
+
+- Starts fresh runs on a schedule and reports separate findings.
+- Is the preferred Codex app continuation surface for independent autonomous WI progression when available, tested, and inside an approval envelope.
+- In Git repositories, should use a dedicated worktree by default to isolate automation changes from unfinished local work.
+- Must boot from `.flowset/handoff.md`, `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `docs/manifest.yaml`.
+- Must rebuild the context pack from manifest metadata.
+- Must use a durable prompt that defines stop conditions, hard stops, validation commands, and reporting expectations.
+- Requires the local Codex app machine, selected project, and relevant workspace path to remain available.
+
+New local thread:
+
+- Is user-owned visible UI state unless a supported tool or automation explicitly creates it inside an approved envelope.
+- May be opened by the user or through a supported Codex surface.
+- Codex may prepare the prompt and handoff payload, but must not claim it invisibly created a new user-owned thread unless the creation is verified.
 - Must avoid unlimited thread fan-out.
-- Must write enough handoff context for the user to inspect the new thread.
 
+Goal mode:
+
+- Can keep a persistent objective in the active thread.
+- Does not by itself create a fresh session or prevent auto-compact.
+
+FDP_Codex default:
+
+- Finish the active WI in the current thread when already running.
+- For the next independent, context-hygiene-sensitive WI, prefer standalone or project automation with a dedicated worktree once that automation is explicitly installed, tested, and inside an approval envelope.
+- Until that automation surface is installed and verified, use handoff plus context pack metadata to make a fresh run possible, but do not claim automatic fresh-session execution.
 ## UX Rule
 
 Ask once for the envelope, then avoid repeated prompts inside that envelope. Ask again only at a hard stop, when the envelope expires, or when evidence contradicts the envelope assumptions.
@@ -122,6 +146,7 @@ Use this order by default:
 6. Next action and approval needed.
 
 This rule does not weaken approval gates. It makes the approval surface clearer before Codex proceeds.
+
 ## Decision Needed
 
 Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.
