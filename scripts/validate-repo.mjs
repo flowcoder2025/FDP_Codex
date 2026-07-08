@@ -102,6 +102,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0034-docs.md',
   'docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md',
   'docs/records/validation-wi-cx0036-docs.md',
+  'docs/records/layer-2-scope-code-decision-handback-2026-07-08.md',
+  'docs/records/validation-wi-cx0037-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -178,6 +180,8 @@ const requiredChunkIds = [
   'record.validation-wi-cx0034-docs',
   'decision.layer-2-chunk-id-scope-policy',
   'record.validation-wi-cx0036-docs',
+  'record.layer-2-scope-code-decision-handback',
+  'record.validation-wi-cx0037-docs',
 ];
 
 const requiredLabels = [
@@ -495,7 +499,14 @@ function validateFlowState() {
   const currentWiId = /^WI id: (WI-CX\d{4}-[a-z]+)$/m.exec(currentWiText)?.[1] ?? null;
   const currentStatus = /^Status: (.+)$/m.exec(currentWiText)?.[1]?.trim() ?? null;
   const currentPriorityBlock = /## Current Priority\n\n([\s\S]*?)(?:\n## |$)/.exec(fixPlanText)?.[1] ?? '';
-  const currentPriorityMatches = [...currentPriorityBlock.matchAll(/^- \[ \] (WI-CX\d{4}-[a-z]+)\b/gm)].map((match) => match[1]);
+  const currentPriorityItems = [...currentPriorityBlock.matchAll(/^- \[ \] (.+)$/gm)].map((match) => match[1].trim());
+  const currentPriorityMatches = currentPriorityItems
+    .map((item) => /^(WI-CX\d{4}-[a-z]+)\b/.exec(item)?.[1] ?? null)
+    .filter(Boolean);
+  const currentPriorityWaitsForUserDecision = currentPriorityItems.length === 1
+    && /^Waiting for user decision: Layer 2 project scope code rule\./.test(currentPriorityItems[0]);
+  const currentPriorityDescriptor = currentPriorityMatches[0]
+    ?? (currentPriorityWaitsForUserDecision ? 'Waiting for user decision: Layer 2 project scope code rule' : null);
   const completedCheckboxes = [...fixPlanText.matchAll(/^- \[[xX]\] /gm)].map((match) => match[0]);
   const handoffLines = handoffText.split('\n').length;
   const handoffControlCharacters = [...handoffText].filter((char) => {
@@ -517,11 +528,17 @@ function validateFlowState() {
   const validationRecordExists = expectedRecordPath ? exists(expectedRecordPath) : false;
   const validationRecordRegistered = expectedRecordId ? manifestText.includes(`id: ${expectedRecordId}`) : false;
   const handoffMentionsCurrent = currentWiId ? handoffText.includes(currentWiId) : false;
-  const nextActionMatchesFixPlan = currentPriorityMatches.length === 1 && handoffText.includes(currentPriorityMatches[0]);
+  const nextActionMatchesFixPlan = currentPriorityMatches.length === 1
+    ? handoffText.includes(currentPriorityMatches[0])
+    : currentPriorityWaitsForUserDecision
+      && handoffText.includes('choose the Layer 2 project scope code rule')
+      && handoffText.includes('A, use <CODE>');
 
   checks.flow_current_status = currentStatus;
-  checks.flow_current_priority_count = currentPriorityMatches.length;
-  checks.flow_current_priority = currentPriorityMatches[0] ?? null;
+  checks.flow_current_priority_count = currentPriorityItems.length;
+  checks.flow_current_priority_wi_count = currentPriorityMatches.length;
+  checks.flow_current_priority_waits_for_user_decision = currentPriorityWaitsForUserDecision;
+  checks.flow_current_priority = currentPriorityDescriptor;
   checks.flow_fix_plan_completed_checkboxes = completedCheckboxes.length;
   checks.flow_handoff_line_count = handoffLines;
   checks.flow_handoff_control_characters = handoffControlCharacters.length;
@@ -532,8 +549,11 @@ function validateFlowState() {
   checks.flow_handoff_mentions_current_wi = handoffMentionsCurrent;
   checks.flow_next_action_matches_fix_plan = nextActionMatchesFixPlan;
 
-  if (currentPriorityMatches.length !== 1) {
-    error('flow.fix_plan_current_priority_count', 'fix_plan must have exactly one current priority item.', currentPriorityMatches);
+  if (currentPriorityItems.length !== 1) {
+    error('flow.fix_plan_current_priority_count', 'fix_plan must have exactly one current priority item.', currentPriorityItems);
+  }
+  if (currentPriorityMatches.length !== 1 && !currentPriorityWaitsForUserDecision) {
+    error('flow.fix_plan_current_priority_kind', 'fix_plan current priority must be either one WI item or one explicit user-decision wait item.', currentPriorityItems);
   }
   if (completedCheckboxes.length) {
     error('flow.fix_plan_completed_history', 'fix_plan must not store completed-history checkboxes.', completedCheckboxes.length);
@@ -549,7 +569,7 @@ function validateFlowState() {
   }
   if (!nextActionMatchesFixPlan) {
     error('flow.next_action_mismatch', 'handoff next action must mention the fix_plan current priority.', {
-      currentPriority: currentPriorityMatches[0] ?? null,
+      currentPriority: currentPriorityDescriptor,
     });
   }
 
@@ -915,7 +935,8 @@ function validateOperatingPolicyLock() {
   checks.operating_lock_live_queue_ssot = decision.includes('The live Decision Needed SSOT is `.flowset/fix_plan.md`');
   checks.operating_lock_exclusions = decision.includes('does not authorize release publication, deployment, package publication, OSS program submission')
     && decision.includes('destructive local realignment');
-  checks.operating_lock_next_wi = /## Current Priority\n\n- \[ \] WI-CX\d{4}-[a-z]+/m.test(fixPlan)
+  checks.operating_lock_next_wi = (/## Current Priority\n\n- \[ \] WI-CX\d{4}-[a-z]+/m.test(fixPlan)
+    || /## Current Priority\n\n- \[ \] Waiting for user decision: .+/m.test(fixPlan))
     && !fixPlan.includes('WI-CX0016-docs Operating Policy LOCK');
 
   if (unaccepted.length) error('operating_lock.unaccepted_policies', 'All Layer 1 operating policy files must be accepted-v0.', unaccepted);
@@ -1487,12 +1508,9 @@ function validateLayer2ChunkIdScopePolicy() {
     && record.includes('Decision accepts per-target-project chunk id scope')
     && record.includes('The live Decision Needed queue no longer contains the chunk id scope row')
     && record.includes('No Layer 2 target-project scaffold generation occurred');
-  checks.layer2_chunk_id_flow = currentWi.includes('WI id: WI-CX0036-docs')
-    && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0036-docs-chunk-id-scope-policy')
-    && fixPlan.includes('- [ ] WI-CX0037-docs Layer 2 Scope Code Decision Handback')
+  checks.layer2_chunk_id_flow = !/^- \[ \] WI-CX0036-docs\b/m.test(fixPlan)
     && handoff.includes('WI-CX0036-docs: Chunk Id Scope Policy')
-    && handoff.includes('WI-CX0037-docs Layer 2 Scope Code Decision Handback');
+    && handoff.includes('WI-CX0037-docs: Layer 2 Scope Code Decision Handback');
   checks.layer2_chunk_id_boundary = decision.includes('This decision does not generate a Layer 2 target-project scaffold')
     && decision.includes('does not choose the Layer 2 project scope code rule')
     && record.includes('No public API or external contract was stabilized')
@@ -1509,6 +1527,69 @@ function validateLayer2ChunkIdScopePolicy() {
   if (!checks.layer2_chunk_id_record) error('layer2_chunk_id.record_missing', 'WI-CX0036 validation record must capture decision evidence.');
   if (!checks.layer2_chunk_id_flow) error('layer2_chunk_id.flow_missing', 'Flow state must record WI-CX0036 and advance current priority to WI-CX0037.');
   if (!checks.layer2_chunk_id_boundary) error('layer2_chunk_id.boundary_missing', 'WI-CX0036 must preserve generation, scope-code, publication, and external-contract boundaries.');
+}
+function validateLayer2ScopeCodeDecisionHandback() {
+  const handback = read('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md');
+  const record = read('docs/records/validation-wi-cx0037-docs.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+
+  checks.layer2_scope_handback_boundary = handback.includes('FDP_Codex can now proceed to first Layer 2 scaffold generation only after the user chooses')
+    && handback.includes('No Layer 2 target-project scaffold is generated by this handback')
+    && handback.includes('Still user-gated')
+    && handback.includes('Which project scope code rule Layer 2 target WIs use');
+  checks.layer2_scope_handback_recommendation = handback.includes('Recommended choice: A, user-chosen mnemonic code')
+    && handback.includes('Fallback choice: B, temporary `TG` code')
+    && handback.includes('Required debt if B is chosen')
+    && handback.includes('scope_code_status: temporary');
+  checks.layer2_scope_handback_prompt = handback.includes('## Decision Prompt')
+    && handback.includes('A: user-chosen mnemonic code. Recommended')
+    && handback.includes('If choosing A, provide the exact project code')
+    && handback.includes('A, use FS');
+  checks.layer2_scope_handback_chunk = handback.includes('Layer 2 chunk ids are scoped per target project')
+    && handback.includes('target:<project_scope_code>:<chunk_id>');
+  checks.layer2_scope_handback_queue = fixPlan.includes('Waiting for user decision: Layer 2 project scope code rule')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
+    && fixPlan.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
+    && fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision');
+  checks.layer2_scope_handback_manifest = manifest.includes('record.layer-2-scope-code-decision-handback')
+    && manifest.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
+    && manifest.includes('record.validation-wi-cx0037-docs')
+    && manifest.includes('docs/records/validation-wi-cx0037-docs.md');
+  checks.layer2_scope_handback_indexes = docsIndex.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
+    && docsIndex.includes('docs/records/validation-wi-cx0037-docs.md')
+    && recordsReadme.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0037-docs.md');
+  checks.layer2_scope_handback_record = record.includes('WI: WI-CX0037-docs')
+    && record.includes('Handback preserves the user-gated Layer 2 project scope code rule')
+    && record.includes('No Layer 2 project scope code rule was chosen')
+    && record.includes('No Layer 2 target-project scaffold generation occurred');
+  checks.layer2_scope_handback_flow = currentWi.includes('WI id: WI-CX0037-docs')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0037-docs-layer-2-scope-code-decision-handback')
+    && handoff.includes('WI-CX0037-docs: Layer 2 Scope Code Decision Handback')
+    && handoff.includes('Recommended answer: `A, use <CODE>`')
+    && handoff.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked');
+  checks.layer2_scope_handback_boundary2 = record.includes('No public API or external contract was stabilized')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('production dependency addition')
+    && record.includes('destructive local realignment occurred')
+    && handoff.includes('Layer 2 scaffold generation remains blocked until the user chooses');
+
+  if (!checks.layer2_scope_handback_boundary) error('layer2_scope_handback.boundary_missing', 'Handback must preserve user decision and scaffold-generation boundary.');
+  if (!checks.layer2_scope_handback_recommendation) error('layer2_scope_handback.recommendation_missing', 'Handback must include recommended A and fallback B with debt.');
+  if (!checks.layer2_scope_handback_prompt) error('layer2_scope_handback.prompt_missing', 'Handback must include explicit decision prompt and example answer.');
+  if (!checks.layer2_scope_handback_chunk) error('layer2_scope_handback.chunk_missing', 'Handback must reference accepted per-target-project chunk id scope.');
+  if (!checks.layer2_scope_handback_queue) error('layer2_scope_handback.queue_missing', 'Fix plan must wait for the user decision and point to CX0038 after choice.');
+  if (!checks.layer2_scope_handback_manifest) error('layer2_scope_handback.manifest_missing', 'Manifest must register the handback and validation record.');
+  if (!checks.layer2_scope_handback_indexes) error('layer2_scope_handback.index_missing', 'Indexes must include the handback and validation record.');
+  if (!checks.layer2_scope_handback_record) error('layer2_scope_handback.record_missing', 'WI-CX0037 validation record must capture scope and boundary evidence.');
+  if (!checks.layer2_scope_handback_flow) error('layer2_scope_handback.flow_missing', 'Flow state must record WI-CX0037 and block CX0038 until user choice.');
+  if (!checks.layer2_scope_handback_boundary2) error('layer2_scope_handback.boundary_not_preserved', 'WI-CX0037 must preserve generation, publication, public API, dependency, and destructive boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1553,6 +1634,7 @@ validateLayer2KnowledgeScaffoldContract();
 validateAutomationRunnerFreshRunEvidenceGate();
 validateLayer2ScopeCodeOptionsPacket();
 validateLayer2ChunkIdScopePolicy();
+validateLayer2ScopeCodeDecisionHandback();
 validatePackage();
 
 const result = {

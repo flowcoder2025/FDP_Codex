@@ -47,11 +47,13 @@ Current validation records:
 - `docs/records/validation-wi-cx0033-test.md`
 - `docs/records/validation-wi-cx0034-docs.md`
 - `docs/records/validation-wi-cx0036-docs.md`
+- `docs/records/validation-wi-cx0037-docs.md`
 
 Other records:
 
 - `docs/records/decision-packet-2026-07-08.md`
 - `docs/records/layer-2-scope-code-options-2026-07-08.md`
+- `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`
 
 Forbidden record content:
 
