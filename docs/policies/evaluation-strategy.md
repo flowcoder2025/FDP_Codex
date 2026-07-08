@@ -1,6 +1,6 @@
 # Evaluation Strategy Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -20,7 +20,7 @@ Validator:
 - ledger metadata hygiene
 - branch and flow-state hygiene
 - package script and tool contract checks
-- template and policy presence checks
+- template, workflow, and policy presence checks
 
 Evaluator:
 
@@ -37,56 +37,86 @@ The validator may block merge. The evaluator may block progression even when val
 
 ## Strategy Codes
 
-E0 Self Check:
+E0 Validator Only:
 
-- Used for R0 and small R1 changes.
-- The implementing agent checks its own result.
+- Deterministic checks are enough for low-risk structural work.
+- Use only when no judgment-heavy claim is being made.
 
-E1 Deterministic Validator:
+E1 Rubric Review:
 
-- Uses `npm run validate` or an equivalent deterministic gate.
-- Required for manifest, ledger, naming, branch, template, and flow-state changes.
+- Apply a written criteria checklist.
+- Required when a WI changes policy, public documentation, contribution flow, or handoff behavior.
 
 E2 Blind Independent Review:
 
-- Reviewer receives the goal, changed surface, and evidence but not the implementer's narrative.
+- A reviewer evaluates the artifact without relying on the implementer's narrative or self-grade.
 - Required when policy direction, UX tradeoff, evaluator logic, public contribution behavior, or cross-WI process balance is affected.
 
 E3 Adversarial Review:
 
-- Reviewer actively attempts to falsify readiness, find bypasses, and identify hidden coupling.
+- A reviewer actively attempts to falsify readiness, find bypasses, and identify hidden coupling.
 - Required for automation, validator behavior, public collaboration surfaces, release boundaries, security-sensitive surfaces, and high-impact policy changes.
 
-E4 Human Maintainer Review:
+E4 Goal-Fit Review:
 
-- Required when the decision is product, license, publication, public release, governance, or trust-positioning rather than purely mechanical.
+- Check whether the work matches the user's intent and product direction.
+- Required when a WI translates discussion, preference, or strategy into repository policy.
 
-E5 Evidence Trace:
+E5 Portfolio Balance Review:
 
-- Requires commands, records, file paths, and validation outputs.
-- Required for R1 and above unless explicitly deferred under verification economy rules.
+- Check whether the selected next WI avoids over-concentrating on one track while starving another.
+- Required for every triage decision.
 
-E6 Handoff Review:
+E6 Evidence Trace Review:
 
-- Confirms `.flowset/handoff.md`, `.flowset/fix_plan.md`, and `.flowset/current-wi.md` point to SSOT and do not become SSOT.
+- Check whether claims are backed by files, validation results, records, or explicit decisions.
+- Required for R2 or R3 work and every policy LOCK.
 
-E7 OSS Readiness Review:
+E7 Release Readiness Review:
 
-- Checks external contributor UX, repository hygiene, license consistency, security disclosure, public documentation, and issue/PR intake policy.
+- Check public readiness, licensing, contribution, security, reproducibility, and demo evidence.
+- Required before tagged release, public release, external publication, or OSS program submission.
+
+## Review Execution Surfaces
+
+S0 Same-Agent Self Check:
+
+- The implementing agent reviews its own work.
+- Allowed for R0/R1 and as a supporting pass for R2.
+- Never satisfies E2.
+
+S1 Same-Thread Structured Review:
+
+- The same Codex thread runs a separate checklist pass after implementation.
+- Allowed for R2 pre-release work when the risk is bounded, the validator passes, and no release, license, security, or publication decision is being made.
+- May satisfy E1, E3, E4, E5, and E6 when the review notes are recorded.
+- Does not satisfy E2.
+
+S2 Separate Blind Review:
+
+- A separate Codex thread, separate reviewer, or human reviewer receives the goal, changed files, and evidence without the implementer's persuasive narrative.
+- Required to satisfy E2.
+- Required before release-candidate decisions, public release, OSS program submission, A2/A3 autonomy enablement, and disputed or ambiguous evidence.
+
+H1 Human Maintainer Gate:
+
+- A human maintainer explicitly approves a trust-positioning or externalization decision.
+- Required for license changes, public release, tagged release, deployment, package publication, OSS program submission, and material governance changes.
+- H1 is an approval gate, not an E-code.
 
 ## Selection Matrix
 
 Foundation policy:
 
-- Default: E1 + E2 + E5 + E6.
+- Default: E1 + E4 + E5 + E6.
+- Add E2 when the policy could self-grade its own readiness or affect governance.
 - Add E3 when the policy changes autonomy, GitHub collaboration, context hygiene, or validator behavior.
-- Add E4 when the policy locks a user-visible governance decision.
 
 Validator or automation:
 
 - Default: E1 + E3 + E5 + E6.
 - Add E2 when the automation chooses priorities, context, or evaluator strategy.
-- Add E4 when the automation can push, merge, publish, mutate remote state, or create long-lived background work.
+- H1 is required when automation can push, merge, publish, mutate remote state, or create long-lived background work outside an already approved envelope.
 
 Context pack or knowledge system:
 
@@ -96,12 +126,12 @@ Context pack or knowledge system:
 GitHub issue, PR, or label workflow:
 
 - Default: E1 + E2 + E3 + E5 + E6.
-- Add E4 before remote label mutation, PR merge, branch deletion automation, release workflow, or visibility change.
+- H1 is required before remote label mutation, PR merge, branch deletion automation, release workflow, or visibility change unless an active approval envelope already covers that action.
 
 OSS readiness:
 
 - Default: E1 + E2 + E3 + E4 + E5 + E6 + E7.
-- Public release and OSS program submission require human maintainer review.
+- Public release and OSS program submission require H1.
 
 Handoff and fix_plan hygiene:
 
@@ -110,10 +140,12 @@ Handoff and fix_plan hygiene:
 
 Documentation-only R0/R1:
 
-- Default: E0 + E5.
+- Default: E0 + E6.
 - Add E1 when manifest, ledger, or policy registry files change.
 
 ## Adversarial Checklists
+
+Adversarial checklists are evaluator prompts by default. They are not validator keyword gates unless a later WI extracts a deterministic invariant from a repeated finding.
 
 Policy:
 
@@ -162,14 +194,24 @@ Handoff and fix_plan:
 Every R2 or higher evaluation must record:
 
 - selected strategy codes,
+- execution surface used,
 - validation command or reason for deferral,
 - blind or adversarial review result when required,
 - residual risk,
 - Decision Needed items,
 - handoff update.
 
+If E2 is required but S2 was not used, the work may continue only when the current boundary does not require E2 completion before merge. The validation record must state that E2 remains unrepaid.
+
+## Decision Status
+
+Resolved by `docs/decisions/2026-07-08-evaluation-surface-baseline.md`:
+
+- E2 requires S2 Separate Blind Review.
+- S1 same-thread review may support R2 pre-release work but does not satisfy E2.
+- Adversarial checklists remain evaluator prompts by default.
+- H1 Human Maintainer Gate is mandatory before first public release, tagged release, package publication, deployment, or OSS program submission.
+
 ## Decision Needed
 
-- Whether blind independent review uses a separate Codex thread, another model role, or a human reviewer.
-- Whether adversarial review checklists become validator-enforced keyword gates or remain evaluator prompts.
-- Whether human review is mandatory before first public release even when validator and evaluator pass.
+- Whether portfolio guardrails should become a deterministic validator rule or remain evaluator judgment.

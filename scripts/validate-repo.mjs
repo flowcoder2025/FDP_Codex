@@ -45,6 +45,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-repository-license-binding.md',
   'docs/decisions/2026-07-08-bootstrap-publication-envelope.md',
   'docs/decisions/2026-07-08-public-readiness-boundary.md',
+  'docs/decisions/2026-07-08-evaluation-surface-baseline.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -71,6 +72,7 @@ const requiredAlwaysOnIds = [
 const requiredChunkIds = [
   'decision.bootstrap-publication-envelope',
   'decision.public-readiness-boundary',
+  'decision.evaluation-surface-baseline',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -529,6 +531,23 @@ function validatePublicReadiness() {
   if (!checks.public_decision_excludes_release) error('public.decision_boundary_missing', 'Public readiness decision must exclude release and OSS submission.');
 }
 
+function validateEvaluationSurface() {
+  const evaluation = read('docs/policies/evaluation-strategy.md');
+  const triage = read('docs/policies/triage-strategy.md');
+  const decision = read('docs/decisions/2026-07-08-evaluation-surface-baseline.md');
+
+  checks.evaluation_has_surface_section = evaluation.includes('## Review Execution Surfaces');
+  checks.evaluation_e2_requires_s2 = evaluation.includes('E2 Blind Independent Review requires S2') || decision.includes('E2 Blind Independent Review requires S2');
+  checks.evaluation_h1_release_gate = evaluation.includes('H1 Human Maintainer Gate') && decision.includes('H1 is mandatory before first public release');
+  checks.evaluation_adversarial_not_keyword_gate = evaluation.includes('not validator keyword gates') || decision.includes('Adversarial checklists remain evaluator prompts');
+  checks.triage_points_to_evaluation_surface = triage.includes('evaluation-surface-baseline');
+
+  if (!checks.evaluation_has_surface_section) error('evaluation.surface_section_missing', 'Evaluation policy must define review execution surfaces.');
+  if (!checks.evaluation_e2_requires_s2) error('evaluation.e2_s2_missing', 'Evaluation policy must state that E2 requires S2.');
+  if (!checks.evaluation_h1_release_gate) error('evaluation.h1_gate_missing', 'Evaluation policy must keep H1 release and OSS submission gate.');
+  if (!checks.evaluation_adversarial_not_keyword_gate) error('evaluation.adversarial_gate_ambiguous', 'Evaluation policy must keep adversarial checklists as evaluator prompts by default.');
+  if (!checks.triage_points_to_evaluation_surface) error('triage.evaluation_surface_link_missing', 'Triage policy must link to the evaluation surface decision.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -553,6 +572,7 @@ validateNaming();
 validateFlowState();
 validateGitHubGovernance();
 validatePublicReadiness();
+validateEvaluationSurface();
 validatePackage();
 
 const result = {

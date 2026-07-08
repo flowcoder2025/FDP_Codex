@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -17,7 +17,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0019-docs Evaluation Surface Baseline: define the accepted blind-review and adversarial-review execution surfaces for pre-release FDP_Codex work, including what must wait for a separate thread or human review before release candidate work. Expected strategy: PSC=P1, WTC=EVAL, Risk=R2, ESC=E1+E3+E4+E5+E6.
+- [ ] WI-CX0020-feat Context Pack Command Surface: define and implement the first explicit context-pack command surface for metadata output and optional ledger append without carrying chunk bodies. Expected strategy: PSC=P2, WTC=AUTO+KNOW, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
@@ -34,8 +34,6 @@ Discipline:
 - [ ] Default autonomy mode after bootstrap.
 - [ ] A2/A3 git and continuation scope.
 - [ ] Branch deletion automation default after squash merge.
-- [ ] Blind review execution surface. Recommended: separate Codex thread.
-- [ ] Adversarial checklist granularity per surface type.
 - [ ] Whether portfolio guardrails become deterministic validator rules.
 - [ ] Whether every KI must become a GitHub Issue after public release.
 - [ ] Whether the validator should adopt a strict YAML parser later.
