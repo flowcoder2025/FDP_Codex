@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/decisions/2026-07-08-tooling-strictness-probe.md`, `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`, `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, `.flowset/state.json`, `docs/records/layer-2-scope-code-options-2026-07-08.md`, `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`, `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`, `docs/specifications/layer-2-knowledge-scaffold.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/decisions/2026-07-08-tooling-strictness-probe.md`, `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`, `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, `.flowset/state.json`, `.flowset/runtime-snapshot.json`, `docs/specifications/runtime-snapshot.md`, `docs/records/layer-2-scope-code-options-2026-07-08.md`, `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`, `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`, `docs/records/validation-wi-cx0048-test.md`, `docs/specifications/layer-2-knowledge-scaffold.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0048-test Runtime Snapshot Validator: add repo-visible runtime snapshot validation for parent thread, goal thread, automation, runner thread ids, execution environment, and handoff receiver result evidence before further independent A2/Layer 2 progression. Expected strategy: PSC=P1, WTC=VAL, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0049-docs A2 Handoff Receiver Contract: define receiver success, duplicate-stop handling, repo-visible reporting, and parent-thread handback behavior before generalized A2/A3 autonomy expansion. Expected strategy: PSC=P1, WTC=SPEC, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Triggered Work
 
@@ -26,9 +26,8 @@ Discipline:
 
 ## Next Candidates
 
-- WI-CX0049-docs A2 Handoff Receiver Contract: define receiver success, duplicate-stop handling, and repo-visible reporting before generalized A2/A3 autonomy expansion.
 - WI-CX0050-test Worktree Isolation Verification: prove or block the A2 worktree isolation model before first Layer 2 target-project scaffold confidence claims.
-- WI-CX0038-docs Layer 2 Scope Code Accepted Decision: start only after the user chooses the Layer 2 project scope code rule and after WI-CX0048 installs control-plane confidence checks.
+- WI-CX0038-docs Layer 2 Scope Code Accepted Decision: start only after the user chooses the Layer 2 project scope code rule and after WI-CX0049/WI-CX0050 repay receiver and worktree confidence debt.
 - WI-CX0042-test Automation Runner S2 Review Execution: start only after a separate Codex thread, separate reviewer, or human reviewer is available to execute `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
 - WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision: start only after the user chooses from `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
 

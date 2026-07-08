@@ -2,30 +2,31 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T10:45:00Z",
+  "updated_at": "2026-07-08T10:58:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
-    ".flowset/handoff.md"
+    ".flowset/handoff.md",
+    ".flowset/runtime-snapshot.json"
   ],
   "current_wi": {
-    "id": "WI-CX0047-test",
+    "id": "WI-CX0048-test",
     "category": "test",
-    "title": "Session Orchestration Control-Plane Audit",
+    "title": "Runtime Snapshot Validator",
     "status": "validated",
-    "branch": "wi/cx0047-test-session-orchestration-control-plane-audit",
-    "validation_record": "docs/records/validation-wi-cx0047-test.md"
+    "branch": "wi/cx0048-test-runtime-snapshot-validator",
+    "validation_record": "docs/records/validation-wi-cx0048-test.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0048-test",
-    "item": "Runtime Snapshot Validator",
+    "wi_id": "WI-CX0049-docs",
+    "item": "A2 Handoff Receiver Contract",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "VAL",
+      "WTC": "SPEC",
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },

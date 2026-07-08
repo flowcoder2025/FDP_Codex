@@ -55,6 +55,7 @@ Current validation records:
 - `docs/records/validation-wi-cx0045-test.md`
 - `docs/records/validation-wi-cx0046-test.md`
 - `docs/records/validation-wi-cx0047-test.md`
+- `docs/records/validation-wi-cx0048-test.md`
 
 Other records:
 
@@ -64,6 +65,7 @@ Other records:
 - `docs/records/automation-runner-s2-review-packet-2026-07-08.md`
 - `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`
 - `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`
+- `.flowset/runtime-snapshot.json`
 
 Forbidden record content:
 

@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "kind": "fdp-codex-runtime-snapshot",
+  "layer": "layer1",
+  "captured_at": "2026-07-08T10:55:23Z",
+  "captured_by": "codex",
+  "wi_id": "WI-CX0048-test",
+  "repo": {
+    "path": "C:\\dev\\FDP_Codex",
+    "branch": "wi/cx0048-test-runtime-snapshot-validator",
+    "base_main_commit": "614e966170358b21e200286cd47bea621fecdc68"
+  },
+  "capture_sources": [
+    "functions.get_goal",
+    "codex_app.list_threads query=안녕",
+    "codex_app.list_threads query=FDP_Codex A2 Worktree",
+    "codex_app.list_threads query=fdp-codex-a2-worktree-wi-runner",
+    "codex_app.read_thread 019f414e-1d1f-75f1-9070-111e535c29ef",
+    "codex_app.read_thread 019f4115-caf6-7061-a1b8-9c08062c939c",
+    "C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml",
+    "C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\memory.md"
+  ],
+  "parent_thread": {
+    "id": "019f3d8b-76ae-7420-9337-d26582b51678",
+    "title": "안녕",
+    "cwd": "C:\\dev\\FDP_Codex",
+    "status": "active",
+    "role": "goal-carrier-parent-thread"
+  },
+  "goal": {
+    "thread_id": "019f3d8b-76ae-7420-9337-d26582b51678",
+    "status": "blocked",
+    "objective_contains": [
+      "FDP_Codex",
+      "자율 진행",
+      "컨텍스트 오염 방지",
+      "SSOT/manifest/context-ledger 규칙"
+    ],
+    "tokens_used": 3551021,
+    "time_used_seconds": 12884
+  },
+  "automation": {
+    "id": "fdp-codex-a2-worktree-wi-runner",
+    "name": "FDP_Codex A2 Worktree WI Runner",
+    "kind": "cron",
+    "status": "ACTIVE",
+    "rrule": "FREQ=HOURLY;INTERVAL=1",
+    "model": "gpt-5-codex",
+    "reasoning_effort": "high",
+    "execution_environment": "worktree",
+    "cwds": ["C:\\dev\\FDP_Codex"],
+    "config_path": "C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml",
+    "memory_path": "C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\memory.md"
+  },
+  "runner_discovery": {
+    "title_query": "FDP_Codex A2 Worktree",
+    "title_query_count": 4,
+    "automation_id_query": "fdp-codex-a2-worktree-wi-runner",
+    "automation_id_query_count": 0,
+    "query_gap": "automation id appears in runner previews and config, but direct automation-id thread search returned no thread summaries",
+    "latest_runner_thread_id": "019f414e-1d1f-75f1-9070-111e535c29ef",
+    "runner_thread_ids": [
+      "019f414e-1d1f-75f1-9070-111e535c29ef",
+      "019f4115-caf6-7061-a1b8-9c08062c939c",
+      "019f40dd-7758-7b23-b837-f3199c99b7ee",
+      "019f40a6-8574-79a2-b322-ee6e42a2fcc5"
+    ]
+  },
+  "runner_results": [
+    {
+      "thread_id": "019f414e-1d1f-75f1-9070-111e535c29ef",
+      "title": "FDP_Codex A2 Worktree WI Runner",
+      "last_run_at": "2026-07-08T09:36:13.975Z",
+      "thread_status": "idle",
+      "cwd": "C:\\dev\\FDP_Codex",
+      "receiver_result": "duplicate-stop",
+      "receiver_evidence": "Stopped because worktree already had wi/cx0047-test-session-orchestration-control-plane-audit and context-ledger changes for WI-CX0047-test.",
+      "repository_changes": "none"
+    },
+    {
+      "thread_id": "019f4115-caf6-7061-a1b8-9c08062c939c",
+      "title": "FDP_Codex A2 Worktree WI Runner",
+      "last_run_at": "2026-07-08T08:34:42.561Z",
+      "thread_status": "idle",
+      "cwd": "C:\\dev\\FDP_Codex",
+      "receiver_result": "duplicate-stop",
+      "receiver_evidence": "Stopped because worktree already had wi/cx0046-test-autonomous-work-exhaustion-stop-gate with uncommitted WI-CX0046 files.",
+      "repository_changes": "none"
+    },
+    {
+      "thread_id": "019f40dd-7758-7b23-b837-f3199c99b7ee",
+      "title": "FDP_Codex A2 Worktree WI Runner",
+      "last_run_at": "2026-07-08T07:34:41.775Z",
+      "thread_status": "notLoaded",
+      "cwd": "C:\\dev\\FDP_Codex",
+      "receiver_result": "duplicate-stop",
+      "receiver_evidence": "WI-CX0047 audit recorded duplicate-stop on existing WI-CX0040 branch and uncommitted evidence.",
+      "repository_changes": "none"
+    },
+    {
+      "thread_id": "019f40a6-8574-79a2-b322-ee6e42a2fcc5",
+      "title": "FDP_Codex A2 Worktree WI Runner",
+      "last_run_at": null,
+      "thread_status": "notLoaded",
+      "cwd": "C:\\dev\\FDP_Codex",
+      "receiver_result": "duplicate-stop",
+      "receiver_evidence": "WI-CX0047 audit recorded duplicate-stop on existing WI-CX0033 branch and uncommitted evidence.",
+      "repository_changes": "none"
+    }
+  ],
+  "handoff_receiver_assessment": {
+    "status": "not_proven",
+    "reason": "Observed runners stopped on duplicate local work and did not produce a branch, PR, output record, or validated handoff receiver result.",
+    "blocks": [
+      "generalized A2/A3 autonomy expansion",
+      "first Layer 2 target-project scaffold confidence claims"
+    ],
+    "repayment_wis": [
+      "WI-CX0049-docs",
+      "WI-CX0050-test"
+    ]
+  },
+  "worktree_isolation": {
+    "status": "not_proven",
+    "reason": "A2 worktree runs observed existing local WI branches or uncommitted evidence instead of a clean receiver workspace.",
+    "repayment_wi": "WI-CX0050-test"
+  },
+  "hard_stops_preserved": [
+    "release_publication",
+    "deployment",
+    "package_publication",
+    "oss_submission",
+    "a3_publication_behavior",
+    "public_api_or_external_contract_change",
+    "production_dependency_addition",
+    "destructive_filesystem_or_git_operation",
+    "first_layer2_target_project_scaffold_generation"
+  ]
+}
