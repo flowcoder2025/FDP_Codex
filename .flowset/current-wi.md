@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0021-feat
+WI id: WI-CX0022-docs
 
-Category: feat
+Category: docs
 
-Title: Context Selection Rule Table
+Title: Decision Queue State Codes
 
 Layer: Layer 1
 
@@ -12,21 +12,21 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0021-feat-context-selection-rule-table
+Branch: wi/cx0022-docs-decision-queue-state-codes
 
 Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Convert context pack selection heuristics into an explicit rule table and validator-backed contract without changing the stdout-only default or explicit ledger append boundary.
+Classify remaining Decision Needed items with explicit state codes, owner gates, and lock blockers so Operating Policy LOCK can proceed without mixing unresolved governance questions into active WI context.
 
 ## Verification Plan
 
-- Build a fresh context pack for `context-selection-rule-table`.
-- Define stable selection rule ids and triggers in the context pack builder specification.
-- Refactor `scripts/build-context-pack.mjs` so static selection behavior is driven by the rule table.
-- Add rule metadata to context pack output without adding chunk bodies.
-- Extend `scripts/validate-repo.mjs` to verify the rule table contract.
+- Build a fresh context pack for decision queue state coding.
+- Define decision queue state codes and owner gates in a policy document.
+- Convert the live Decision Needed queue into a compact state-coded table.
+- Register the policy and evidence in `docs/manifest.yaml`.
+- Extend `scripts/validate-repo.mjs` to verify the decision queue contract.
 - Run context pack default mode and explicit append mode.
 - Run `npm run validate`.
 - Run `git diff --check`.
@@ -34,13 +34,13 @@ Convert context pack selection heuristics into an explicit rule table and valida
 
 ## Completion Evidence
 
-- `scripts/build-context-pack.mjs`
-- `docs/specifications/context-pack-builder.md`
-- `docs/decisions/2026-07-08-context-selection-rule-table.md`
-- `docs/records/validation-wi-cx0021-feat.md`
+- `docs/policies/decision-queue.md`
+- `docs/decisions/2026-07-08-decision-queue-state-codes.md`
+- `docs/records/validation-wi-cx0022-docs.md`
+- `.flowset/fix_plan.md`
 - `docs/manifest.yaml`
 - `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0021-feat.
+- None for WI-CX0022-docs.
