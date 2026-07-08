@@ -1330,6 +1330,32 @@ chunks:
       - blind-review-planning
       - validation
     body_carryover: forbidden
+  - id: record.post-bootstrap-automation-cadence-decision-handback
+    title: Post-Bootstrap Automation Cadence Decision Handback
+    source: docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md
+    type: record
+    layer: layer1
+    status: user-decision-needed
+    loads_for:
+      - decision-needed
+      - automation-planning
+      - approval-envelope
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0043-docs
+    title: WI-CX0043-docs Validation Record
+    source: docs/records/validation-wi-cx0043-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - decision-needed
+      - automation-planning
+      - validation
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs
