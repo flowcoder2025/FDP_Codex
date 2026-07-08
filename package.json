@@ -1,0 +1,14 @@
+{
+  "name": "fdp-codex",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate-repo.mjs",
+    "context:pack": "node scripts/build-context-pack.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

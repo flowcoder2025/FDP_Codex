@@ -1,0 +1,84 @@
+# Documentation Index
+
+This is the human navigation index for FDP_Codex. The machine-readable SSOT registry is `docs/manifest.yaml`.
+
+## Always-On References
+
+- `AGENTS.md`
+- `docs/manifest.yaml`
+
+## Policies
+
+- `docs/policies/context-hygiene.md`
+- `docs/policies/work-item-lifecycle.md`
+- `docs/policies/naming-and-commits.md`
+- `docs/policies/git-workflow.md`
+- `docs/policies/github-issue-governance.md`
+- `docs/policies/autonomy-and-approval.md`
+- `docs/policies/triage-strategy.md`
+- `docs/policies/evaluation-strategy.md`
+- `docs/policies/verification-economy.md`
+
+## Specifications
+
+- `docs/specifications/knowledge-system.md`
+- `docs/specifications/context-pack-builder.md`
+
+## Decisions
+
+- `docs/decisions/README.md`
+- `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`
+- `docs/decisions/2026-07-08-repository-license-binding.md`
+- `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`
+
+## Runbooks
+
+- `docs/runbooks/README.md`
+- `docs/runbooks/github-label-setup.md`
+- `docs/runbooks/bootstrap-reconciliation.md`
+
+## Records
+
+- `docs/records/README.md`
+- `docs/records/validation-wi-0001.md`
+- `docs/records/validation-wi-cx0002-docs.md`
+- `docs/records/validation-wi-cx0003-docs.md`
+- `docs/records/validation-wi-cx0004-docs.md`
+- `docs/records/validation-wi-cx0005-docs.md`
+- `docs/records/validation-wi-cx0006-docs.md`
+- `docs/records/validation-wi-cx0007-docs.md`
+- `docs/records/validation-wi-cx0008-ci.md`
+- `docs/records/validation-wi-cx0009-feat.md`
+- `docs/records/validation-wi-cx0010-ci.md`
+- `docs/records/validation-wi-cx0011-docs.md`
+- `docs/records/validation-wi-cx0012-docs.md`
+- `docs/records/decision-packet-2026-07-08.md`
+- `docs/records/validation-wi-cx0013-docs.md`
+
+## Tooling
+
+- `package.json`
+- `scripts/lib/manifest.mjs`
+- `scripts/validate-repo.mjs`
+- `scripts/build-context-pack.mjs`
+
+## GitHub Templates
+
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `.github/ISSUE_TEMPLATE/known_issue.yml`
+- `.github/ISSUE_TEMPLATE/contribution_intake.yml`
+- `.github/ISSUE_TEMPLATE/config.yml`
+- `.github/labels.yml`
+- `.github/workflows/validate.yml`
+
+## Flowset State
+
+- `.flowset/current-wi.md`
+- `.flowset/fix_plan.md`
+- `.flowset/context-ledger.jsonl`
+- `.flowset/handoff.md`
+
+## Legal
+
+- `LICENSE`
+- `LICENSE-CANDIDATE.md`

@@ -1,0 +1,40 @@
+name: Contribution Intake
+description: Propose a change without authorizing automatic work.
+title: "Proposal: "
+labels:
+  - fdp:triage-needed
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_change
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - policy
+        - specification
+        - automation
+        - validation
+        - documentation
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Suggested validation
+      description: How should maintainers verify this?
+    validations:
+      required: false

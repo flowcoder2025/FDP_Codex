@@ -1,0 +1,635 @@
+schema_version: 0
+project:
+  id: fdp-codex
+  name: FDP_Codex
+  status: initial-scaffold
+  purpose: Codex-native open FDP workflow kit
+  repository: https://github.com/flowcoder2025/FDP_Codex.git
+  visibility: private-during-bootstrap
+  license: Apache-2.0
+
+authority_order:
+  - AGENTS.md
+  - docs/manifest.yaml
+  - docs/policies
+  - docs/specifications
+  - docs/decisions
+  - docs/runbooks
+  - .flowset/current-wi.md
+  - .flowset/fix_plan.md
+  - .flowset/handoff.md
+  - docs/records
+  - LICENSE
+
+always_on:
+  - id: root.agents
+    source: AGENTS.md
+    reason: repository-level agent rules
+  - id: registry.manifest
+    source: docs/manifest.yaml
+    reason: machine-readable SSOT and chunk registry
+
+context_policy:
+  active_context_scope: current_wi_and_session_only
+  carry_context_pack_bodies_across_wi: false
+  carry_context_pack_bodies_across_session: false
+  ledger_body_storage: forbidden
+  rebuild_context_from_manifest_per_wi: true
+  default_hash: sha256-file
+
+repository:
+  remote: https://github.com/flowcoder2025/FDP_Codex.git
+  visibility: private-during-bootstrap
+  default_branch_seen: main
+  publication_authorized: false
+
+license:
+  spdx: Apache-2.0
+  source: LICENSE
+  decision_ref: decision.repository-license
+
+ledger:
+  path: .flowset/context-ledger.jsonl
+  body_storage: forbidden
+  allowed_fields:
+    - timestamp
+    - wi_id
+    - chunk_id
+    - source
+    - hash
+    - load_reason
+    - decision_ref
+    - actor
+
+chunks:
+  - id: legal.license
+    title: Apache License 2.0
+    source: LICENSE
+    type: legal
+    layer: layer1
+    status: accepted
+    loads_for:
+      - oss-readiness
+      - release-boundary
+      - contribution
+    body_carryover: forbidden
+
+  - id: decision.operating-foundation
+    title: FDP_Codex Operating Foundation
+    source: docs/decisions/2026-07-08-fdp-codex-operating-foundation.md
+    type: decision
+    layer: layer1
+    status: accepted-v0
+    loads_for:
+      - project-orientation
+      - wi-start
+      - operating-policy-lock
+      - handoff
+    body_carryover: forbidden
+
+  - id: decision.repository-license
+    title: Repository and License Binding
+    source: docs/decisions/2026-07-08-repository-license-binding.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - project-orientation
+      - git
+      - oss-readiness
+      - release-boundary
+      - handoff
+    body_carryover: forbidden
+
+  - id: decision.bootstrap-publication-envelope
+    title: Bootstrap Publication Envelope
+    source: docs/decisions/2026-07-08-bootstrap-publication-envelope.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - git
+      - pull-request
+      - merge-boundary
+      - label-setup
+      - public-visibility
+      - ci
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.context-hygiene
+    title: Context Hygiene Policy
+    source: docs/policies/context-hygiene.md
+    type: policy
+    layer: layer1
+    status: lock-candidate
+    loads_for:
+      - wi-start
+      - context-pack-building
+      - handoff
+      - review
+    body_carryover: forbidden
+
+  - id: policy.work-item-lifecycle
+    title: Work Item and Known Issue Lifecycle
+    source: docs/policies/work-item-lifecycle.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - wi-triage
+      - ki-triage
+      - handoff
+      - review
+    body_carryover: forbidden
+
+  - id: policy.naming-and-commits
+    title: Naming and Commit Policy
+    source: docs/policies/naming-and-commits.md
+    type: policy
+    layer: layer1
+    status: accepted-v0
+    loads_for:
+      - wi-start
+      - commit
+      - pull-request
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.git-workflow
+    title: Git Workflow Policy
+    source: docs/policies/git-workflow.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - wi-start
+      - branch
+      - commit
+      - pull-request
+      - merge-boundary
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.github-issue-governance
+    title: GitHub Issue Governance Policy
+    source: docs/policies/github-issue-governance.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - issue-triage
+      - ki-triage
+      - contribution
+      - pull-request
+      - handoff
+    body_carryover: forbidden
+
+  - id: github.pr-template
+    title: Pull Request Template
+    source: .github/PULL_REQUEST_TEMPLATE.md
+    type: github-template
+    layer: layer1
+    status: draft
+    loads_for:
+      - pull-request
+      - review
+      - merge-boundary
+    body_carryover: forbidden
+
+  - id: github.issue-template.known-issue
+    title: Known Issue Template
+    source: .github/ISSUE_TEMPLATE/known_issue.yml
+    type: github-template
+    layer: layer1
+    status: draft
+    loads_for:
+      - ki-triage
+      - issue-triage
+    body_carryover: forbidden
+
+  - id: github.issue-template.contribution-intake
+    title: Contribution Intake Template
+    source: .github/ISSUE_TEMPLATE/contribution_intake.yml
+    type: github-template
+    layer: layer1
+    status: draft
+    loads_for:
+      - contribution
+      - issue-triage
+    body_carryover: forbidden
+
+  - id: github.issue-template.config
+    title: GitHub Issue Template Config
+    source: .github/ISSUE_TEMPLATE/config.yml
+    type: github-template
+    layer: layer1
+    status: draft
+    loads_for:
+      - issue-triage
+      - contribution
+    body_carryover: forbidden
+
+  - id: github.labels
+    title: GitHub Label Definitions
+    source: .github/labels.yml
+    type: github-template
+    layer: layer1
+    status: draft
+    loads_for:
+      - issue-triage
+      - contribution
+      - pull-request
+      - label-setup
+    body_carryover: forbidden
+
+  - id: github.workflow.validate
+    title: GitHub Actions Validate Workflow
+    source: .github/workflows/validate.yml
+    type: github-workflow
+    layer: layer1
+    status: draft
+    loads_for:
+      - validation
+      - ci
+      - pull-request
+      - merge-boundary
+    body_carryover: forbidden
+
+  - id: runbook.github-label-setup
+    title: GitHub Label Setup Runbook
+    source: docs/runbooks/github-label-setup.md
+    type: runbook
+    layer: layer1
+    status: draft
+    loads_for:
+      - label-setup
+      - oss-readiness
+      - contribution
+    body_carryover: forbidden
+
+  - id: runbook.bootstrap-reconciliation
+    title: Bootstrap Reconciliation Runbook
+    source: docs/runbooks/bootstrap-reconciliation.md
+    type: runbook
+    layer: layer1
+    status: draft
+    loads_for:
+      - git
+      - branch
+      - pull-request
+      - bootstrap-reconciliation
+      - handoff
+    body_carryover: forbidden
+
+  - id: tool.package
+    title: Node Package Metadata
+    source: package.json
+    type: tool-config
+    layer: layer1
+    status: draft
+    loads_for:
+      - validation
+      - tooling
+      - ci
+      - context-pack-building
+    body_carryover: forbidden
+
+  - id: tool.manifest-lib
+    title: Manifest Parser Library
+    source: scripts/lib/manifest.mjs
+    type: tool
+    layer: layer1
+    status: draft
+    loads_for:
+      - validation
+      - context-pack-building
+      - tooling
+    body_carryover: forbidden
+
+  - id: tool.build-context-pack
+    title: Context Pack Builder
+    source: scripts/build-context-pack.mjs
+    type: tool
+    layer: layer1
+    status: draft
+    loads_for:
+      - context-pack-building
+      - wi-start
+      - automation-planning
+    body_carryover: forbidden
+
+  - id: tool.validate-repo
+    title: Repository Validator
+    source: scripts/validate-repo.mjs
+    type: tool
+    layer: layer1
+    status: draft
+    loads_for:
+      - validation
+      - ci
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.autonomy-and-approval
+    title: Autonomy and Approval Policy
+    source: docs/policies/autonomy-and-approval.md
+    type: policy
+    layer: layer1
+    status: lock-candidate
+    loads_for:
+      - automation-planning
+      - approval-envelope
+      - fresh-run-continuation
+      - hard-stop-triage
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.triage-strategy
+    title: Triage Strategy Policy
+    source: docs/policies/triage-strategy.md
+    type: policy
+    layer: layer1
+    status: accepted-v0
+    loads_for:
+      - wi-triage
+      - evaluator-strategy-selection
+      - portfolio-balance
+      - blind-review-planning
+      - adversarial-review-planning
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.evaluation-strategy
+    title: Evaluation Strategy Policy
+    source: docs/policies/evaluation-strategy.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - evaluator-strategy-selection
+      - blind-review-planning
+      - adversarial-review-planning
+      - validation-planning
+      - oss-readiness
+      - handoff
+    body_carryover: forbidden
+
+  - id: policy.verification-economy
+    title: Verification Economy Policy
+    source: docs/policies/verification-economy.md
+    type: policy
+    layer: layer1
+    status: draft
+    loads_for:
+      - risk-classification
+      - validation-planning
+      - verification-debt
+      - release-boundary
+    body_carryover: forbidden
+
+  - id: spec.knowledge-system
+    title: Knowledge System Specification
+    source: docs/specifications/knowledge-system.md
+    type: specification
+    layer: shared
+    status: draft
+    loads_for:
+      - layer-modeling
+      - ssot-maintenance
+      - target-project-generation
+      - context-pack-building
+    body_carryover: forbidden
+
+  - id: spec.context-pack-builder
+    title: Context Pack Builder Specification
+    source: docs/specifications/context-pack-builder.md
+    type: specification
+    layer: layer1
+    status: draft
+    loads_for:
+      - context-pack-building
+      - hook-contract
+      - automation-planning
+      - validation
+    body_carryover: forbidden
+
+  - id: flow.current-wi
+    title: Current Work Item
+    source: .flowset/current-wi.md
+    type: flow-state
+    layer: layer1
+    status: live
+    loads_for:
+      - wi-start
+      - handoff
+    body_carryover: forbidden
+
+  - id: flow.fix-plan
+    title: Live Fix Plan
+    source: .flowset/fix_plan.md
+    type: flow-state
+    layer: layer1
+    status: live
+    loads_for:
+      - wi-start
+      - triage
+      - handoff
+    body_carryover: forbidden
+
+  - id: flow.handoff
+    title: Session Handoff
+    source: .flowset/handoff.md
+    type: handoff
+    layer: layer1
+    status: live
+    loads_for:
+      - session-start
+      - session-end
+    body_carryover: forbidden
+
+  - id: record.context-ledger
+    title: Context Ledger
+    source: .flowset/context-ledger.jsonl
+    type: ledger
+    layer: layer1
+    status: append-only
+    loads_for:
+      - audit
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0001-docs
+    title: WI-CX0001-docs Validation Record
+    source: docs/records/validation-wi-0001.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0002-docs
+    title: WI-CX0002-docs Validation Record
+    source: docs/records/validation-wi-cx0002-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0003-docs
+    title: WI-CX0003-docs Validation Record
+    source: docs/records/validation-wi-cx0003-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0004-docs
+    title: WI-CX0004-docs Validation Record
+    source: docs/records/validation-wi-cx0004-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0005-docs
+    title: WI-CX0005-docs Validation Record
+    source: docs/records/validation-wi-cx0005-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0006-docs
+    title: WI-CX0006-docs Validation Record
+    source: docs/records/validation-wi-cx0006-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0007-docs
+    title: WI-CX0007-docs Validation Record
+    source: docs/records/validation-wi-cx0007-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0008-ci
+    title: WI-CX0008-ci Validation Record
+    source: docs/records/validation-wi-cx0008-ci.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0009-feat
+    title: WI-CX0009-feat Validation Record
+    source: docs/records/validation-wi-cx0009-feat.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0010-ci
+    title: WI-CX0010-ci Validation Record
+    source: docs/records/validation-wi-cx0010-ci.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0011-docs
+    title: WI-CX0011-docs Validation Record
+    source: docs/records/validation-wi-cx0011-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0012-docs
+    title: WI-CX0012-docs Validation Record
+    source: docs/records/validation-wi-cx0012-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.decision-packet-2026-07-08
+    title: 2026-07-08 Decision Packet
+    source: docs/records/decision-packet-2026-07-08.md
+    type: record
+    layer: layer1
+    status: review-needed
+    loads_for:
+      - handoff
+      - decision-needed
+      - approval-envelope
+      - git
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0013-docs
+    title: WI-CX0013-docs Validation Record
+    source: docs/records/validation-wi-cx0013-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+hook_contract:
+  status: implemented-draft-v0
+  implementation: scripts/build-context-pack.mjs
+  input:
+    - wi_id
+    - task_intent
+    - risk_level
+    - changed_paths
+    - manifest
+  output:
+    - context_pack_id
+    - selected_chunk_ids
+    - load_reasons
+    - hashes
+    - decision_refs
+  forbidden_output:
+    - carried_chunk_bodies
+    - long_ssot_replacements
+    - unscoped_document_dumps

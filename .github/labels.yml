@@ -1,0 +1,102 @@
+- name: fdp:triage-needed
+  color: "ededed"
+  description: New issue or PR awaiting FDP triage.
+- name: fdp:accepted
+  color: "c2e0c6"
+  description: Direction accepted but not yet authorized for work.
+- name: fdp:approved-work
+  color: "0e8a16"
+  description: Approved for work inside the active approval envelope.
+- name: fdp:blocked-user-decision
+  color: "fbca04"
+  description: Blocked on user or maintainer decision.
+- name: fdp:ki
+  color: "d93f0b"
+  description: Known Issue.
+- name: fdp:debt
+  color: "e99695"
+  description: Deferred verification, implementation, or policy debt.
+- name: ki:critical
+  color: "b60205"
+  description: Critical KI, next WI or next session unless explicitly overridden.
+- name: ki:high
+  color: "d93f0b"
+  description: High KI, repay before release, externalization, or public merge.
+- name: ki:medium
+  color: "fbca04"
+  description: Medium KI with explicit repayment boundary.
+- name: ki:low
+  color: "cfd3d7"
+  description: Low KI, may batch but must remain visible.
+- name: risk:R0
+  color: "f0f9ff"
+  description: R0 risk.
+- name: risk:R1
+  color: "d0f0fd"
+  description: R1 risk.
+- name: risk:R2
+  color: "fbca04"
+  description: R2 risk.
+- name: risk:R3
+  color: "b60205"
+  description: R3 risk, hard-stop default.
+- name: track:foundation
+  color: "5319e7"
+  description: Foundation policy or structure.
+- name: track:validator
+  color: "1d76db"
+  description: Validator or repository gate work.
+- name: track:automation
+  color: "006b75"
+  description: Automation or hook work.
+- name: track:knowledge
+  color: "bfdadc"
+  description: Knowledge system, SSOT, or context pack work.
+- name: track:oss
+  color: "0052cc"
+  description: OSS readiness or public collaboration work.
+- name: track:evaluation
+  color: "5319e7"
+  description: Evaluator, validation, blind review, or adversarial review work.
+- name: track:debt
+  color: "d4c5f9"
+  description: Debt repayment work.
+- name: needs:user-approval
+  color: "fbca04"
+  description: Requires user or maintainer approval.
+- name: needs:blind-review
+  color: "5319e7"
+  description: Requires blind independent review.
+- name: needs:adversarial-review
+  color: "b60205"
+  description: Requires adversarial review.
+- name: needs:validator
+  color: "1d76db"
+  description: Requires validator evidence.
+- name: needs:wi-link
+  color: "ededed"
+  description: Requires a linked WI.
+- name: pr:needs-validation
+  color: "fbca04"
+  description: PR needs validation evidence.
+- name: pr:ready-for-review
+  color: "0e8a16"
+  description: PR is ready for review.
+- name: pr:blocked-policy
+  color: "b60205"
+  description: PR is blocked by policy.
+- name: pr:approved-merge
+  color: "0e8a16"
+  description: PR is approved for merge.
+- name: external-contribution
+  color: "c5def5"
+  description: External contributor issue or PR.
+- name: good-first-issue
+  color: "7057ff"
+  description: Suitable for new contributors after triage.
+- name: help-wanted
+  color: "008672"
+  description: Maintainers welcome help.
+- name: do-not-start
+  color: "000000"
+  description: Do not start implementation.
