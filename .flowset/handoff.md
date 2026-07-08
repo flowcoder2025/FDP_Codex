@@ -6,9 +6,13 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0028-chore Tooling TypeScript Baseline.
+Current WI: WI-CX0029-chore Automation Run Surface Installation.
 
-WI-CX0028-chore status: validated.
+WI-CX0029-chore status: validated.
+
+Installed Codex app automation: `fdp-codex-a2-worktree-wi-runner`.
+
+The runner is a worktree cron surface, not a heartbeat or hidden local thread. It gates itself until WI-CX0029 is accepted on `origin/main`, then checks existing branches and open PRs before starting any selected WI.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -21,15 +25,11 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0019-docs: Evaluation Surface Baseline. Evidence: `docs/decisions/2026-07-08-evaluation-surface-baseline.md` and `docs/records/validation-wi-cx0019-docs.md`.
 - WI-CX0020-feat: Context Pack Command Surface. Evidence: `docs/decisions/2026-07-08-context-pack-command-surface.md` and `docs/records/validation-wi-cx0020-feat.md`.
 - WI-CX0021-feat: Context Selection Rule Table. Evidence: `docs/decisions/2026-07-08-context-selection-rule-table.md` and `docs/records/validation-wi-cx0021-feat.md`.
-- WI-CX0022-docs: Decision Queue State Codes. Evidence: `docs/policies/decision-queue.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, and `docs/records/validation-wi-cx0022-docs.md`.
-- WI-CX0023-docs: KI Identity Severity Policy. Evidence: `docs/decisions/2026-07-08-ki-identity-severity-policy.md` and `docs/records/validation-wi-cx0023-docs.md`.
-- WI-CX0024-docs: Handoff Size Policy. Evidence: `docs/decisions/2026-07-08-handoff-size-policy.md` and `docs/records/validation-wi-cx0024-docs.md`.
-- WI-CX0025-docs: Autonomy Default Options Packet. Evidence: `docs/decisions/2026-07-08-autonomy-default-options-packet.md` and `docs/records/validation-wi-cx0025-docs.md`.
+- WI-CX0022-docs through WI-CX0027-docs: decision queue, KI identity, handoff size, autonomy defaults, collaboration response, and session boundary contracts. Evidence: matching `docs/decisions/` and `docs/records/validation-wi-*.md` files.
 - WI-CX0016-docs: Operating Policy LOCK v0. Evidence: `docs/decisions/2026-07-08-operating-policy-lock.md` and `docs/records/validation-wi-cx0016-docs.md`.
-- WI-CX0026-docs: Collaboration Response Contract. Evidence: `docs/decisions/2026-07-08-collaboration-response-contract.md` and `docs/records/validation-wi-cx0026-docs.md`.
-- WI-CX0027-docs: Session Boundary Automation Contract. Evidence: `docs/decisions/2026-07-08-session-boundary-automation-contract.md` and `docs/records/validation-wi-cx0027-docs.md`.
-- WI-CX0018-chore: Local Workspace Realignment. Evidence: `docs/records/validation-wi-cx0018-chore.md`; backup `C:\tmp\fdp-codex-dev-backup-20260708-140739`; aligned HEAD `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`.
+- WI-CX0018-chore: Local Workspace Realignment. Evidence: `docs/records/validation-wi-cx0018-chore.md`; backup `C:	mpdp-codex-dev-backup-20260708-140739`; aligned HEAD `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`.
 - WI-CX0028-chore: Tooling TypeScript Baseline. Evidence: `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/records/validation-wi-cx0028-chore.md`, `tsconfig.json`, and `package-lock.json`.
+- WI-CX0029-chore: Automation Run Surface Installation. Evidence: `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/records/validation-wi-cx0029-chore.md`, and Codex app automation id `fdp-codex-a2-worktree-wi-runner`.
 
 ## Orientation SSOT
 
@@ -38,45 +38,33 @@ Release publication, deployment, package publication, and OSS program submission
 - Current WI: `.flowset/current-wi.md`.
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
-- Decision queue policy: `docs/policies/decision-queue.md`.
 - Operating policy lock: `docs/decisions/2026-07-08-operating-policy-lock.md`.
-- Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
-- Collaboration response contract: `docs/decisions/2026-07-08-collaboration-response-contract.md`.
 - Session boundary contract: `docs/decisions/2026-07-08-session-boundary-automation-contract.md`.
+- Automation runner contract: `docs/decisions/2026-07-08-automation-run-surface-installation.md`.
 
 ## Locked For This Scaffold
 
 - Layer 1 operating policies are accepted-v0 for the public bootstrap pre-release baseline.
 - Context bodies are ephemeral and ledger records metadata only.
 - `docs/manifest.yaml` is the machine-readable SSOT registry.
-- `npm run context:pack` is stdout-only by default.
-- Ledger mutation requires explicit `--append-ledger`.
-- Context selection uses stable rule ids and emits `selection_rule_ids` plus per-chunk `selection_rules`.
-- Decision Needed items use state codes from `docs/policies/decision-queue.md` and live only in `.flowset/fix_plan.md`.
-- KI ids must not encode severity; severity is field-only.
-- Layer 1 handoff must not exceed 220 lines.
-- No-envelope autonomy fallback is A1 Assisted; A2 requires an approval envelope; A3 is not default.
-- Public status is `public bootstrap, pre-release`.
-- E2 Blind Independent Review requires S2 Separate Blind Review.
-- H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
-- Validate workflow covers Node 20 and Node 24.
-- TypeScript baseline checks existing `.mjs` tooling with `allowJs`, `checkJs`, and `noEmit`; runtime entrypoints remain `.mjs`.
-- Decision-bearing replies separate situation, options, recommendation, tradeoffs, and approval needed.
 - Auto-compact is same-thread continuation, not a fresh session or context hygiene reset.
+- The installed runner is bounded A2 worktree automation and must boot from repository SSOT.
+- E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
+- Release publication, deployment, package publication, and OSS submission remain hard stops.
 
 ## Git State
 
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
+- Active WI branch for this cycle: `wi/cx0029-chore-automation-run-surface-installation`.
 
 ## Next Action
-
 Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0029-chore Automation Run Surface Installation.
+- WI-CX0030-test Automation Runner Post-Merge Smoke.
 
 ## Blocked Work
 
@@ -84,7 +72,7 @@ Immediate next WI:
 - Deployment is not approved.
 - Package publication is not approved.
 - OSS program submission is not approved.
-- E2 S2 blind review debt for the bootstrap operating lock remains due before release-candidate lock, public release, OSS submission, or generalized A2/A3 autonomy expansion.
+- Generalized A2/A3 expansion is blocked on S2 blind review debt and a future decision.
 
 ## New Session Procedure
 

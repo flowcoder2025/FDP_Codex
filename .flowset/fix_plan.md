@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/decisions/2026-07-08-context-selection-rule-table.md`, `docs/decisions/2026-07-08-decision-queue-state-codes.md`, `docs/decisions/2026-07-08-ki-identity-severity-policy.md`, `docs/decisions/2026-07-08-handoff-size-policy.md`, `docs/decisions/2026-07-08-autonomy-default-options-packet.md`, `docs/decisions/2026-07-08-operating-policy-lock.md`, `docs/decisions/2026-07-08-session-boundary-automation-contract.md`, `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/decisions/2026-07-08-automation-run-surface-installation.md`, `docs/policies/decision-queue.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -18,11 +18,12 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0029-chore Automation Run Surface Installation: install or configure a supported Codex automation surface only after the TS baseline decision and with explicit tool-surface evidence. Expected strategy: PSC=P1, WTC=AUTO, Risk=R2, ESC=E1+E3+E5.
+- [ ] WI-CX0030-test Automation Runner Post-Merge Smoke: after WI-CX0029 reaches `origin/main`, verify the installed worktree runner still has the startup gate, duplicate branch/PR gate, hard stops, and no hidden local setup script. Expected strategy: PSC=P2, WTC=AUTO, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
-- WI-CX0030-chore Context Ledger Dedupe Policy: decide whether repeated context-pack appends should be compacted or deduplicated without storing chunk bodies.
+- WI-CX0031-chore Context Ledger Dedupe Policy: decide whether repeated context-pack appends should be compacted or deduplicated without storing chunk bodies.
+
 ## Decision Needed Queue
 
 | Item | State | Owner gate | Lock blocker | Repayment trigger |
@@ -37,3 +38,5 @@ Discipline:
 | Whether the validator should adopt a strict YAML parser later. | DQ-DEBT | CODEX | no | When manifest grammar exceeds the current parser or parser drift is observed. |
 | Whether current WI and handoff should be split into stricter machine-readable state later. | DQ-DEBT | CODEX | no | When handoff or current WI parsing becomes ambiguous or repeated validator exceptions appear. |
 | Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | When repository scripts grow beyond the `.mjs` checkJs baseline or before release-candidate tooling lock. |
+| Long-lived post-bootstrap automation cadence and authority. | DQ-USER | USER | conditional | Before the bootstrap envelope expires, release-candidate readiness, or changing the runner beyond the current bounded A2 prompt. |
+| S2 blind review repayment for the automation runner. | DQ-DEBT | CODEX | conditional | Before generalized A2/A3 autonomy expansion, release-candidate readiness, public release, or OSS submission. |
