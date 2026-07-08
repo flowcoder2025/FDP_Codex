@@ -17,7 +17,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0017-ci Validator CI Follow-Up: inspect latest GitHub Actions behavior on `main`, reconcile local and remote CI expectations, and harden workflow or validator behavior only where evidence shows a gap. Expected strategy: PSC=P2, WTC=VAL, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0019-docs Evaluation Surface Baseline: define the accepted blind-review and adversarial-review execution surfaces for pre-release FDP_Codex work, including what must wait for a separate thread or human review before release candidate work. Expected strategy: PSC=P1, WTC=EVAL, Risk=R2, ESC=E1+E3+E4+E5+E6.
 
 ## Next Candidates
 
