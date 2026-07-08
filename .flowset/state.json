@@ -2,19 +2,19 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T09:03:00Z",
+  "updated_at": "2026-07-08T09:18:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0043-docs",
-    "category": "docs",
-    "title": "Post-Bootstrap Automation Cadence Decision Handback",
+    "id": "WI-CX0045-test",
+    "category": "test",
+    "title": "Portfolio Guardrail Validator Baseline",
     "status": "validated",
-    "branch": "wi/cx0043-docs-post-bootstrap-automation-cadence-decision-handback",
-    "validation_record": "docs/records/validation-wi-cx0043-docs.md"
+    "branch": "wi/cx0045-test-portfolio-guardrail-validator-baseline",
+    "validation_record": "docs/records/validation-wi-cx0045-test.md"
   },
   "current_priority": {
     "kind": "user_decision",

@@ -147,6 +147,13 @@ E3 Adversarial Review is required when:
 
 E7 Release Readiness Review is required before public release, OSS program submission, tagged release, or external publication.
 
+## Portfolio Guardrail Validator Baseline
+
+Starting with WI-CX0045-test, the repository validator enforces a current-and-forward portfolio guardrail baseline.
+
+The active WI and its current validation record must include PSC, WTC, Risk, and ESC. ESC must include E5 Portfolio Balance Review.
+
+This validator baseline does not rewrite or reinterpret historical validation records.
 ## Triage Output Contract
 
 A triage result must record:
