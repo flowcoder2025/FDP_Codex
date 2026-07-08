@@ -987,6 +987,17 @@ chunks:
       - handoff
       - session-boundary
     body_carryover: forbidden
+  - id: record.validation-wi-cx0018-chore
+    title: WI-CX0018-chore Validation Record
+    source: docs/records/validation-wi-cx0018-chore.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - local-workspace-realignment
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs

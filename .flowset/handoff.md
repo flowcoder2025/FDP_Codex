@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0027-docs Session Boundary Automation Contract.
+Current WI: WI-CX0018-chore Local Workspace Realignment.
 
-WI-CX0027-docs status: validated.
+WI-CX0018-chore status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -28,6 +28,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0016-docs: Operating Policy LOCK v0. Evidence: `docs/decisions/2026-07-08-operating-policy-lock.md` and `docs/records/validation-wi-cx0016-docs.md`.
 - WI-CX0026-docs: Collaboration Response Contract. Evidence: `docs/decisions/2026-07-08-collaboration-response-contract.md` and `docs/records/validation-wi-cx0026-docs.md`.
 - WI-CX0027-docs: Session Boundary Automation Contract. Evidence: `docs/decisions/2026-07-08-session-boundary-automation-contract.md` and `docs/records/validation-wi-cx0027-docs.md`.
+- WI-CX0018-chore: Local Workspace Realignment. Evidence: `docs/records/validation-wi-cx0018-chore.md`; backup `C:\tmp\fdp-codex-dev-backup-20260708-140739`; aligned HEAD `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`.
 
 ## Orientation SSOT
 
@@ -64,8 +65,8 @@ Release publication, deployment, package publication, and OSS program submission
 ## Git State
 
 - Remote `main` is the repository standard after completed PR merges.
-- Work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` because `C:\dev\FDP_Codex` still has no local commits.
-- Do not treat `C:\dev\FDP_Codex` Git metadata as canonical until a dedicated realignment WI handles it.
+- Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
+- `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
 
 ## Next Action
 
@@ -73,7 +74,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0018-chore Local Workspace Realignment.
+- WI-CX0028-chore Tooling TypeScript Baseline.
 
 ## Blocked Work
 
@@ -81,7 +82,6 @@ Immediate next WI:
 - Deployment is not approved.
 - Package publication is not approved.
 - OSS program submission is not approved.
-- `C:\dev\FDP_Codex` realignment may require destructive Git or filesystem approval.
 - E2 S2 blind review debt for the bootstrap operating lock remains due before release-candidate lock, public release, OSS submission, or generalized A2/A3 autonomy expansion.
 
 ## New Session Procedure

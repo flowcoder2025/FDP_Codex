@@ -18,11 +18,11 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0018-chore Local Workspace Realignment: choose and execute a safe path for making `C:\dev\FDP_Codex` match remote `main`. Blocked if the path requires destructive Git or filesystem operations. Expected strategy: PSC=P1, WTC=FND, Risk=R3, ESC=E2+E3+E5+E6.
+- [ ] WI-CX0028-chore Tooling TypeScript Baseline: decide and, if justified, scaffold TypeScript tooling for repository scripts without changing runtime behavior. Expected strategy: PSC=P1, WTC=TOOL, Risk=R2, ESC=E1+E3+E5.
 
 ## Next Candidates
 
-- None while WI-CX0018-chore is blocked on local realignment approval.
+- WI-CX0029-chore Automation Run Surface Installation: install or configure a supported Codex automation surface only after the TS baseline decision and with explicit tool-surface evidence.
 
 ## Decision Needed Queue
 
