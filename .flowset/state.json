@@ -2,19 +2,19 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T08:16:12Z",
+  "updated_at": "2026-07-08T08:36:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0039-docs",
-    "category": "docs",
-    "title": "Flow State Readable Snapshot",
+    "id": "WI-CX0040-chore",
+    "category": "chore",
+    "title": "Tooling Strictness Probe",
     "status": "validated",
-    "branch": "wi/cx0039-docs-flow-state-readable-snapshot",
-    "validation_record": "docs/records/validation-wi-cx0039-docs.md"
+    "branch": "wi/cx0040-chore-tooling-strictness-probe",
+    "validation_record": "docs/records/validation-wi-cx0040-chore.md"
   },
   "current_priority": {
     "kind": "user_decision",

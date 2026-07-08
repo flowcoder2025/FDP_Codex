@@ -19,6 +19,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-collaboration-response-contract.md`: accepted user-facing decision framing and conversational Korean tone contract.
 - `docs/decisions/2026-07-08-session-boundary-automation-contract.md`: accepted session boundary automation contract for auto-compact, thread automation, fresh-run automation, new local threads, and Goal mode.
 - `docs/decisions/2026-07-08-tooling-typescript-baseline.md`: accepted TypeScript tooling baseline for repository scripts without runtime source conversion.
+- `docs/decisions/2026-07-08-tooling-strictness-probe.md`: accepted non-gating strictness probe for measurable TypeScript tooling debt.
 - `docs/decisions/2026-07-08-automation-run-surface-installation.md`: accepted Codex app worktree automation runner installation and safety gate.
 - `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`: accepted append-only source ledger and derived-view-only dedupe policy.
 - `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`: accepted per-target-project Layer 2 chunk id scope policy.

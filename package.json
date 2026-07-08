@@ -8,6 +8,7 @@
     "validate": "node scripts/validate-repo.mjs",
     "context:pack": "node scripts/build-context-pack.mjs",
     "typecheck": "tsc --project tsconfig.json --noEmit",
+    "typecheck:strict-probe": "node scripts/report-type-strictness.mjs",
     "ci:check": "npm run typecheck && npm run validate"
   },
   "engines": {

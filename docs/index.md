@@ -52,6 +52,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-collaboration-response-contract.md`
 - `docs/decisions/2026-07-08-session-boundary-automation-contract.md`
 - `docs/decisions/2026-07-08-tooling-typescript-baseline.md`
+- `docs/decisions/2026-07-08-tooling-strictness-probe.md`
 - `docs/decisions/2026-07-08-automation-run-surface-installation.md`
 - `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`
 - `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`
@@ -106,6 +107,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`
 - `docs/records/validation-wi-cx0037-docs.md`
 - `docs/records/validation-wi-cx0039-docs.md`
+- `docs/records/validation-wi-cx0040-chore.md`
 
 ## Tooling
 
@@ -113,6 +115,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/lib/manifest.mjs`
 - `scripts/validate-repo.mjs`
 - `scripts/build-context-pack.mjs`
+- `scripts/report-type-strictness.mjs`
 
 ## GitHub Templates
 

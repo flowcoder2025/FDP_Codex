@@ -6,11 +6,13 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0039-docs Flow State Readable Snapshot.
+Current WI: WI-CX0040-chore Tooling Strictness Probe.
 
-WI-CX0039-docs status: validated.
+WI-CX0040-chore status: validated.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
+
+Strictness probe: `npm run typecheck:strict-probe`; current measured debt is strict=582 diagnostics, noImplicitAny=531 diagnostics, strictNullChecks=47 diagnostics. It is non-gating and records type debt without enabling strict mode.
 
 Layer 2 scope code decision handback is available at `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
 
@@ -40,6 +42,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0036-docs: Chunk Id Scope Policy. Evidence: `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md` and `docs/records/validation-wi-cx0036-docs.md`; per-target-project chunk id scope is accepted.
 - WI-CX0037-docs: Layer 2 Scope Code Decision Handback. Evidence: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0037-docs.md`; final scope code choice remains user-gated.
 - WI-CX0039-docs: Flow State Readable Snapshot. Evidence: `.flowset/state.json`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, and `docs/records/validation-wi-cx0039-docs.md`.
+- WI-CX0040-chore: Tooling Strictness Probe. Evidence: `scripts/report-type-strictness.mjs`, `docs/decisions/2026-07-08-tooling-strictness-probe.md`, and `docs/records/validation-wi-cx0040-chore.md`.
 
 ## Orientation SSOT
 
@@ -48,6 +51,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Live backlog: `.flowset/fix_plan.md`.
 - Current WI: `.flowset/current-wi.md`.
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
+- Strictness probe: `scripts/report-type-strictness.mjs` via `npm run typecheck:strict-probe`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code options packet: `docs/records/layer-2-scope-code-options-2026-07-08.md`.
@@ -67,6 +71,7 @@ Release publication, deployment, package publication, and OSS program submission
 - The installed runner is bounded A2 worktree automation and must boot from repository SSOT.
 - Actual first fresh-run output review remains triggered by future standalone A2 runner output.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
+- Strict TypeScript source conversion remains DQ-DEBT; WI-CX0040 installed measurement only and did not enable strict mode.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 
 ## Git State
@@ -74,7 +79,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0039-docs-flow-state-readable-snapshot`.
+- Active WI branch for this cycle: `wi/cx0040-chore-tooling-strictness-probe`.
 
 ## Next Action
 
