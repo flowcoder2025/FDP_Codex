@@ -353,6 +353,7 @@ function validateManifest() {
   checks.manifest_missing_sources = missingSources;
   checks.manifest_non_forbidden_body_carryover = nonForbiddenCarryover;
   checks.manifest_hook_builder = manifestText.includes('implementation: scripts/build-context-pack.mjs');
+  checks.manifest_hook_top_level = /^hook_contract:$/m.test(manifestText);
   checks.manifest_hook_status = /^  status: (.+)$/m.exec(manifestText.split('hook_contract:')[1] ?? '')?.[1] ?? null;
 
   if (duplicates.length) error('manifest.duplicate_ids', 'Manifest chunk ids must be unique.', duplicates);
@@ -365,6 +366,9 @@ function validateManifest() {
   }
   if (!checks.manifest_hook_builder) {
     error('manifest.hook_builder_missing', 'Manifest hook contract must point to scripts/build-context-pack.mjs.');
+  }
+  if (!checks.manifest_hook_top_level) {
+    error('manifest.hook_contract_not_top_level', 'Manifest hook_contract must be a top-level YAML section.');
   }
 }
 
@@ -1186,6 +1190,7 @@ function validateContextLedgerDedupePolicy() {
   const record = read('docs/records/validation-wi-cx0031-chore.md');
   const manifest = read('docs/manifest.yaml');
   const fixPlan = read('.flowset/fix_plan.md');
+  const currentWi = read('.flowset/current-wi.md');
   const handoff = read('.flowset/handoff.md');
   const decisionsReadme = read('docs/decisions/README.md');
   const recordsReadme = read('docs/records/README.md');
@@ -1218,10 +1223,11 @@ function validateContextLedgerDedupePolicy() {
     && recordsReadme.includes('validation-wi-cx0031-chore.md')
     && docsIndex.includes('2026-07-08-context-ledger-dedupe-policy.md')
     && docsIndex.includes('validation-wi-cx0031-chore.md');
-  checks.ledger_dedupe_flow = fixPlan.includes('WI-CX0032-docs Layer 2 Knowledge Scaffold Contract')
-    && handoff.includes('WI-CX0031-chore Context Ledger Dedupe Policy')
+  checks.ledger_dedupe_flow = !currentWi.includes('WI id: WI-CX0031-chore')
+    && handoff.includes('WI-CX0031-chore: Context Ledger Dedupe Policy')
     && handoff.includes('append-only audit evidence')
-    && handoff.includes('WI-CX0032-docs Layer 2 Knowledge Scaffold Contract');
+    && handoff.includes('docs/records/validation-wi-cx0031-chore.md')
+    && !/^- \[ \] WI-CX0031-chore\b/m.test(fixPlan);
   checks.ledger_dedupe_boundary = decision.includes('does not rewrite `.flowset/context-ledger.jsonl`')
     && decision.includes('delete historical ledger entries')
     && record.includes('No source ledger rewrite')
@@ -1233,8 +1239,85 @@ function validateContextLedgerDedupePolicy() {
   if (!checks.ledger_dedupe_record) error('ledger_dedupe.record_missing', 'WI-CX0031 validation record must capture the dedupe decision.');
   if (!checks.ledger_dedupe_manifest) error('ledger_dedupe.manifest_missing', 'Manifest must register the ledger dedupe decision and validation record.');
   if (!checks.ledger_dedupe_indexes) error('ledger_dedupe.index_missing', 'Decision and record indexes must include WI-CX0031 artifacts.');
-  if (!checks.ledger_dedupe_flow) error('ledger_dedupe.flow_missing', 'Flow state must advance to the Layer 2 knowledge scaffold WI.');
+  if (!checks.ledger_dedupe_flow) error('ledger_dedupe.flow_missing', 'Flow state must preserve WI-CX0031 handoff evidence while advancing beyond WI-CX0031.');
   if (!checks.ledger_dedupe_boundary) error('ledger_dedupe.boundary_missing', 'Ledger dedupe policy must preserve source ledger and hard-stop boundaries.');
+}
+function validateLayer2KnowledgeScaffoldContract() {
+  const spec = read('docs/specifications/layer-2-knowledge-scaffold.md');
+  const knowledge = read('docs/specifications/knowledge-system.md');
+  const record = read('docs/records/validation-wi-cx0032-docs.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+
+  checks.layer2_scaffold_spec_boundary = spec.includes('This specification is a Layer 1 contract about future Layer 2 artifacts')
+    && spec.includes('does not generate a target-project scaffold')
+    && spec.includes('does not publish an external contract')
+    && spec.includes('Do not use this draft specification to claim a stable public API or external contract');
+  checks.layer2_scaffold_roles = spec.includes('Target manifest')
+    && spec.includes('Target current WI')
+    && spec.includes('Target fix plan')
+    && spec.includes('Target handoff')
+    && spec.includes('Target context ledger')
+    && spec.includes('Target KI registry or issue bridge')
+    && spec.includes('Target verification debt registry')
+    && spec.includes('Layer 1 provenance record');
+  checks.layer2_scaffold_separation = spec.includes('Target-project WIs must use a target-project namespace')
+    && spec.includes('must not reuse Layer 1 `WI-CXNNNN-category` identifiers')
+    && spec.includes('Target-project KIs must remain separate from Layer 1 KIs')
+    && spec.includes('KI severity remains a field-only classification');
+  checks.layer2_scaffold_context_hygiene = spec.includes('A target context pack is temporary')
+    && spec.includes('rebuilt from the target manifest for each target WI')
+    && spec.includes('metadata only: timestamp, target WI id, chunk id, source, hash, load reason, decision reference, and actor')
+    && spec.includes('append-only')
+    && spec.includes('Layer 1 must not carry Layer 2 context bodies');
+  checks.layer2_scaffold_provenance = spec.includes('FDP_Codex repository URL')
+    && spec.includes('FDP_Codex commit or release reference')
+    && spec.includes('Layer 1 WI id')
+    && spec.includes('Manifest chunk ids')
+    && spec.includes('target-project identifier and scope code');
+  checks.layer2_scaffold_generation_gates = spec.includes('Do not generate the first Layer 2 target-project scaffold')
+    && spec.includes('Layer 2 project scope code rule')
+    && spec.includes('Chunk id scope: global, per-layer, or per-target-project')
+    && fixPlan.includes('Layer 2 project scope code rule. | DQ-POLICY | USER | conditional')
+    && fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
+  checks.layer2_scaffold_knowledge_link = knowledge.includes('docs/specifications/layer-2-knowledge-scaffold.md')
+    && knowledge.includes('target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt, and Layer 1 provenance')
+    && knowledge.includes('Layer 2 scaffold generation remains blocked');
+  checks.layer2_scaffold_manifest = manifest.includes('spec.layer-2-knowledge-scaffold')
+    && manifest.includes('docs/specifications/layer-2-knowledge-scaffold.md')
+    && manifest.includes('record.validation-wi-cx0032-docs')
+    && manifest.includes('docs/records/validation-wi-cx0032-docs.md');
+  checks.layer2_scaffold_indexes = docsIndex.includes('docs/specifications/layer-2-knowledge-scaffold.md')
+    && docsIndex.includes('docs/records/validation-wi-cx0032-docs.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0032-docs.md');
+  checks.layer2_scaffold_record = record.includes('WI: WI-CX0032-docs')
+    && record.includes('target manifest, current WI, fix plan, handoff, context ledger, KI registry or issue bridge, verification debt registry, and Layer 1 provenance record')
+    && record.includes('No target-project scaffold generation')
+    && record.includes('S1 adversarial review');
+  checks.layer2_scaffold_flow = fixPlan.includes('WI-CX0033-test Automation Runner First Fresh-Run Evidence')
+    && handoff.includes('WI-CX0032-docs: Layer 2 Knowledge Scaffold Contract')
+    && handoff.includes('docs/specifications/layer-2-knowledge-scaffold.md')
+    && handoff.includes('WI-CX0033-test Automation Runner First Fresh-Run Evidence');
+  checks.layer2_scaffold_boundary = record.includes('No target-project scaffold generation')
+    && record.includes('public API or external contract stabilization')
+    && record.includes('destructive local realignment occurred')
+    && spec.includes('does not authorize release, deployment, package publication, OSS program submission, or A3 publication behavior');
+
+  if (!checks.layer2_scaffold_spec_boundary) error('layer2_scaffold.boundary_missing', 'Layer 2 scaffold spec must remain draft/pre-generation and avoid public API or external contract claims.');
+  if (!checks.layer2_scaffold_roles) error('layer2_scaffold.roles_missing', 'Layer 2 scaffold spec must name all required scaffold roles.');
+  if (!checks.layer2_scaffold_separation) error('layer2_scaffold.separation_missing', 'Layer 2 scaffold spec must separate target WI/KI namespaces from Layer 1.');
+  if (!checks.layer2_scaffold_context_hygiene) error('layer2_scaffold.context_hygiene_missing', 'Layer 2 scaffold spec must preserve context hygiene and metadata-only ledgers.');
+  if (!checks.layer2_scaffold_provenance) error('layer2_scaffold.provenance_missing', 'Layer 2 scaffold spec must require Layer 1 provenance.');
+  if (!checks.layer2_scaffold_generation_gates) error('layer2_scaffold.generation_gates_missing', 'Layer 2 scaffold generation must stay gated on scope-code and chunk namespace decisions.');
+  if (!checks.layer2_scaffold_knowledge_link) error('layer2_scaffold.knowledge_link_missing', 'Knowledge system spec must link to the Layer 2 scaffold contract.');
+  if (!checks.layer2_scaffold_manifest) error('layer2_scaffold.manifest_missing', 'Manifest must register Layer 2 scaffold spec and validation record.');
+  if (!checks.layer2_scaffold_indexes) error('layer2_scaffold.index_missing', 'Documentation indexes must include the Layer 2 scaffold spec and validation record.');
+  if (!checks.layer2_scaffold_record) error('layer2_scaffold.record_missing', 'WI-CX0032 validation record must capture contract evidence.');
+  if (!checks.layer2_scaffold_flow) error('layer2_scaffold.flow_missing', 'Flow state must advance to the automation fresh-run evidence WI while preserving WI-CX0032 handoff evidence.');
+  if (!checks.layer2_scaffold_boundary) error('layer2_scaffold.boundary_not_preserved', 'Layer 2 scaffold WI must preserve generation, publication, public API, and destructive boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1275,6 +1358,7 @@ validateToolingTypeScriptBaseline();
 validateAutomationRunSurfaceInstallation();
 validateAutomationRunnerPostMergeSmoke();
 validateContextLedgerDedupePolicy();
+validateLayer2KnowledgeScaffoldContract();
 validatePackage();
 
 const result = {

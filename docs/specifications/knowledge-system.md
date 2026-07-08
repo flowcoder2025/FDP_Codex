@@ -92,6 +92,13 @@ Layer 1 policy can generate Layer 2 artifacts such as:
 
 Layer crossing must record which Layer 1 policy produced or constrained the Layer 2 artifact.
 
+## Layer 2 Scaffold Contract
+
+The portable Layer 2 target-project scaffold contract is defined in `docs/specifications/layer-2-knowledge-scaffold.md`.
+
+That contract defines required scaffold roles for target manifests, handoffs, context ledgers, target WIs, target KIs, verification debt, and Layer 1 provenance.
+
+Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule and chunk id scope rule with a hard stop.
 ## Decision Needed
 
 - Whether Layer 2 generated artifacts should use the same folder names or a smaller target-project profile.

@@ -32,6 +32,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 
 - `docs/specifications/knowledge-system.md`
 - `docs/specifications/context-pack-builder.md`
+- `docs/specifications/layer-2-knowledge-scaffold.md`
 
 ## Decisions
 
@@ -95,6 +96,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0029-chore.md`
 - `docs/records/validation-wi-cx0030-test.md`
 - `docs/records/validation-wi-cx0031-chore.md`
+- `docs/records/validation-wi-cx0032-docs.md`
 
 ## Tooling
 

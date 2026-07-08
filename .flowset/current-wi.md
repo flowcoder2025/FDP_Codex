@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0031-chore
+WI id: WI-CX0032-docs
 
-Category: chore
+Category: docs
 
-Title: Context Ledger Dedupe Policy
+Title: Layer 2 Knowledge Scaffold Contract
 
 Layer: Layer 1
 
@@ -12,41 +12,42 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0031-chore-context-ledger-dedupe-policy
+Branch: wi/cx0032-docs-layer-2-knowledge-scaffold-contract
 
 Approval envelope: user delegated autonomous FDP_Codex process work through `/goal`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, destructive filesystem or git operations, public API or external contract changes, and A3 publication behavior.
 
 ## Scope
 
-Decide how FDP_Codex treats repeated context ledger appends. Preserve context hygiene by keeping `.flowset/context-ledger.jsonl` append-only while allowing metadata-only dedupe as a derived view or report.
+Define the portable Layer 2 target-project knowledge scaffold contract for manifests, handoffs, ledgers, WI/KI separation, verification debt, and Layer 1 provenance before generating any Layer 2 artifacts.
 
 ## Triage
 
-- PSC: P2
+- PSC: P3
 - WTC: KNOW
 - Risk: R2
 - ESC: E1+E3+E5+E6
-- Primary evaluator stance: ledger auditability, context hygiene, and false-green review.
-- Validator stance: deterministic checks for append-only ledger policy, derived-view-only dedupe, manifest registration, and existing `npm run ci:check`.
+- Primary evaluator stance: Layer boundary integrity, target-project portability, and false-green review.
+- Validator stance: deterministic checks for Layer 2 contract coverage, generation boundary, manifest registration, and existing `npm run ci:check`.
 
 ## Verification Plan
 
-- Confirm existing ledger contract forbids body storage and uses explicit append.
-- Decide whether compaction rewrites are allowed.
-- Update context hygiene and context pack specification with the dedupe/compaction boundary.
-- Add validator coverage so future changes cannot claim in-place ledger compaction as normal WI work.
+- Inspect the existing knowledge system specification and decision queue blockers.
+- Add a Layer 2 scaffold contract without generating target-project artifacts.
+- Preserve the unresolved user-gated Layer 2 project scope code rule.
+- Update manifest, indexes, handoff, and validation record.
+- Add validator coverage for scaffold fields, forbidden Layer 2 body carryover, WI/KI separation, provenance, and generation boundaries.
 - Run `npm run ci:check`.
-- Record validation evidence in `docs/records/validation-wi-cx0031-chore.md`.
+- Record validation evidence in `docs/records/validation-wi-cx0032-docs.md`.
 
 ## Completion Evidence
 
-- `docs/decisions/2026-07-08-context-ledger-dedupe-policy.md`
-- `docs/records/validation-wi-cx0031-chore.md`
-- `docs/policies/context-hygiene.md`
-- `docs/specifications/context-pack-builder.md`
+- `docs/specifications/layer-2-knowledge-scaffold.md`
+- `docs/records/validation-wi-cx0032-docs.md`
+- `docs/specifications/knowledge-system.md`
 - `docs/manifest.yaml`
 - `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0031-chore.
+- Layer 2 project scope code rule remains user-gated before the first target-project scaffold.
+- Chunk id scope remains policy-gated before manifest namespace expansion.
