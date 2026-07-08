@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0045-test Portfolio Guardrail Validator Baseline.
+Current WI: WI-CX0046-test Autonomous Work Exhaustion Stop Gate.
 
-WI-CX0045-test status: validated.
+WI-CX0046-test status: validated.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
@@ -27,6 +27,8 @@ Automation runner S2 review packet is available at `docs/records/automation-runn
 Post-bootstrap automation cadence handback is available at `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. It prepares a user decision and does not change automation settings or authority.
 
 Portfolio guardrail validator baseline is accepted at `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`. Current and future active WIs must record PSC, WTC, Risk, and ESC with E5 included.
+
+Autonomous work exhaustion stop gate is accepted at `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`. No further independent autonomous WI should start unless a user decision, external trigger, reviewer surface, concrete defect/KI, or recorded repayment trigger appears.
 
 Layer 2 scaffold generation remains blocked until the user chooses the Layer 2 project scope code rule and the accepted decision is recorded.
 
@@ -52,6 +54,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0041-docs: Automation Runner S2 Review Packet. Evidence: `docs/records/automation-runner-s2-review-packet-2026-07-08.md` and `docs/records/validation-wi-cx0041-docs.md`.
 - WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Evidence: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0043-docs.md`.
 - WI-CX0045-test: Portfolio Guardrail Validator Baseline. Evidence: `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md` and `docs/records/validation-wi-cx0045-test.md`.
+- WI-CX0046-test: Autonomous Work Exhaustion Stop Gate. Evidence: `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md` and `docs/records/validation-wi-cx0046-test.md`.
 
 ## Orientation SSOT
 
@@ -64,6 +67,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Automation runner S2 packet: `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
 - Automation cadence handback: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
 - Portfolio guardrail baseline: `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`.
+- Autonomous work exhaustion stop gate: `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code options packet: `docs/records/layer-2-scope-code-options-2026-07-08.md`.
@@ -87,13 +91,14 @@ Release publication, deployment, package publication, and OSS program submission
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 - Post-bootstrap automation cadence and authority remains user-gated; WI-CX0043 installed the handback only.
 - Portfolio guardrail evidence is validator-enforced for current and future active WIs; historical validation records were not rewritten.
+- Autonomous work exhaustion is now a handback point; do not start another independent WI unless a user decision, external trigger, reviewer surface, concrete defect/KI, or recorded repayment trigger appears.
 
 ## Git State
 
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0045-test-portfolio-guardrail-validator-baseline`.
+- Active WI branch for this cycle: `wi/cx0046-test-autonomous-work-exhaustion-stop-gate`.
 
 ## Next Action
 

@@ -128,6 +128,16 @@ FDP_Codex default:
 - Finish the active WI in the current thread when already running.
 - For the next independent, context-hygiene-sensitive WI, prefer standalone or project automation with a dedicated worktree once that automation is explicitly installed, tested, and inside an approval envelope.
 - Until that automation surface is installed and verified, use handoff plus context pack metadata to make a fresh run possible, but do not claim automatic fresh-session execution.
+
+## Autonomous Work Exhaustion Stop Gate
+
+When the live fix plan has no executable next WI because remaining work is gated by user decision, external state, or separate-reviewer availability, Codex must stop autonomous WI creation and hand back the decision surface.
+
+The handback must name the blocking user decision, triggered work waiting for evidence, reviewer-gated work, hard stops outside the approval envelope, and the recommended user response shape when one exists.
+
+Codex may still finish the active WI, poll checks, merge an approved PR, or verify a just-completed cycle. Codex must not start another independent WI merely to avoid stopping.
+
+A new autonomous WI may start only when the user supplies a decision or approval, new trigger evidence appears, a separate review surface becomes available, a concrete defect or critical/high KI appears, or a recorded repayment trigger is reached.
 ## UX Rule
 
 Ask once for the envelope, then avoid repeated prompts inside that envelope. Ask again only at a hard stop, when the envelope expires, or when evidence contradicts the envelope assumptions.

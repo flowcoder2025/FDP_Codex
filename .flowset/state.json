@@ -2,19 +2,19 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T09:18:00Z",
+  "updated_at": "2026-07-08T09:29:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0045-test",
+    "id": "WI-CX0046-test",
     "category": "test",
-    "title": "Portfolio Guardrail Validator Baseline",
+    "title": "Autonomous Work Exhaustion Stop Gate",
     "status": "validated",
-    "branch": "wi/cx0045-test-portfolio-guardrail-validator-baseline",
-    "validation_record": "docs/records/validation-wi-cx0045-test.md"
+    "branch": "wi/cx0046-test-autonomous-work-exhaustion-stop-gate",
+    "validation_record": "docs/records/validation-wi-cx0046-test.md"
   },
   "current_priority": {
     "kind": "user_decision",

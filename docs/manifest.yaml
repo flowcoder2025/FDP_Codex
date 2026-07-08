@@ -172,6 +172,20 @@ chunks:
       - handoff
     body_carryover: forbidden
 
+  - id: decision.autonomous-work-exhaustion-stop-gate
+    title: Autonomous Work Exhaustion Stop Gate
+    source: docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - automation-planning
+      - decision-needed
+      - handoff
+      - validation
+      - wi-start
+    body_carryover: forbidden
+
   - id: decision.public-readiness-boundary
     title: Public Readiness Boundary
     source: docs/decisions/2026-07-08-public-readiness-boundary.md
@@ -1383,6 +1397,20 @@ chunks:
       - portfolio-balance
       - validation
     body_carryover: forbidden
+  - id: record.validation-wi-cx0046-test
+    title: WI-CX0046-test Validation Record
+    source: docs/records/validation-wi-cx0046-test.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - decision-needed
+      - automation-planning
+      - validation
+    body_carryover: forbidden
+
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs
