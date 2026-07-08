@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T11:09:26Z",
+  "updated_at": "2026-07-08T11:45:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -10,17 +10,17 @@
     ".flowset/runtime-snapshot.json"
   ],
   "current_wi": {
-    "id": "WI-CX0049-docs",
-    "category": "docs",
-    "title": "A2 Handoff Receiver Contract",
+    "id": "WI-CX0050-test",
+    "category": "test",
+    "title": "Worktree Isolation Verification",
     "status": "validated",
-    "branch": "wi/cx0049-docs-a2-handoff-receiver-contract",
-    "validation_record": "docs/records/validation-wi-cx0049-docs.md"
+    "branch": "wi/cx0050-test-worktree-isolation-verification",
+    "validation_record": "docs/records/validation-wi-cx0050-test.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0050-test",
-    "item": "Worktree Isolation Verification",
+    "wi_id": "WI-CX0051-test",
+    "item": "Worktree Isolation Repair Gate",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
