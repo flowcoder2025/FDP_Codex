@@ -1,43 +1,55 @@
 # Current WI
 
-WI id: WI-CX0018-chore
+WI id: WI-CX0028-chore
 
 Category: chore
 
-Title: Local Workspace Realignment
+Title: Tooling TypeScript Baseline
 
 Layer: Layer 1
 
-Risk: R3
+Risk: R2
 
 Status: validated
 
-Branch: wi/cx0018-chore-local-workspace-realignment
+Branch: wi/cx0028-chore-tooling-typescript-baseline
 
-Approval envelope: user explicitly approved `C:\dev\FDP_Codex` backup and destructive local realignment to `origin/main`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, and A3 publication behavior.
+Approval envelope: user delegated autonomous FDP_Codex process work through `/goal`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, destructive filesystem or git operations, public API or external contract changes, and A3 publication behavior.
 
 ## Scope
 
-Back up the noncanonical `C:\dev\FDP_Codex` checkout and realign it to remote `main` so future FDP_Codex work can use `C:\dev\FDP_Codex` as the canonical local workspace.
+Evaluate whether FDP_Codex should adopt a TypeScript tooling baseline for repository scripts, then apply only the minimal repository-local scaffold that improves maintainability without changing runtime behavior.
+
+## Triage
+
+- PSC: P1
+- WTC: TOOL
+- Risk: R2
+- ESC: E1+E3+E5
+- Primary evaluator stance: source-bounded tooling review.
+- Validator stance: existing `npm run validate`, `npm run typecheck`, `npm run ci:check`, context-pack smoke, and CI matrix preservation.
 
 ## Verification Plan
 
-- Confirm `C:\dev\FDP_Codex` resolved path before realignment.
-- Back up the full pre-realignment checkout to `C:\tmp`.
-- Fetch `origin/main`.
-- Force-align the local checkout to `origin/main`.
-- Verify local `HEAD` equals `origin/main`.
+- Inspect current JavaScript tooling, package scripts, CI workflow, and manifest tool chunks.
+- Decide whether TS should be adopted now, deferred, or limited to documentation/config only.
+- Avoid production dependency additions.
+- Preserve Node 20 and Node 24 validation behavior.
+- Run `npm run typecheck`.
 - Run `npm run validate`.
-- Record backup path, HEAD, and validation evidence.
+- Run `npm run ci:check`.
+- Run smoke checks for context-pack generation.
+- Record validation evidence in `docs/records/validation-wi-cx0028-chore.md`.
 
 ## Completion Evidence
 
-- Backup: `C:\tmp\fdp-codex-dev-backup-20260708-140739`
-- Realigned workspace: `C:\dev\FDP_Codex`
-- HEAD: `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`
-- `docs/records/validation-wi-cx0018-chore.md`
-- `.flowset/handoff.md`
+- `docs/decisions/2026-07-08-tooling-typescript-baseline.md`
+- `tsconfig.json`
+- `package-lock.json`
+- `.github/workflows/validate.yml`
+- `docs/records/validation-wi-cx0028-chore.md`
+- `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0018-chore.
+- None for WI-CX0028-chore.

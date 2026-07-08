@@ -18,6 +18,7 @@ Current decisions:
 - `docs/decisions/2026-07-08-operating-policy-lock.md`: accepted Layer 1 operating policy lock v0.
 - `docs/decisions/2026-07-08-collaboration-response-contract.md`: accepted user-facing decision framing and conversational Korean tone contract.
 - `docs/decisions/2026-07-08-session-boundary-automation-contract.md`: accepted session boundary automation contract for auto-compact, thread automation, fresh-run automation, new local threads, and Goal mode.
+- `docs/decisions/2026-07-08-tooling-typescript-baseline.md`: accepted TypeScript tooling baseline for repository scripts without runtime source conversion.
 
 Decision Needed:
 

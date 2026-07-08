@@ -6,9 +6,15 @@
   "type": "module",
   "scripts": {
     "validate": "node scripts/validate-repo.mjs",
-    "context:pack": "node scripts/build-context-pack.mjs"
+    "context:pack": "node scripts/build-context-pack.mjs",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "ci:check": "npm run typecheck && npm run validate"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^6.0.3"
   }
 }

@@ -18,12 +18,11 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0028-chore Tooling TypeScript Baseline: decide and, if justified, scaffold TypeScript tooling for repository scripts without changing runtime behavior. Expected strategy: PSC=P1, WTC=TOOL, Risk=R2, ESC=E1+E3+E5.
+- [ ] WI-CX0029-chore Automation Run Surface Installation: install or configure a supported Codex automation surface only after the TS baseline decision and with explicit tool-surface evidence. Expected strategy: PSC=P1, WTC=AUTO, Risk=R2, ESC=E1+E3+E5.
 
 ## Next Candidates
 
-- WI-CX0029-chore Automation Run Surface Installation: install or configure a supported Codex automation surface only after the TS baseline decision and with explicit tool-surface evidence.
-
+- WI-CX0030-chore Context Ledger Dedupe Policy: decide whether repeated context-pack appends should be compacted or deduplicated without storing chunk bodies.
 ## Decision Needed Queue
 
 | Item | State | Owner gate | Lock blocker | Repayment trigger |
@@ -37,3 +36,4 @@ Discipline:
 | Whether every KI must become a GitHub Issue after public release. | DQ-EXTERNAL | H1 | no | Before first public release or external contributor operating mode. |
 | Whether the validator should adopt a strict YAML parser later. | DQ-DEBT | CODEX | no | When manifest grammar exceeds the current parser or parser drift is observed. |
 | Whether current WI and handoff should be split into stricter machine-readable state later. | DQ-DEBT | CODEX | no | When handoff or current WI parsing becomes ambiguous or repeated validator exceptions appear. |
+| Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | When repository scripts grow beyond the `.mjs` checkJs baseline or before release-candidate tooling lock. |

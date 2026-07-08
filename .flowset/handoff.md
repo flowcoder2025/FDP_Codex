@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0018-chore Local Workspace Realignment.
+Current WI: WI-CX0028-chore Tooling TypeScript Baseline.
 
-WI-CX0018-chore status: validated.
+WI-CX0028-chore status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -29,6 +29,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0026-docs: Collaboration Response Contract. Evidence: `docs/decisions/2026-07-08-collaboration-response-contract.md` and `docs/records/validation-wi-cx0026-docs.md`.
 - WI-CX0027-docs: Session Boundary Automation Contract. Evidence: `docs/decisions/2026-07-08-session-boundary-automation-contract.md` and `docs/records/validation-wi-cx0027-docs.md`.
 - WI-CX0018-chore: Local Workspace Realignment. Evidence: `docs/records/validation-wi-cx0018-chore.md`; backup `C:\tmp\fdp-codex-dev-backup-20260708-140739`; aligned HEAD `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`.
+- WI-CX0028-chore: Tooling TypeScript Baseline. Evidence: `docs/decisions/2026-07-08-tooling-typescript-baseline.md`, `docs/records/validation-wi-cx0028-chore.md`, `tsconfig.json`, and `package-lock.json`.
 
 ## Orientation SSOT
 
@@ -59,6 +60,7 @@ Release publication, deployment, package publication, and OSS program submission
 - E2 Blind Independent Review requires S2 Separate Blind Review.
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
 - Validate workflow covers Node 20 and Node 24.
+- TypeScript baseline checks existing `.mjs` tooling with `allowJs`, `checkJs`, and `noEmit`; runtime entrypoints remain `.mjs`.
 - Decision-bearing replies separate situation, options, recommendation, tradeoffs, and approval needed.
 - Auto-compact is same-thread continuation, not a fresh session or context hygiene reset.
 
@@ -74,7 +76,7 @@ Follow `.flowset/fix_plan.md`.
 
 Immediate next WI:
 
-- WI-CX0028-chore Tooling TypeScript Baseline.
+- WI-CX0029-chore Automation Run Surface Installation.
 
 ## Blocked Work
 
