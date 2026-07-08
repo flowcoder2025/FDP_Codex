@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -17,17 +17,15 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0015-docs OSS Readiness Baseline: define the first public release scope, then align README, CONTRIBUTING, SECURITY, roadmap, issue forms, and contributor guidance for public use. Blocked on public release scope boundary. Expected strategy: PSC=P5, WTC=OSS, Risk=R2, ESC=E2+E3+E4+E5+E6+E7.
+- [ ] WI-CX0017-ci Validator CI Follow-Up: inspect latest GitHub Actions behavior on `main`, reconcile local and remote CI expectations, and harden workflow or validator behavior only where evidence shows a gap. Expected strategy: PSC=P2, WTC=VAL, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
-- [ ] WI-CX0016-docs Operating Policy LOCK: convert accepted scaffold policies into formal decisions after unresolved Decision Needed items are answered. Blocked on Decision Needed queue. Expected strategy: P1/FND/R2/E4+E5+E6.
-- [ ] WI-CX0017-ci Validator CI Follow-Up: inspect GitHub Actions on `main` after closeout merge and harden workflow if needed. Expected strategy: P2/VAL/R2/E2+E3+E5+E6.
+- [ ] WI-CX0016-docs Operating Policy LOCK: convert accepted scaffold policies into formal decisions after unresolved Decision Needed items are answered. Blocked on remaining Decision Needed queue. Expected strategy: PSC=P1, WTC=FND, Risk=R2, ESC=E2+E4+E5+E6.
+- [ ] WI-CX0018-chore Local Workspace Realignment: choose and execute a safe path for making `C:\dev\FDP_Codex` match remote `main`. Blocked if the path requires destructive Git or filesystem operations. Expected strategy: PSC=P1, WTC=FND, Risk=R3, ESC=E2+E3+E5+E6.
 
 ## Decision Needed Queue
 
-- [ ] First public release scope boundary.
-- [ ] Default verification project profile for FDP_Codex itself.
 - [ ] First hook implementation surface final form.
 - [ ] Chunk id scope: global, per-layer, or per-target-project.
 - [ ] Layer 2 project scope code rule.
@@ -40,8 +38,6 @@ Discipline:
 - [ ] Adversarial checklist granularity per surface type.
 - [ ] Whether portfolio guardrails become deterministic validator rules.
 - [ ] Whether every KI must become a GitHub Issue after public release.
-- [ ] Whether GitHub label names are locked as written or shortened before public release.
-- [ ] Whether GitHub issue forms become required for all public submissions.
 - [ ] Whether the validator should adopt a strict YAML parser later.
 - [ ] Whether context pack output should be written to `.flowset/context-packs/` metadata files or remain stdout-only by default. Recommended: stdout-only.
 - [ ] Whether context pack builder runs should append ledger records automatically or require a separate explicit command. Recommended: explicit.

@@ -21,9 +21,15 @@
 
 - [ ] Context pack was rebuilt from `docs/manifest.yaml`.
 - [ ] No chunk bodies were stored in the context ledger.
-- [ ] SSOT files were updated when policy, specification, decision, or record files changed.
+- [ ] SSOT files were updated when policy, specification, decision, runbook, record, public documentation, or GitHub template files changed.
 - [ ] Handoff and fix_plan remain compact operating state, not completed-history storage.
 - [ ] No unresolved Decision Needed item blocks merge.
+
+## Public Boundary Checks
+
+- [ ] This PR does not publish a release, package, deployment, or OSS program submission unless an explicit decision authorizes it.
+- [ ] This PR does not include private FDP_APP implementation history.
+- [ ] Public-facing text does not claim support, compatibility, or release maturity that the repository has not earned.
 
 ## Merge Readiness
 

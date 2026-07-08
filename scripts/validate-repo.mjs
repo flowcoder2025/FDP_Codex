@@ -25,6 +25,8 @@ const requiredFiles = [
   'AGENTS.md',
   'README.md',
   'CONTRIBUTING.md',
+  'SECURITY.md',
+  'ROADMAP.md',
   'LICENSE',
   'docs/index.md',
   'docs/manifest.yaml',
@@ -42,6 +44,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-fdp-codex-operating-foundation.md',
   'docs/decisions/2026-07-08-repository-license-binding.md',
   'docs/decisions/2026-07-08-bootstrap-publication-envelope.md',
+  'docs/decisions/2026-07-08-public-readiness-boundary.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -67,6 +70,11 @@ const requiredAlwaysOnIds = [
 
 const requiredChunkIds = [
   'decision.bootstrap-publication-envelope',
+  'decision.public-readiness-boundary',
+  'public.readme',
+  'public.contributing',
+  'public.security',
+  'public.roadmap',
   'policy.context-hygiene',
   'policy.work-item-lifecycle',
   'policy.naming-and-commits',
@@ -487,6 +495,31 @@ function validateGitHubGovernance() {
   if (!checks.git_policy_has_hard_stops) error('git.policy_hard_stops_missing', 'Git workflow policy must define hard stops.');
 }
 
+function validatePublicReadiness() {
+  const readme = read('README.md');
+  const contributing = read('CONTRIBUTING.md');
+  const security = read('SECURITY.md');
+  const roadmap = read('ROADMAP.md');
+  const issueConfig = read('.github/ISSUE_TEMPLATE/config.yml');
+  const decision = read('docs/decisions/2026-07-08-public-readiness-boundary.md');
+
+  checks.public_status_pre_release = readme.includes('public bootstrap, pre-release');
+  checks.public_readme_no_submission_claim = readme.includes('has not published a tagged release') && readme.includes('OpenAI OSS program submission');
+  checks.public_contributing_intake_gate = contributing.includes('Intake is not automatic work authorization');
+  checks.public_security_no_release_support = security.includes('No tagged release') || security.includes('Tagged releases | None yet');
+  checks.public_roadmap_not_release_schedule = roadmap.includes('not a release schedule');
+  checks.public_blank_issues_disabled = issueConfig.includes('blank_issues_enabled: false');
+  checks.public_decision_excludes_release = decision.includes('does not authorize release publication') && decision.includes('OSS program submission');
+
+  if (!checks.public_status_pre_release) error('public.readme_status_missing', 'README must state the public bootstrap pre-release status.');
+  if (!checks.public_readme_no_submission_claim) error('public.readme_boundary_missing', 'README must state that no tagged release or OSS submission has occurred.');
+  if (!checks.public_contributing_intake_gate) error('public.contributing_gate_missing', 'CONTRIBUTING must state that intake is not automatic work authorization.');
+  if (!checks.public_security_no_release_support) error('public.security_release_boundary_missing', 'SECURITY must state that tagged releases are not supported yet.');
+  if (!checks.public_roadmap_not_release_schedule) error('public.roadmap_schedule_boundary_missing', 'ROADMAP must not read as an authorized release schedule.');
+  if (!checks.public_blank_issues_disabled) error('public.blank_issues_enabled', 'Blank public issues must remain disabled for the public baseline.');
+  if (!checks.public_decision_excludes_release) error('public.decision_boundary_missing', 'Public readiness decision must exclude release and OSS submission.');
+}
+
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -501,6 +534,7 @@ function validatePackage() {
     error('package.context_pack_script_missing', 'package.json must expose the context pack builder through npm run context:pack.');
   }
   if (pkg.license !== 'Apache-2.0') error('package.license_invalid', 'package.json license must match repository license.');
+  if (pkg.private !== true) error('package.private_required_pre_release', 'package.json must remain private during the public pre-release baseline.');
 }
 
 validateRequiredFiles();
@@ -509,6 +543,7 @@ validateLedger();
 validateNaming();
 validateFlowState();
 validateGitHubGovernance();
+validatePublicReadiness();
 validatePackage();
 
 const result = {

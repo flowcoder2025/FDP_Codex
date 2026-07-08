@@ -176,16 +176,20 @@ Repository and license binding is defined in docs/decisions/2026-07-08-repositor
 Current locked values:
 
 - GitHub repository: https://github.com/flowcoder2025/FDP_Codex.git.
-- Repository visibility: private during bootstrap.
+- Repository visibility: public, after bootstrap publication authorization.
 - License: Apache-2.0.
 
-This does not authorize push, merge, tag, release, publication, or public visibility changes.
+This original operating foundation did not authorize push, merge, tag, release, publication, or public visibility changes. GitHub publication was later authorized by the bootstrap publication envelope; release publication remains excluded.
 
 ## Open Decisions
 
-- Final license.
-- First public release scope boundary.
-- Default verification project profile.
+Resolved after this decision:
+
+- Final license: Apache-2.0.
+- First public readiness boundary: public bootstrap, pre-release.
+- Default verification project profile: Medium during public bootstrap.
+
+Still open:
 - First hook implementation surface.
 - Chunk id scope.
 - Layer 2 project scope code.

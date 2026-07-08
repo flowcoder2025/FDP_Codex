@@ -64,6 +64,12 @@ Codex may inspect, summarize, or triage external submissions, but must not start
 
 This rule protects context hygiene and prevents contributor activity from silently reshaping the active WI queue.
 
+## Public Baseline Rule
+
+Blank GitHub issues are disabled for the public baseline. Public submissions should use the Known Issue or Contribution Intake forms so triage has the fields needed for WI/KI routing.
+
+The label names in .github/labels.yml are the public baseline. Changing or shortening public labels requires a WI and PR because external contributors may see or use them.
+
 ## Label Taxonomy
 
 Core workflow labels:
@@ -156,6 +162,4 @@ Label automation may organize issues, but labels are not a substitute for policy
 
 ## Decision Needed
 
-- Whether every KI must become a GitHub Issue after the repository becomes public.
-- Whether label names are locked as written or should be shortened before public release.
-- Whether GitHub issue forms should become required for all public submissions.
+- Whether every KI must become a GitHub Issue after public release.
