@@ -2,10 +2,10 @@ schema_version: 0
 project:
   id: fdp-codex
   name: FDP_Codex
-  status: initial-scaffold
+  status: public-bootstrap
   purpose: Codex-native open FDP workflow kit
   repository: https://github.com/flowcoder2025/FDP_Codex.git
-  visibility: private-during-bootstrap
+  visibility: public
   license: Apache-2.0
 
 authority_order:
@@ -39,9 +39,11 @@ context_policy:
 
 repository:
   remote: https://github.com/flowcoder2025/FDP_Codex.git
-  visibility: private-during-bootstrap
+  visibility: public
   default_branch_seen: main
-  publication_authorized: false
+  public_visibility_authorized: true
+  release_publication_authorized: false
+  oss_submission_authorized: false
 
 license:
   spdx: Apache-2.0
@@ -606,6 +608,17 @@ chunks:
   - id: record.validation-wi-cx0013-docs
     title: WI-CX0013-docs Validation Record
     source: docs/records/validation-wi-cx0013-docs.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+    body_carryover: forbidden
+
+  - id: record.validation-wi-cx0014-chore
+    title: WI-CX0014-chore Validation Record
+    source: docs/records/validation-wi-cx0014-chore.md
     type: record
     layer: layer1
     status: evidence
