@@ -1,48 +1,43 @@
 # Current WI
 
-WI id: WI-CX0027-docs
+WI id: WI-CX0018-chore
 
-Category: docs
+Category: chore
 
-Title: Session Boundary Automation Contract
+Title: Local Workspace Realignment
 
 Layer: Layer 1
 
-Risk: R2
+Risk: R3
 
 Status: validated
 
-Branch: wi/cx0027-docs-session-boundary-automation-contract
+Branch: wi/cx0018-chore-local-workspace-realignment
 
-Approval envelope: user approved autonomous process continuation while preserving hard stops. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, destructive local realignment, license changes, new production dependencies, and A3 publication behavior.
+Approval envelope: user explicitly approved `C:\dev\FDP_Codex` backup and destructive local realignment to `origin/main`. Existing exclusions remain: deployment, release publication, package publication, OSS program submission, license changes, new production dependencies, and A3 publication behavior.
 
 ## Scope
 
-Lock the FDP_Codex session boundary contract so auto-compact, same-thread continuation, thread automation, standalone/project automation, new local thread creation, and Goal mode are not conflated.
+Back up the noncanonical `C:\dev\FDP_Codex` checkout and realign it to remote `main` so future FDP_Codex work can use `C:\dev\FDP_Codex` as the canonical local workspace.
 
 ## Verification Plan
 
-- Use the current Codex manual as product evidence for session and automation behavior.
-- Build a fresh context pack for session-boundary-automation-contract.
-- Update autonomy and context hygiene policies.
-- Record the accepted decision.
-- Update fix_plan Decision Needed state for A2 fresh-run continuation ambiguity.
-- Register the decision and validation record in `docs/manifest.yaml`.
-- Extend `scripts/validate-repo.mjs` to verify the contract.
-- Run context pack default mode and explicit append mode.
+- Confirm `C:\dev\FDP_Codex` resolved path before realignment.
+- Back up the full pre-realignment checkout to `C:\tmp`.
+- Fetch `origin/main`.
+- Force-align the local checkout to `origin/main`.
+- Verify local `HEAD` equals `origin/main`.
 - Run `npm run validate`.
-- Run `git diff --check`.
+- Record backup path, HEAD, and validation evidence.
 
 ## Completion Evidence
 
-- `docs/policies/autonomy-and-approval.md`
-- `docs/policies/context-hygiene.md`
-- `docs/decisions/2026-07-08-session-boundary-automation-contract.md`
-- `docs/records/validation-wi-cx0027-docs.md`
-- `.flowset/fix_plan.md`
-- `docs/manifest.yaml`
-- `scripts/validate-repo.mjs`
+- Backup: `C:\tmp\fdp-codex-dev-backup-20260708-140739`
+- Realigned workspace: `C:\dev\FDP_Codex`
+- HEAD: `aeac5d0dc3406aeb8d441bc7e5b9bd1061591760`
+- `docs/records/validation-wi-cx0018-chore.md`
+- `.flowset/handoff.md`
 
 ## Decision Needed
 
-- None for WI-CX0027-docs.
+- None for WI-CX0018-chore.

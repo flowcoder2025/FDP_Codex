@@ -81,6 +81,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0016-docs.md',
   'docs/records/validation-wi-cx0026-docs.md',
   'docs/records/validation-wi-cx0027-docs.md',
+  'docs/records/validation-wi-cx0018-chore.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -140,6 +141,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0016-docs',
   'record.validation-wi-cx0026-docs',
   'record.validation-wi-cx0027-docs',
+  'record.validation-wi-cx0018-chore',
 ];
 
 const requiredLabels = [
@@ -853,7 +855,8 @@ function validateOperatingPolicyLock() {
   checks.operating_lock_live_queue_ssot = decision.includes('The live Decision Needed SSOT is `.flowset/fix_plan.md`');
   checks.operating_lock_exclusions = decision.includes('does not authorize release publication, deployment, package publication, OSS program submission')
     && decision.includes('destructive local realignment');
-  checks.operating_lock_next_wi = fixPlan.includes('WI-CX0018-chore Local Workspace Realignment');
+  checks.operating_lock_next_wi = /## Current Priority\n\n- \[ \] WI-CX\d{4}-[a-z]+/m.test(fixPlan)
+    && !fixPlan.includes('WI-CX0016-docs Operating Policy LOCK');
 
   if (unaccepted.length) error('operating_lock.unaccepted_policies', 'All Layer 1 operating policy files must be accepted-v0.', unaccepted);
   if (manifestPolicyStatusMismatches.length) error('operating_lock.manifest_policy_status_mismatch', 'Manifest policy chunks must match accepted-v0 operating lock status.', manifestPolicyStatusMismatches);
@@ -862,7 +865,7 @@ function validateOperatingPolicyLock() {
   if (!checks.operating_lock_decision_accepts_v0) error('operating_lock.decision_v0_missing', 'Operating lock decision must accept the policy set as accepted-v0.');
   if (!checks.operating_lock_live_queue_ssot) error('operating_lock.live_queue_ssot_missing', 'Operating lock decision must keep fix_plan as the live Decision Needed SSOT.');
   if (!checks.operating_lock_exclusions) error('operating_lock.exclusions_missing', 'Operating lock decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
-  if (!checks.operating_lock_next_wi) error('operating_lock.next_wi_missing', 'fix_plan should advance to the next live WI after policy lock validation.');
+  if (!checks.operating_lock_next_wi) error('operating_lock.next_wi_missing', 'fix_plan should keep a live current priority after policy lock validation and must not regress to WI-CX0016.');
 }
 function validateCollaborationResponseContract() {
   const agents = read('AGENTS.md');
@@ -878,8 +881,8 @@ function validateCollaborationResponseContract() {
   checks.collaboration_response_approval = agents.includes('approval needed to proceed')
     && policy.includes('approval needed');
   checks.collaboration_response_korean_tone = agents.includes('conversational')
-    && agents.includes('할게')
-    && agents.includes('하겠다')
+    && agents.includes('\uD560\uAC8C')
+    && agents.includes('\uD558\uACA0\uB2E4')
     && decision.includes('conversational Korean tone');
   checks.collaboration_response_boundaries = decision.includes('does not authorize release publication, deployment, package publication, OSS program submission')
     && decision.includes('destructive local realignment');
@@ -927,7 +930,35 @@ function validateCollaborationResponseContract() {
   if (!checks.session_boundary_goal_mode) error('session_boundary.goal_mode_boundary_missing', 'Goal mode must not be treated as a fresh session.');
   if (!checks.session_boundary_fixplan_a2_resolved) error('session_boundary.fixplan_a2_not_resolved', 'fix_plan must resolve A2 fresh-run ambiguity while preserving A3 scope.');
   if (!checks.session_boundary_boundaries) error('session_boundary.boundaries_missing', 'Decision must preserve live automation, new-thread, release, and destructive realignment boundaries.');
-}function validatePackage() {
+}
+function validateLocalWorkspaceRealignment() {
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const record = read('docs/records/validation-wi-cx0018-chore.md');
+
+  checks.local_realign_current_wi = currentWi.includes('WI id: WI-CX0018-chore')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('C:\\dev\\FDP_Codex');
+  checks.local_realign_backup_recorded = record.includes('C:\\tmp\\fdp-codex-dev-backup-20260708-140739')
+    && handoff.includes('C:\\tmp\\fdp-codex-dev-backup-20260708-140739');
+  checks.local_realign_head_recorded = record.includes('aeac5d0dc3406aeb8d441bc7e5b9bd1061591760')
+    && handoff.includes('aeac5d0dc3406aeb8d441bc7e5b9bd1061591760');
+  checks.local_realign_canonical_handoff = handoff.includes('`C:\\dev\\FDP_Codex` is canonical after WI-CX0018 realignment')
+    && !handoff.includes('Do not treat `C:\\dev\\FDP_Codex` Git metadata as canonical');
+  checks.local_realign_next_wi = fixPlan.includes('WI-CX0028-chore Tooling TypeScript Baseline')
+    && handoff.includes('WI-CX0028-chore Tooling TypeScript Baseline');
+  checks.local_realign_boundary = record.includes('Destructive local realignment occurred only after explicit user approval')
+    && record.includes('No release publication, deployment, package publication, OSS program submission');
+
+  if (!checks.local_realign_current_wi) error('local_realign.current_wi_missing', 'Current WI must record validated local workspace realignment.');
+  if (!checks.local_realign_backup_recorded) error('local_realign.backup_missing', 'Realignment backup path must be recorded.');
+  if (!checks.local_realign_head_recorded) error('local_realign.head_missing', 'Realigned HEAD must be recorded.');
+  if (!checks.local_realign_canonical_handoff) error('local_realign.canonical_handoff_missing', 'Handoff must mark C:\\dev\\FDP_Codex canonical after realignment.');
+  if (!checks.local_realign_next_wi) error('local_realign.next_wi_missing', 'fix_plan and handoff must advance to WI-CX0028-chore.');
+  if (!checks.local_realign_boundary) error('local_realign.boundary_missing', 'Validation record must preserve destructive approval and publication boundaries.');
+}
+function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
   checks.package_context_pack_script = pkg.scripts?.['context:pack'] ?? null;
@@ -961,6 +992,7 @@ validateAutonomyDefaultOptionsPacket();
 validateOperatingPolicyLock();
 validateCollaborationResponseContract();
 validateSessionBoundaryAutomationContract();
+validateLocalWorkspaceRealignment();
 validatePackage();
 
 const result = {
