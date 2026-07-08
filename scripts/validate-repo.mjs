@@ -50,6 +50,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-context-pack-command-surface.md',
   'docs/decisions/2026-07-08-context-selection-rule-table.md',
   'docs/decisions/2026-07-08-decision-queue-state-codes.md',
+  'docs/decisions/2026-07-08-ki-identity-severity-policy.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -69,6 +70,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
+  'docs/records/validation-wi-cx0023-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -83,6 +85,7 @@ const requiredChunkIds = [
   'decision.context-pack-command-surface',
   'decision.context-selection-rule-table',
   'decision.decision-queue-state-codes',
+  'decision.ki-identity-severity-policy',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -116,6 +119,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0020-feat',
   'record.validation-wi-cx0021-feat',
   'record.validation-wi-cx0022-docs',
+  'record.validation-wi-cx0023-docs',
 ];
 
 const requiredLabels = [
@@ -724,6 +728,23 @@ function validateDecisionQueue() {
   if (!checks.decision_queue_index_not_duplicated) error('decision_queue.index_duplicates_live_queue', 'Decisions README must not duplicate the live queue.');
   if (!checks.decision_queue_decision_accepts_codes) error('decision_queue.decision_codes_missing', 'Decision record must accept the state-code set.');
 }
+function validateKiIdentityPolicy() {
+  const lifecycle = read('docs/policies/work-item-lifecycle.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const decision = read('docs/decisions/2026-07-08-ki-identity-severity-policy.md');
+
+  checks.ki_identity_rule_section = lifecycle.includes('## KI Identity Rule');
+  checks.ki_identity_no_severity_in_id = lifecycle.includes('KI ids are stable identifiers. They must not encode severity.') && decision.includes('KI ids must not encode severity.');
+  checks.ki_identity_severity_field_only = lifecycle.includes('Severity is a field-only classification') && decision.includes('Severity remains a field-only classification.');
+  checks.ki_identity_queue_removed = !fixPlan.includes('| KI id severity encoding. |');
+  checks.ki_identity_future_namespace_allowed = decision.includes('namespace, sequence, or category rules') && lifecycle.includes('namespace, sequence, or category');
+
+  if (!checks.ki_identity_rule_section) error('ki_identity.rule_section_missing', 'Work item lifecycle policy must include KI Identity Rule.');
+  if (!checks.ki_identity_no_severity_in_id) error('ki_identity.severity_in_id_not_forbidden', 'Policy and decision must forbid severity in KI ids.');
+  if (!checks.ki_identity_severity_field_only) error('ki_identity.field_only_missing', 'Policy and decision must keep severity as a field-only classification.');
+  if (!checks.ki_identity_queue_removed) error('ki_identity.queue_item_not_closed', 'KI id severity encoding item must leave the live Decision Needed queue after accepted decision.');
+  if (!checks.ki_identity_future_namespace_allowed) error('ki_identity.future_namespace_missing', 'Decision should preserve room for non-severity namespace or sequence naming rules.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -752,6 +773,7 @@ validateEvaluationSurface();
 validateContextPackCommandSurface();
 validateContextSelectionRuleTable();
 validateDecisionQueue();
+validateKiIdentityPolicy();
 validatePackage();
 
 const result = {

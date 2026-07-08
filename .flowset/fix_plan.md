@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0023-docs KI Identity Severity Policy: decide whether KI severity belongs in the KI id or remains a field-only classification, then update lifecycle policy and validator expectations. Expected strategy: PSC=P2, WTC=KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0024-docs Handoff Size Policy: decide the handoff maximum line-count rule and validator profile so Operating Policy LOCK can distinguish compact handoff hygiene from project-size-specific exceptions. Expected strategy: PSC=P2, WTC=KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
@@ -32,12 +32,11 @@ Discipline:
 | Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional | Before Layer 2 generation or manifest namespace expansion. |
 | Layer 2 project scope code rule. | DQ-POLICY | USER | conditional | Before first Layer 2 target-project scaffold. |
 | Release category policy. | DQ-EXTERNAL | H1 | no | Before release candidate, tag, package publication, deployment, or OSS submission. |
-| KI id severity encoding. | DQ-POLICY | CODEX | yes | Scheduled as `WI-CX0023-docs KI Identity Severity Policy`. |
 | Default autonomy mode after bootstrap. | DQ-USER | USER | yes | Before `WI-CX0016-docs Operating Policy LOCK` or wider autonomous envelope. |
 | A2/A3 git and continuation scope. | DQ-USER | USER | conditional | Before A2 fresh-run automation or A3 publication/merge envelope is generalized. |
 | Branch deletion automation default after squash merge. | DQ-USER | USER | no | Before making branch deletion the default outside the current approval envelope. |
 | Whether portfolio guardrails become deterministic validator rules. | DQ-POLICY | CODEX | no | After repeated portfolio imbalance findings or before release-readiness scoring. |
 | Whether every KI must become a GitHub Issue after public release. | DQ-EXTERNAL | H1 | no | Before first public release or external contributor operating mode. |
 | Whether the validator should adopt a strict YAML parser later. | DQ-DEBT | CODEX | no | When manifest grammar exceeds the current parser or parser drift is observed. |
-| Whether handoff maximum line count should be 220, 300, or profile-dependent. | DQ-POLICY | CODEX | yes | Before `WI-CX0016-docs Operating Policy LOCK`. |
+| Whether handoff maximum line count should be 220, 300, or profile-dependent. | DQ-POLICY | CODEX | yes | Scheduled as `WI-CX0024-docs Handoff Size Policy`. |
 | Whether current WI and handoff should be split into stricter machine-readable state later. | DQ-DEBT | CODEX | no | When handoff or current WI parsing becomes ambiguous or repeated validator exceptions appear. |
