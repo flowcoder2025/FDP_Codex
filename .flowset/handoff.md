@@ -6,11 +6,11 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0050-test Worktree Isolation Verification.
+Current WI: WI-CX0051-test Worktree Isolation Repair Gate.
 
-WI-CX0050-test status: validated-blocked. Evidence: `docs/records/validation-wi-cx0050-test.md`.
+WI-CX0051-test status: validated. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`.
 
-WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. The run started in `C:\dev\FDP_Codex`, the canonical repository path, and branch creation required `.git` write escalation after sandboxed branch creation failed. Worktree isolation is blocked, not proven.
+WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
@@ -18,7 +18,7 @@ Runtime snapshot remains `.flowset/runtime-snapshot.json`. It records the parent
 
 A2 handoff receiver contract is accepted at `docs/specifications/a2-handoff-receiver-contract.md` and `docs/records/validation-wi-cx0049-docs.md`.
 
-Next priority is WI-CX0051-test Worktree Isolation Repair Gate. It must define the minimal repair gate for A2 worktree isolation before first Layer 2 target-project scaffold confidence claims or generalized A2/A3 expansion.
+Next priority is a user/control-plane decision to repair the A2 worktree execution surface so a future receiver can satisfy `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
 
 Layer 2 scope code decision handback is available at `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`. Recommended answer: `A, use <CODE>`.
 
@@ -36,6 +36,7 @@ Release publication, deployment, package publication, and OSS program submission
 
 - WI-CX0001-docs through WI-CX0049-docs: bootstrap foundation, reconciliation, OSS baseline, CI, evaluation, context pack surfaces, decision policies, runner installation, flow/runtime snapshots, S2/cadence handbacks, control-plane audit, and A2 handoff receiver contract. Evidence: matching `docs/decisions/`, `docs/specifications/`, and `docs/records/validation-wi-*.md` files registered in `docs/manifest.yaml`.
 - WI-CX0050-test: Worktree Isolation Verification. Evidence: `docs/records/validation-wi-cx0050-test.md`. Result: blocked, not proven.
+- WI-CX0051-test: Worktree Isolation Repair Gate. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`. Result: gate defined; user/control-plane repair needed.
 
 ## Orientation SSOT
 
@@ -49,6 +50,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Runtime snapshot spec: `docs/specifications/runtime-snapshot.md`.
 - A2 handoff receiver contract: `docs/specifications/a2-handoff-receiver-contract.md`.
 - Worktree isolation verification: `docs/records/validation-wi-cx0050-test.md`.
+- Worktree isolation repair gate: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
 - Session orchestration audit: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code handback: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
@@ -56,7 +58,7 @@ Release publication, deployment, package publication, and OSS program submission
 ## Locked For This Scaffold
 
 - Fresh-run, handoff receiver, and clean-session claims require control-plane evidence, not only local green validators.
-- WI-CX0050 blocks worktree isolation confidence; do not claim isolated A2 worktree success until a later repair WI proves it.
+- WI-CX0050 blocks worktree isolation confidence; WI-CX0051 defines the proof gate. Do not claim isolated A2 worktree success until a later receiver satisfies the gate.
 - Context bodies are ephemeral and ledger records metadata only.
 - `.flowset/context-ledger.jsonl` is append-only audit evidence.
 - `.flowset/state.json` and `.flowset/runtime-snapshot.json` are metadata-only snapshots and must not store conversation bodies or prompt dumps.
@@ -89,6 +91,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 - WI-CX0047-test: Session Orchestration Control-Plane Audit. It records parent thread, automation, runner ids, duplicate-stop evidence, and the validation gap.
 - WI-CX0048-test: Runtime Snapshot Validator. Runtime snapshot: `.flowset/runtime-snapshot.json`.
 - WI-CX0049-docs: A2 Handoff Receiver Contract. Start WI-CX0050-test Worktree Isolation Verification was the next action before WI-CX0050 completed.
+- WI-CX0051-test: Worktree Isolation Repair Gate. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`.
 - WI-CX0031-chore: Context Ledger Dedupe Policy. Source ledger remains append-only audit evidence. Evidence: `docs/records/validation-wi-cx0031-chore.md`.
 - Actual first fresh-run output review remains triggered by future standalone A2 runner output.
 - WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Automation cadence handback: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. Post-bootstrap automation cadence and authority remains user-gated.
@@ -97,15 +100,16 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0050-test-worktree-isolation-verification`.
+- Active WI branch for this cycle: `wi/cx0051-test-worktree-isolation-repair-gate`.
 
 ## Next Action
 
-Start WI-CX0051-test Worktree Isolation Repair Gate.
+Wait for user/control-plane repair of the A2 worktree execution surface, then run a future receiver validation against `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
 
 ## Blocked Work
 
 - First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and control-plane confidence checks.
+- A2 worktree isolation repair is blocked until the user/control-plane repairs the execution surface and a future receiver satisfies `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
 - WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked until the user chooses the scope code rule and worktree confidence debt is repaid.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.

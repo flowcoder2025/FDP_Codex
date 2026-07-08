@@ -1397,6 +1397,20 @@ chunks:
       - portfolio-balance
       - validation
     body_carryover: forbidden
+  - id: decision.a2-worktree-isolation-repair-gate
+    title: A2 Worktree Isolation Repair Gate
+    source: docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - automation-planning
+      - session-boundary
+      - fresh-run-continuation
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
   - id: record.validation-wi-cx0046-test
     title: WI-CX0046-test Validation Record
     source: docs/records/validation-wi-cx0046-test.md
@@ -1507,6 +1521,19 @@ chunks:
   - id: record.validation-wi-cx0050-test
     title: WI-CX0050-test Validation Record
     source: docs/records/validation-wi-cx0050-test.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - automation-planning
+      - validation
+      - context-hygiene
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0051-test
+    title: WI-CX0051-test Validation Record
+    source: docs/records/validation-wi-cx0051-test.md
     type: record
     layer: layer1
     status: evidence

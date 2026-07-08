@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T11:45:00Z",
+  "updated_at": "2026-07-08T12:39:14Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -10,19 +10,18 @@
     ".flowset/runtime-snapshot.json"
   ],
   "current_wi": {
-    "id": "WI-CX0050-test",
+    "id": "WI-CX0051-test",
     "category": "test",
-    "title": "Worktree Isolation Verification",
+    "title": "Worktree Isolation Repair Gate",
     "status": "validated",
-    "branch": "wi/cx0050-test-worktree-isolation-verification",
-    "validation_record": "docs/records/validation-wi-cx0050-test.md"
+    "branch": "wi/cx0051-test-worktree-isolation-repair-gate",
+    "validation_record": "docs/records/validation-wi-cx0051-test.md"
   },
   "current_priority": {
-    "kind": "wi",
-    "wi_id": "WI-CX0051-test",
-    "item": "Worktree Isolation Repair Gate",
-    "state": "ready",
-    "owner_gate": "CODEX",
+    "kind": "user_decision",
+    "item": "A2 worktree isolation repair",
+    "state": "waiting",
+    "owner_gate": "USER",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
@@ -33,7 +32,8 @@
     "blocks": [
       "first Layer 2 target-project scaffold confidence claims",
       "generalized A2/A3 autonomy expansion"
-    ]
+    ],
+    "decision_record": "docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md"
   },
   "triggered_work": [
     {
