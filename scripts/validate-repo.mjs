@@ -96,6 +96,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0029-chore.md',
   'docs/records/validation-wi-cx0030-test.md',
   'docs/records/validation-wi-cx0031-chore.md',
+  'docs/records/validation-wi-cx0032-docs.md',
+  'docs/records/validation-wi-cx0033-test.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -166,6 +168,8 @@ const requiredChunkIds = [
   'record.validation-wi-cx0029-chore',
   'record.validation-wi-cx0030-test',
   'record.validation-wi-cx0031-chore',
+  'record.validation-wi-cx0032-docs',
+  'record.validation-wi-cx0033-test',
 ];
 
 const requiredLabels = [
@@ -1297,10 +1301,11 @@ function validateLayer2KnowledgeScaffoldContract() {
     && record.includes('target manifest, current WI, fix plan, handoff, context ledger, KI registry or issue bridge, verification debt registry, and Layer 1 provenance record')
     && record.includes('No target-project scaffold generation')
     && record.includes('S1 adversarial review');
-  checks.layer2_scaffold_flow = fixPlan.includes('WI-CX0033-test Automation Runner First Fresh-Run Evidence')
+  checks.layer2_scaffold_flow = !/^- \[ \] WI-CX0032-docs\b/m.test(fixPlan)
+    && fixPlan.includes('WI-CX0034-docs Layer 2 Scope Code Options Packet')
     && handoff.includes('WI-CX0032-docs: Layer 2 Knowledge Scaffold Contract')
     && handoff.includes('docs/specifications/layer-2-knowledge-scaffold.md')
-    && handoff.includes('WI-CX0033-test Automation Runner First Fresh-Run Evidence');
+    && handoff.includes('WI-CX0033-test: Automation Runner Fresh-Run Evidence Gate');
   checks.layer2_scaffold_boundary = record.includes('No target-project scaffold generation')
     && record.includes('public API or external contract stabilization')
     && record.includes('destructive local realignment occurred')
@@ -1318,6 +1323,57 @@ function validateLayer2KnowledgeScaffoldContract() {
   if (!checks.layer2_scaffold_record) error('layer2_scaffold.record_missing', 'WI-CX0032 validation record must capture contract evidence.');
   if (!checks.layer2_scaffold_flow) error('layer2_scaffold.flow_missing', 'Flow state must advance to the automation fresh-run evidence WI while preserving WI-CX0032 handoff evidence.');
   if (!checks.layer2_scaffold_boundary) error('layer2_scaffold.boundary_not_preserved', 'Layer 2 scaffold WI must preserve generation, publication, public API, and destructive boundaries.');
+}
+function validateAutomationRunnerFreshRunEvidenceGate() {
+  const record = read('docs/records/validation-wi-cx0033-test.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const manifest = read('docs/manifest.yaml');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const automationId = 'fdp-codex-a2-worktree-wi-runner';
+
+  checks.automation_fresh_run_gate_record = record.includes('WI: WI-CX0033-test')
+    && record.includes('No standalone A2 runner fresh-run output was found')
+    && record.includes('must not be treated as the first fresh-run output review')
+    && record.includes('guardian subagent session')
+    && record.includes('thread_source: subagent');
+  checks.automation_fresh_run_gate_evidence = record.includes('codex_app.list_threads')
+    && record.includes('query `FDP_Codex`')
+    && record.includes('returned only the current user-owned thread')
+    && record.includes('query `fdp-codex-a2-worktree-wi-runner` returned no threads')
+    && record.includes('gh pr list --state open')
+    && record.includes('returned `[]`')
+    && record.includes('git ls-remote --heads origin wi/cx0033-test-automation-runner-fresh-run-evidence-gate');
+  checks.automation_fresh_run_gate_trigger = fixPlan.includes('## Triggered Work')
+    && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
+    && fixPlan.includes('Trigger only when a new FDP_Codex runner thread, branch, PR, or recorded output exists')
+    && fixPlan.includes(automationId)
+    && handoff.includes('Actual first fresh-run output review remains triggered by future standalone A2 runner output');
+  checks.automation_fresh_run_gate_manifest = manifest.includes('record.validation-wi-cx0033-test')
+    && manifest.includes('docs/records/validation-wi-cx0033-test.md');
+  checks.automation_fresh_run_gate_indexes = docsIndex.includes('docs/records/validation-wi-cx0033-test.md')
+    && recordsReadme.includes('docs/records/validation-wi-cx0033-test.md');
+  checks.automation_fresh_run_gate_flow = currentWi.includes('WI id: WI-CX0033-test')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0033-test-automation-runner-fresh-run-evidence-gate')
+    && fixPlan.includes('- [ ] WI-CX0034-docs Layer 2 Scope Code Options Packet')
+    && handoff.includes('WI-CX0033-test: Automation Runner Fresh-Run Evidence Gate')
+    && handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked');
+  checks.automation_fresh_run_gate_boundary = record.includes('No automation authority expansion occurred')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('destructive local realignment occurred');
+
+  if (!checks.automation_fresh_run_gate_record) error('automation_fresh_run_gate.record_missing', 'WI-CX0033 record must distinguish absence evidence from actual fresh-run output review.');
+  if (!checks.automation_fresh_run_gate_evidence) error('automation_fresh_run_gate.evidence_missing', 'WI-CX0033 record must capture thread, PR, and branch evidence for no fresh-run output.');
+  if (!checks.automation_fresh_run_gate_trigger) error('automation_fresh_run_gate.trigger_missing', 'Actual first fresh-run output review must move to triggered work without expanding automation authority.');
+  if (!checks.automation_fresh_run_gate_manifest) error('automation_fresh_run_gate.manifest_missing', 'Manifest must register WI-CX0033 validation record.');
+  if (!checks.automation_fresh_run_gate_indexes) error('automation_fresh_run_gate.index_missing', 'Documentation indexes must include WI-CX0033 validation record.');
+  if (!checks.automation_fresh_run_gate_flow) error('automation_fresh_run_gate.flow_missing', 'Flow state must record WI-CX0033 and advance current priority to WI-CX0034.');
+  if (!checks.automation_fresh_run_gate_boundary) error('automation_fresh_run_gate.boundary_missing', 'WI-CX0033 must preserve automation, publication, dependency, public API, and destructive boundaries.');
 }
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
@@ -1359,6 +1415,7 @@ validateAutomationRunSurfaceInstallation();
 validateAutomationRunnerPostMergeSmoke();
 validateContextLedgerDedupePolicy();
 validateLayer2KnowledgeScaffoldContract();
+validateAutomationRunnerFreshRunEvidenceGate();
 validatePackage();
 
 const result = {
