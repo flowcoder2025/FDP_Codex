@@ -1,6 +1,6 @@
 # Context Hygiene Policy
 
-Status: lock candidate.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -77,4 +77,4 @@ Forbidden hook output:
 
 ## Decision Needed
 
-- Whether context pack selection should remain heuristic or move to a stricter rule table.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

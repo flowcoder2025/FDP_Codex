@@ -194,6 +194,4 @@ Rationale: validators are deterministic gates, but validator implementation can 
 
 ## Decision Needed
 
-- Whether blind review must be performed by a separate Codex thread, a separate model role, or a human reviewer.
-- Whether adversarial review should have a standard checklist per surface type.
-- Whether portfolio guardrails should become a deterministic validator rule or remain evaluator judgment.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

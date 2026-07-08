@@ -1,6 +1,6 @@
 # GitHub Issue Governance Policy
 
-Status: draft.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -162,4 +162,4 @@ Label automation may organize issues, but labels are not a substitute for policy
 
 ## Decision Needed
 
-- Whether every KI must become a GitHub Issue after public release.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

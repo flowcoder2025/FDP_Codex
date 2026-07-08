@@ -1,6 +1,6 @@
 # Autonomy and Approval Policy
 
-Status: lock candidate.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -110,6 +110,4 @@ Ask once for the envelope, then avoid repeated prompts inside that envelope. Ask
 
 ## Decision Needed
 
-- Default autonomy mode for FDP_Codex after bootstrap.
-- Whether A2 may create new Codex threads or only standalone/project automations.
-- Whether A3 is in scope before the local git repository is repaired.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.

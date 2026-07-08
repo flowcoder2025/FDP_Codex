@@ -1,6 +1,6 @@
 # Naming and Commit Policy
 
-Status: accepted for Layer 1 v0.
+Status: accepted-v0.
 
 ## Purpose
 
@@ -109,5 +109,4 @@ Handoff entries should refer to the canonical WI id first. Avoid title-only refe
 
 ## Decision Needed
 
-- Whether Layer 2 target projects must use `TG` or derive their own two-to-four-letter project code.
-- Whether public release work should use a dedicated `release` category or continue using `chore` / `ci` / `docs` according to the changed surface.
+Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.
