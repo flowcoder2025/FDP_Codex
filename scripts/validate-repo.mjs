@@ -54,6 +54,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-handoff-size-policy.md',
   'docs/decisions/2026-07-08-autonomy-default-options-packet.md',
   'docs/decisions/2026-07-08-operating-policy-lock.md',
+  'docs/decisions/2026-07-08-collaboration-response-contract.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -77,6 +78,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0024-docs.md',
   'docs/records/validation-wi-cx0025-docs.md',
   'docs/records/validation-wi-cx0016-docs.md',
+  'docs/records/validation-wi-cx0026-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -95,6 +97,7 @@ const requiredChunkIds = [
   'decision.handoff-size-policy',
   'decision.autonomy-default-options-packet',
   'decision.operating-policy-lock',
+  'decision.collaboration-response-contract',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -132,6 +135,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0024-docs',
   'record.validation-wi-cx0025-docs',
   'record.validation-wi-cx0016-docs',
+  'record.validation-wi-cx0026-docs',
 ];
 
 const requiredLabels = [
@@ -856,7 +860,34 @@ function validateOperatingPolicyLock() {
   if (!checks.operating_lock_exclusions) error('operating_lock.exclusions_missing', 'Operating lock decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
   if (!checks.operating_lock_next_wi) error('operating_lock.next_wi_missing', 'fix_plan should advance to the next live WI after policy lock validation.');
 }
-function validatePackage() {
+function validateCollaborationResponseContract() {
+  const agents = read('AGENTS.md');
+  const policy = read('docs/policies/autonomy-and-approval.md');
+  const decision = read('docs/decisions/2026-07-08-collaboration-response-contract.md');
+
+  checks.collaboration_response_agents_section = agents.includes('## User-Facing Decision Framing');
+  checks.collaboration_response_policy_section = policy.includes('## Decision Framing UX');
+  checks.collaboration_response_options = agents.includes('Present options as A/B/C with tradeoffs')
+    && policy.includes('Options A/B/C with tradeoffs');
+  checks.collaboration_response_recommendation = agents.includes("Codex's recommendation")
+    && policy.includes('Recommendation');
+  checks.collaboration_response_approval = agents.includes('approval needed to proceed')
+    && policy.includes('approval needed');
+  checks.collaboration_response_korean_tone = agents.includes('conversational')
+    && agents.includes('할게')
+    && agents.includes('하겠다')
+    && decision.includes('conversational Korean tone');
+  checks.collaboration_response_boundaries = decision.includes('does not authorize release publication, deployment, package publication, OSS program submission')
+    && decision.includes('destructive local realignment');
+
+  if (!checks.collaboration_response_agents_section) error('collaboration_response.agents_section_missing', 'AGENTS.md must define the user-facing decision framing contract.');
+  if (!checks.collaboration_response_policy_section) error('collaboration_response.policy_section_missing', 'Autonomy policy must define the decision framing UX rule.');
+  if (!checks.collaboration_response_options) error('collaboration_response.options_missing', 'Decision-bearing replies must present options and tradeoffs.');
+  if (!checks.collaboration_response_recommendation) error('collaboration_response.recommendation_missing', 'Decision-bearing replies must state Codex recommendation.');
+  if (!checks.collaboration_response_approval) error('collaboration_response.approval_missing', 'Decision-bearing replies must state next action and approval needed.');
+  if (!checks.collaboration_response_korean_tone) error('collaboration_response.korean_tone_missing', 'AGENTS and decision must preserve the conversational Korean tone instruction.');
+  if (!checks.collaboration_response_boundaries) error('collaboration_response.boundaries_missing', 'Decision must preserve release, deployment, package, OSS, and destructive realignment exclusions.');
+}function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
   checks.package_context_pack_script = pkg.scripts?.['context:pack'] ?? null;
@@ -888,6 +919,7 @@ validateKiIdentityPolicy();
 validateHandoffSizePolicy();
 validateAutonomyDefaultOptionsPacket();
 validateOperatingPolicyLock();
+validateCollaborationResponseContract();
 validatePackage();
 
 const result = {

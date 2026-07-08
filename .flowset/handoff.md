@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0016-docs Operating Policy LOCK.
+Current WI: WI-CX0026-docs Collaboration Response Contract.
 
-WI-CX0016-docs status: validated.
+WI-CX0026-docs status: validated.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -26,6 +26,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0024-docs: Handoff Size Policy. Evidence: `docs/decisions/2026-07-08-handoff-size-policy.md` and `docs/records/validation-wi-cx0024-docs.md`.
 - WI-CX0025-docs: Autonomy Default Options Packet. Evidence: `docs/decisions/2026-07-08-autonomy-default-options-packet.md` and `docs/records/validation-wi-cx0025-docs.md`.
 - WI-CX0016-docs: Operating Policy LOCK v0. Evidence: `docs/decisions/2026-07-08-operating-policy-lock.md` and `docs/records/validation-wi-cx0016-docs.md`.
+- WI-CX0026-docs: Collaboration Response Contract. Evidence: `docs/decisions/2026-07-08-collaboration-response-contract.md` and `docs/records/validation-wi-cx0026-docs.md`.
 
 ## Orientation SSOT
 
@@ -37,6 +38,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Decision queue policy: `docs/policies/decision-queue.md`.
 - Operating policy lock: `docs/decisions/2026-07-08-operating-policy-lock.md`.
 - Evaluation surface boundary: `docs/decisions/2026-07-08-evaluation-surface-baseline.md`.
+- Collaboration response contract: `docs/decisions/2026-07-08-collaboration-response-contract.md`.
 
 ## Locked For This Scaffold
 
@@ -54,6 +56,7 @@ Release publication, deployment, package publication, and OSS program submission
 - E2 Blind Independent Review requires S2 Separate Blind Review.
 - H1 Human Maintainer Gate is mandatory before release, deployment, package publication, or OSS submission.
 - Validate workflow covers Node 20 and Node 24.
+- Decision-bearing replies separate situation, options, recommendation, tradeoffs, and approval needed.
 
 ## Git State
 

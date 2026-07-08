@@ -78,6 +78,18 @@ Do not describe deferred verification as skipped verification.
 - Security, data loss, public API, release, external contract, licensing, and irreversible changes are R3 unless a policy explicitly classifies them lower.
 - Release boundary, externalization boundary, and public PR merge require verification debt repayment.
 
+## User-Facing Decision Framing
+
+When the user asks for strategic or process direction, or when the next step needs user judgment, use this response shape:
+
+1. Summarize the current situation and verified facts.
+2. Give Codex's judgment in plain terms.
+3. Separate the user's decision points from background explanation.
+4. Present options as A/B/C with tradeoffs.
+5. State Codex's recommendation directly, such as "my recommendation is A" or "A then B".
+6. End with the next intended action and the approval needed to proceed.
+
+When the user writes in Korean, keep the tone conversational and collaborative. Prefer natural phrasing like "할게", "진행할게", and "승인하면 이어갈게" over stiff declarations like "하겠다".
 ## Work Style
 
 - Inspect existing files before editing.
