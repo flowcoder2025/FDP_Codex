@@ -1,6 +1,6 @@
 # Context Pack Builder Specification
 
-Status: draft.
+Status: implemented-v0.
 
 ## Purpose
 
@@ -10,8 +10,16 @@ The builder helps Codex select the right SSOT chunks for a WI without carrying d
 
 ## Command
 
+Default metadata-only stdout mode:
+
 ```bash
-npm run context:pack -- --intent context-pack-building --risk R2 --changed docs/manifest.yaml
+npm run context:pack -- --wi WI-CX0020-feat --intent context-pack-building --risk R2 --changed scripts/build-context-pack.mjs
+```
+
+Explicit ledger append mode:
+
+```bash
+npm run context:pack -- --wi WI-CX0020-feat --intent context-pack-building --risk R2 --changed scripts/build-context-pack.mjs --append-ledger --actor codex
 ```
 
 ## Inputs
@@ -20,10 +28,12 @@ npm run context:pack -- --intent context-pack-building --risk R2 --changed docs/
 - `--intent`: task intent string. Defaults to the current WI title.
 - `--risk`: risk level. Defaults to the current WI risk.
 - `--changed`: repeatable changed path.
+- `--append-ledger`: explicit opt-in to append selected chunk metadata to `.flowset/context-ledger.jsonl`.
+- `--actor`: optional actor name for appended ledger records. Defaults to `codex`.
 
 ## Output
 
-The command writes JSON to stdout.
+The command is stdout-only by default. It writes JSON metadata to stdout and does not append ledger records unless `--append-ledger` is present.
 
 Allowed output fields include:
 
@@ -37,6 +47,7 @@ Allowed output fields include:
 - `hash`
 - `load_reasons`
 - `decision_ref`
+- `ledger_append`
 - `body_storage`
 - `contains_chunk_bodies`
 
@@ -74,10 +85,12 @@ The context pack is metadata only.
 
 A context pack may be written to disk only as metadata. It must not contain source document bodies.
 
-Ledger append remains explicit in v0. The builder does not mutate `.flowset/context-ledger.jsonl`.
+The builder must not write context pack body files. `.flowset/context-packs/` remains out of scope for v0.
+
+Ledger append is explicit. The builder mutates `.flowset/context-ledger.jsonl` only when `--append-ledger` is present.
+
+The `ledger_append` object must report whether append was requested, the ledger path, actor, status, and appended entry count.
 
 ## Decision Needed
 
-- Whether context pack output should be stdout-only by default or written to `.flowset/context-packs/`.
-- Whether the builder should append ledger records in a future explicit mode.
 - Whether selection rules should become a strict policy table instead of heuristics.

@@ -2,7 +2,7 @@
 
 Status: live backlog.
 
-Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/manifest.yaml`, and current policy docs.
+Authority: `docs/decisions/2026-07-08-fdp-codex-operating-foundation.md`, `docs/decisions/2026-07-08-repository-license-binding.md`, `docs/decisions/2026-07-08-bootstrap-publication-envelope.md`, `docs/decisions/2026-07-08-public-readiness-boundary.md`, `docs/decisions/2026-07-08-evaluation-surface-baseline.md`, `docs/decisions/2026-07-08-context-pack-command-surface.md`, `docs/manifest.yaml`, and current policy docs.
 
 Discipline:
 
@@ -17,7 +17,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0020-feat Context Pack Command Surface: define and implement the first explicit context-pack command surface for metadata output and optional ledger append without carrying chunk bodies. Expected strategy: PSC=P2, WTC=AUTO+KNOW, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0021-feat Context Selection Rule Table: convert context pack selection heuristics into an explicit rule table and validator-backed contract without changing the stdout-default and explicit-append boundary. Expected strategy: PSC=P2, WTC=AUTO+KNOW+VAL, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
@@ -26,7 +26,6 @@ Discipline:
 
 ## Decision Needed Queue
 
-- [ ] First hook implementation surface final form.
 - [ ] Chunk id scope: global, per-layer, or per-target-project.
 - [ ] Layer 2 project scope code rule.
 - [ ] Release category policy.
@@ -37,8 +36,6 @@ Discipline:
 - [ ] Whether portfolio guardrails become deterministic validator rules.
 - [ ] Whether every KI must become a GitHub Issue after public release.
 - [ ] Whether the validator should adopt a strict YAML parser later.
-- [ ] Whether context pack output should be written to `.flowset/context-packs/` metadata files or remain stdout-only by default. Recommended: stdout-only.
-- [ ] Whether context pack builder runs should append ledger records automatically or require a separate explicit command. Recommended: explicit.
 - [ ] Whether context pack selection should remain heuristic or move to a stricter rule table.
 - [ ] Whether handoff maximum line count should be 220, 300, or profile-dependent.
 - [ ] Whether current WI and handoff should be split into stricter machine-readable state later.

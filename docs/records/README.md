@@ -29,6 +29,7 @@ Current validation records:
 - `docs/records/validation-wi-cx0015-docs.md`
 - `docs/records/validation-wi-cx0017-ci.md`
 - `docs/records/validation-wi-cx0019-docs.md`
+- `docs/records/validation-wi-cx0020-feat.md`
 
 Other records:
 

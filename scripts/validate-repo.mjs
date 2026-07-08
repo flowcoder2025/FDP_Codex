@@ -46,6 +46,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-bootstrap-publication-envelope.md',
   'docs/decisions/2026-07-08-public-readiness-boundary.md',
   'docs/decisions/2026-07-08-evaluation-surface-baseline.md',
+  'docs/decisions/2026-07-08-context-pack-command-surface.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -62,6 +63,7 @@ const requiredFiles = [
   'scripts/lib/manifest.mjs',
   'scripts/validate-repo.mjs',
   'scripts/build-context-pack.mjs',
+  'docs/records/validation-wi-cx0020-feat.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -73,6 +75,7 @@ const requiredChunkIds = [
   'decision.bootstrap-publication-envelope',
   'decision.public-readiness-boundary',
   'decision.evaluation-surface-baseline',
+  'decision.context-pack-command-surface',
   'public.readme',
   'public.contributing',
   'public.security',
@@ -102,6 +105,7 @@ const requiredChunkIds = [
   'runbook.bootstrap-reconciliation',
   'tool.manifest-lib',
   'tool.build-context-pack',
+  'record.validation-wi-cx0020-feat',
 ];
 
 const requiredLabels = [
@@ -548,6 +552,58 @@ function validateEvaluationSurface() {
   if (!checks.evaluation_adversarial_not_keyword_gate) error('evaluation.adversarial_gate_ambiguous', 'Evaluation policy must keep adversarial checklists as evaluator prompts by default.');
   if (!checks.triage_points_to_evaluation_surface) error('triage.evaluation_surface_link_missing', 'Triage policy must link to the evaluation surface decision.');
 }
+function validateContextPackCommandSurface() {
+  const builder = read('scripts/build-context-pack.mjs');
+  const spec = read('docs/specifications/context-pack-builder.md');
+  const hygiene = read('docs/policies/context-hygiene.md');
+  const manifest = read('docs/manifest.yaml');
+  const decision = read('docs/decisions/2026-07-08-context-pack-command-surface.md');
+
+  let sample = null;
+  try {
+    const output = execFileSync(process.execPath, [
+      'scripts/build-context-pack.mjs',
+      '--wi', 'WI-CX0020-feat',
+      '--intent', 'context-pack-building',
+      '--risk', 'R2',
+      '--changed', 'scripts/build-context-pack.mjs',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    sample = JSON.parse(output);
+  } catch (err) {
+    error('context_pack.sample_failed', 'Context pack builder must emit parseable JSON in default mode.', err.stderr?.toString().trim() || err.message);
+  }
+
+  checks.context_pack_builder_has_append_flag = builder.includes("args['append-ledger']") && builder.includes('appendLedger(');
+  checks.context_pack_spec_stdout_default = spec.includes('stdout-only by default');
+  checks.context_pack_spec_append_explicit = spec.includes('--append-ledger') && spec.includes('Ledger append is explicit');
+  checks.context_pack_spec_has_ledger_append_output = spec.includes('ledger_append');
+  checks.context_pack_hygiene_append_procedure = hygiene.includes('--append-ledger') && hygiene.includes('ledger_append');
+  checks.context_pack_decision_stdout_default = decision.includes('stdout-only by default');
+  checks.context_pack_decision_append_explicit = decision.includes('only when `--append-ledger` is present');
+  checks.context_pack_manifest_hook_status = /^  status: implemented-v0$/m.test(manifest.split('hook_contract:')[1] ?? '');
+  checks.context_pack_manifest_output_ledger_append = manifest.includes('    - ledger_append');
+  checks.context_pack_sample_no_append = sample?.ledger_append?.requested === false && sample?.ledger_append?.status === 'not_requested';
+  checks.context_pack_sample_no_bodies = sample?.contains_chunk_bodies === false && sample?.body_storage === 'forbidden';
+  checks.context_pack_sample_selects_builder = Array.isArray(sample?.selected_chunk_ids) && sample.selected_chunk_ids.includes('tool.build-context-pack');
+
+  if (!checks.context_pack_builder_has_append_flag) error('context_pack.builder_append_missing', 'Builder must implement explicit --append-ledger handling.');
+  if (!checks.context_pack_spec_stdout_default) error('context_pack.spec_stdout_default_missing', 'Context pack spec must state stdout-only default.');
+  if (!checks.context_pack_spec_append_explicit) error('context_pack.spec_append_explicit_missing', 'Context pack spec must state explicit ledger append mode.');
+  if (!checks.context_pack_spec_has_ledger_append_output) error('context_pack.spec_ledger_append_missing', 'Context pack spec must include ledger_append output.');
+  if (!checks.context_pack_hygiene_append_procedure) error('context_pack.hygiene_append_missing', 'Context hygiene policy must include explicit append-ledger procedure.');
+  if (!checks.context_pack_decision_stdout_default || !checks.context_pack_decision_append_explicit) {
+    error('context_pack.decision_contract_missing', 'Context pack command decision must lock stdout default and explicit append.');
+  }
+  if (!checks.context_pack_manifest_hook_status) error('context_pack.manifest_status_missing', 'Manifest hook contract must be implemented-v0.');
+  if (!checks.context_pack_manifest_output_ledger_append) error('context_pack.manifest_ledger_append_missing', 'Manifest hook output must include ledger_append.');
+  if (!checks.context_pack_sample_no_append) error('context_pack.default_mutates_ledger', 'Default context pack run must report no ledger append.');
+  if (!checks.context_pack_sample_no_bodies) error('context_pack.body_contract_failed', 'Context pack output must forbid chunk bodies.');
+  if (!checks.context_pack_sample_selects_builder) error('context_pack.selection_missing_builder', 'Context pack sample should select the builder chunk for builder work.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -573,6 +629,7 @@ validateFlowState();
 validateGitHubGovernance();
 validatePublicReadiness();
 validateEvaluationSurface();
+validateContextPackCommandSurface();
 validatePackage();
 
 const result = {

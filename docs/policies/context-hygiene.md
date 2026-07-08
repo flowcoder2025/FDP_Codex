@@ -34,9 +34,9 @@ Chunk is a manifest-addressable unit of policy, specification, decision, runbook
 1. Read the current WI.
 2. Read `AGENTS.md`.
 3. Read `docs/manifest.yaml`.
-4. Select only chunks needed for the WI intent and risk.
-5. Record selected chunk metadata in `.flowset/context-ledger.jsonl`.
-6. Work from the selected context pack.
+4. Run `npm run context:pack -- --wi <WI> --intent <intent> --risk <risk> --changed <path> --append-ledger --actor codex` when the selected context must be recorded.
+5. Load only the selected chunk sources from the generated context pack metadata.
+6. Work from the selected active context.
 
 ## Required WI End Procedure
 
@@ -48,7 +48,7 @@ Chunk is a manifest-addressable unit of policy, specification, decision, runbook
 
 ## Hook Contract
 
-The future hook may select chunks and produce a context pack manifest. It must not become a hidden memory store.
+The context pack builder may select chunks and produce a context pack manifest. It must not become a hidden memory store.
 
 Allowed hook output:
 
@@ -58,6 +58,7 @@ Allowed hook output:
 - hashes
 - load reasons
 - decision references
+- `ledger_append` metadata
 
 Forbidden hook output:
 
@@ -68,5 +69,4 @@ Forbidden hook output:
 
 ## Decision Needed
 
-- Exact hash algorithm and whether hashes are required before every manual context pack build.
-- Whether the first implementation should be a shell script, Node script, Codex skill, or app automation.
+- Whether context pack selection should remain heuristic or move to a stricter rule table.

@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0019-docs
+WI id: WI-CX0020-feat
 
-Category: docs
+Category: feat
 
-Title: Evaluation Surface Baseline
+Title: Context Pack Command Surface
 
 Layer: Layer 1
 
@@ -12,30 +12,34 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0019-docs-evaluation-surface-baseline
+Branch: wi/cx0020-feat-context-pack-command-surface
 
 Approval envelope: user approved autonomous process continuation, GitHub Actions addition, remote label mutation, public visibility conversion, PR merge, and branch deletion. Deployment, release publication, package publication, and OSS program submission remain excluded.
 
 ## Scope
 
-Define the accepted blind-review and adversarial-review execution surfaces for pre-release FDP_Codex work, including what must wait for a separate thread or human review before release candidate work.
+Define and implement the first explicit context-pack command surface for metadata output and optional ledger append without carrying chunk bodies.
 
 ## Verification Plan
 
-- Rebuild context pack metadata for `blind-review-planning`.
-- Align evaluation and triage E-code meanings.
-- Record execution surfaces S0, S1, S2, and H1.
+- Keep default context pack generation stdout-only.
+- Add explicit `--append-ledger` and `--actor` handling.
+- Align the context pack builder specification, context hygiene policy, decision record, manifest, and validator.
+- Run context pack default mode and explicit append mode.
 - Run `npm run validate`.
+- Run `git diff --check`.
 - Confirm no deployment, release publication, tag creation, package publication, or OSS program submission occurred.
 
 ## Completion Evidence
 
-- `docs/policies/evaluation-strategy.md`
-- `docs/policies/triage-strategy.md`
-- `docs/decisions/2026-07-08-evaluation-surface-baseline.md`
-- `docs/records/validation-wi-cx0019-docs.md`
+- `scripts/build-context-pack.mjs`
+- `docs/specifications/context-pack-builder.md`
+- `docs/policies/context-hygiene.md`
+- `docs/decisions/2026-07-08-context-pack-command-surface.md`
+- `docs/records/validation-wi-cx0020-feat.md`
 - `docs/manifest.yaml`
+- `scripts/validate-repo.mjs`
 
 ## Decision Needed
 
-- None for WI-CX0019-docs.
+- Whether context pack selection should remain heuristic or move to a stricter rule table.
