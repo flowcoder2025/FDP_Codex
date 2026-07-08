@@ -92,6 +92,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0018-chore.md`
 - `docs/records/validation-wi-cx0028-chore.md`
 - `docs/records/validation-wi-cx0029-chore.md`
+- `docs/records/validation-wi-cx0030-test.md`
 
 ## Tooling
 

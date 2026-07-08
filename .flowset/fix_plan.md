@@ -18,11 +18,11 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0030-test Automation Runner Post-Merge Smoke: after WI-CX0029 reaches `origin/main`, verify the installed worktree runner still has the startup gate, duplicate branch/PR gate, hard stops, and no hidden local setup script. Expected strategy: PSC=P2, WTC=AUTO, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0031-chore Context Ledger Dedupe Policy: decide whether repeated context-pack appends should be compacted or deduplicated without storing chunk bodies. Expected strategy: PSC=P2, WTC=KNOW, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Next Candidates
 
-- WI-CX0031-chore Context Ledger Dedupe Policy: decide whether repeated context-pack appends should be compacted or deduplicated without storing chunk bodies.
+- WI-CX0032-test Automation Runner First Fresh-Run Evidence: inspect the next actual standalone runner output once Codex app produces it, without expanding automation authority.
 
 ## Decision Needed Queue
 
