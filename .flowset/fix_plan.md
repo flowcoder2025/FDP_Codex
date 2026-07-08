@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0034-docs Layer 2 Scope Code Options Packet: prepare user-facing options for the Layer 2 project scope code rule without deciding it. Expected strategy: PSC=P2, WTC=KNOW, Risk=R2, ESC=E1+E3+E5+E6.
+- [ ] WI-CX0036-docs Chunk Id Scope Policy: decide the Layer 2 chunk id namespace rule without generating target-project artifacts. Expected strategy: PSC=P2, WTC=KNOW, Risk=R2, ESC=E1+E3+E5+E6.
 
 ## Triggered Work
 
@@ -26,14 +26,14 @@ Discipline:
 
 ## Next Candidates
 
-- None selected until WI-CX0034-docs produces the user-facing options packet.
+- None selected until WI-CX0036-docs resolves the CODEX-owned chunk id scope policy.
 
 ## Decision Needed Queue
 
 | Item | State | Owner gate | Lock blocker | Repayment trigger |
 | --- | --- | --- | --- | --- |
 | Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional | Before Layer 2 generation or manifest namespace expansion. |
-| Layer 2 project scope code rule. | DQ-POLICY | USER | conditional | Before first Layer 2 target-project scaffold. |
+| Layer 2 project scope code rule. | DQ-USER | USER | conditional | Before first Layer 2 target-project scaffold; options packet `docs/records/layer-2-scope-code-options-2026-07-08.md`. |
 | Release category policy. | DQ-EXTERNAL | H1 | no | Before release candidate, tag, package publication, deployment, or OSS submission. |
 | A3 publication/merge envelope beyond the current bootstrap approval scope. | DQ-USER | USER | conditional | Before A3 publication, release, deployment, package publication, OSS submission, or generalized automerge behavior. |
 | Branch deletion automation default after squash merge. | DQ-USER | USER | no | Before making branch deletion the default outside the current approval envelope. |
