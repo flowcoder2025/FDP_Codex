@@ -28,6 +28,7 @@ Discipline:
 
 - WI-CX0038-docs Layer 2 Scope Code Accepted Decision: start only after the user chooses the Layer 2 project scope code rule.
 - WI-CX0042-test Automation Runner S2 Review Execution: start only after a separate Codex thread, separate reviewer, or human reviewer is available to execute `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
+- WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision: start only after the user chooses from `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
 
 ## Decision Needed Queue
 
@@ -41,5 +42,5 @@ Discipline:
 | Whether every KI must become a GitHub Issue after public release. | DQ-EXTERNAL | H1 | no | Before first public release or external contributor operating mode. |
 | Whether the validator should adopt a strict YAML parser later. | DQ-DEBT | CODEX | no | When manifest grammar exceeds the current parser or parser drift is observed. |
 | Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | Probe installed by WI-CX0040; repay before release-candidate tooling lock or when probe counts are small enough for a focused strictness WI. |
-| Long-lived post-bootstrap automation cadence and authority. | DQ-USER | USER | conditional | Before the bootstrap envelope expires, release-candidate readiness, or changing the runner beyond the current bounded A2 prompt. |
+| Long-lived post-bootstrap automation cadence and authority. | DQ-USER | USER | conditional | Handback `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`; before the bootstrap envelope expires, release-candidate readiness, or changing the runner beyond the current bounded A2 prompt. |
 | S2 blind review repayment for the automation runner. | DQ-DEBT | CODEX | conditional | Review packet installed by WI-CX0041; execute with a separate reviewer before generalized A2/A3 autonomy expansion, release-candidate readiness, public release, or OSS submission. |

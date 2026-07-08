@@ -112,6 +112,8 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0040-chore.md',
   'docs/records/automation-runner-s2-review-packet-2026-07-08.md',
   'docs/records/validation-wi-cx0041-docs.md',
+  'docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md',
+  'docs/records/validation-wi-cx0043-docs.md',
 ];
 
 const requiredAlwaysOnIds = [
@@ -198,6 +200,8 @@ const requiredChunkIds = [
   'record.validation-wi-cx0040-chore',
   'record.automation-runner-s2-review-packet',
   'record.validation-wi-cx0041-docs',
+  'record.post-bootstrap-automation-cadence-decision-handback',
+  'record.validation-wi-cx0043-docs',
 ];
 
 const requiredLabels = [
@@ -1728,13 +1732,13 @@ function validateAutomationRunnerS2ReviewPacket() {
     && docsIndex.includes('docs/records/validation-wi-cx0041-docs.md')
     && recordsReadme.includes(packetPath)
     && recordsReadme.includes('docs/records/validation-wi-cx0041-docs.md');
-  checks.automation_s2_packet_flow = currentWi.includes('WI id: WI-CX0041-docs')
+  checks.automation_s2_packet_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
     && currentWi.includes('Status: validated')
     && fixPlan.includes('Review packet installed by WI-CX0041')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && handoff.includes('WI-CX0041-docs: Automation Runner S2 Review Packet')
     && handoff.includes(packetPath)
-    && state.current_wi?.id === 'WI-CX0041-docs'
+    && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.kind === 'user_decision';
   checks.automation_s2_packet_debt_retained = fixPlan.includes('S2 blind review repayment for the automation runner. | DQ-DEBT | CODEX | conditional')
     && !record.includes('S2 blind review is complete')
@@ -1758,6 +1762,83 @@ function validateAutomationRunnerS2ReviewPacket() {
   if (!checks.automation_s2_packet_flow) error('automation_s2_packet.flow_missing', 'Flow state must preserve user-decision priority while recording WI-CX0041 completion.');
   if (!checks.automation_s2_packet_debt_retained) error('automation_s2_packet.debt_closed_too_early', 'S2 debt must remain open until a separate review result exists.');
   if (!checks.automation_s2_packet_boundary) error('automation_s2_packet.boundary_missing', 'WI-CX0041 must preserve publication, A3, dependency, API, Layer 2, and destructive-operation boundaries.');
+}
+function validatePostBootstrapAutomationCadenceHandback() {
+  const handback = read('docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md');
+  const record = read('docs/records/validation-wi-cx0043-docs.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const state = readJson('.flowset/state.json');
+  const handbackPath = 'docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md';
+  const recordPath = 'docs/records/validation-wi-cx0043-docs.md';
+  const automationId = 'fdp-codex-a2-worktree-wi-runner';
+
+  checks.automation_cadence_handback_scope = handback.includes('Status: user-decision-needed')
+    && handback.includes('Decision target: Long-lived post-bootstrap automation cadence and authority')
+    && handback.includes(automationId)
+    && handback.includes('must not silently become a permanent authority model after bootstrap')
+    && handback.includes('does not change the automation schedule, automation prompt, merge authority, A2/A3 authority');
+  checks.automation_cadence_handback_options = handback.includes('Option A: Pause After Bootstrap')
+    && handback.includes('Option B: Continue A2 With Narrowed PR-Only Authority')
+    && handback.includes('Option C: Continue Current A2 Envelope Temporarily')
+    && handback.includes('Option D: Define A3 Release/Publication Envelope Later')
+    && handback.includes('Recommended primary choice: Option A until S2 review is completed')
+    && handback.includes('Recommended operational fallback: Option B after S2 review')
+    && handback.includes('Avoid Option C unless the user explicitly wants a short extension and names an expiration condition');
+  checks.automation_cadence_handback_prompt = handback.includes('## Decision Prompt')
+    && handback.includes('A: pause after bootstrap and fall back to A1')
+    && handback.includes('B: continue A2 runner as PR-only automation')
+    && handback.includes('C: temporarily continue the current A2 envelope with an expiration condition')
+    && handback.includes('If choosing C, provide the expiration condition')
+    && handback.includes('B after S2 review')
+    && handback.includes('C until WI-CX0050 or until I stop it');
+  checks.automation_cadence_handback_record = record.includes('WI: WI-CX0043-docs')
+    && record.includes('Post-Bootstrap Automation Cadence Decision Handback')
+    && record.includes('no update was made')
+    && record.includes('Added validator coverage for the handback, decision queue retention, and no-authority-change boundary')
+    && record.includes('The DQ-USER row remains open')
+    && record.includes('No automation schedule, prompt, merge authority, A2 authority, or A3 authority was changed')
+    && record.includes('WI-CX0035 remains triggered work because no standalone runner output exists yet');
+  checks.automation_cadence_handback_manifest = manifest.includes('id: record.post-bootstrap-automation-cadence-decision-handback')
+    && manifest.includes(handbackPath)
+    && manifest.includes('status: user-decision-needed')
+    && manifest.includes('id: record.validation-wi-cx0043-docs')
+    && manifest.includes(recordPath);
+  checks.automation_cadence_handback_indexes = docsIndex.includes(handbackPath)
+    && docsIndex.includes(recordPath)
+    && recordsReadme.includes(handbackPath)
+    && recordsReadme.includes(recordPath);
+  checks.automation_cadence_handback_flow = currentWi.includes('WI id: WI-CX0043-docs')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('without changing automation settings or expanding A2/A3 authority')
+    && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision')
+    && fixPlan.includes(`Handback \`${handbackPath}\``)
+    && handoff.includes('WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback')
+    && handoff.includes(`Automation cadence handback: \`${handbackPath}\``)
+    && handoff.includes('Post-bootstrap automation cadence and authority remains user-gated')
+    && state.current_wi?.id === 'WI-CX0043-docs'
+    && state.current_priority?.kind === 'user_decision';
+  checks.automation_cadence_handback_no_authority_change = handback.includes('This handback does not change the automation schedule')
+    && handback.includes('Do not use Option D as an immediate implementation step')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('A3 publication behavior')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('first Layer 2 scaffold generation')
+    && record.includes('destructive filesystem or git operation occurred');
+
+  if (!checks.automation_cadence_handback_scope) error('automation_cadence_handback.scope_missing', 'Automation cadence handback must identify the runner, user-decision target, and no-authority-change scope.');
+  if (!checks.automation_cadence_handback_options) error('automation_cadence_handback.options_missing', 'Automation cadence handback must present A/B/C/D options with recommendations and expiration caution.');
+  if (!checks.automation_cadence_handback_prompt) error('automation_cadence_handback.prompt_missing', 'Automation cadence handback must include concrete user decision prompts and examples.');
+  if (!checks.automation_cadence_handback_record) error('automation_cadence_handback.record_missing', 'WI-CX0043 validation record must capture evidence, DQ retention, and no-authority-change result.');
+  if (!checks.automation_cadence_handback_manifest) error('automation_cadence_handback.manifest_missing', 'Manifest must register the automation cadence handback and WI-CX0043 validation record.');
+  if (!checks.automation_cadence_handback_indexes) error('automation_cadence_handback.index_missing', 'Documentation indexes must include the automation cadence handback and validation record.');
+  if (!checks.automation_cadence_handback_flow) error('automation_cadence_handback.flow_missing', 'Flow state must record WI-CX0043 while preserving the user-decision priority.');
+  if (!checks.automation_cadence_handback_no_authority_change) error('automation_cadence_handback.authority_changed', 'WI-CX0043 must not change automation settings, merge authority, A2/A3 authority, or hard-stop boundaries.');
 }
 function validateLayer2ScopeCodeOptionsPacket() {
   const packet = read('docs/records/layer-2-scope-code-options-2026-07-08.md');
@@ -1990,6 +2071,7 @@ validateContextLedgerDedupePolicy();
 validateLayer2KnowledgeScaffoldContract();
 validateAutomationRunnerFreshRunEvidenceGate();
 validateAutomationRunnerS2ReviewPacket();
+validatePostBootstrapAutomationCadenceHandback();
 validateLayer2ScopeCodeOptionsPacket();
 validateLayer2ChunkIdScopePolicy();
 validateLayer2ScopeCodeDecisionHandback();

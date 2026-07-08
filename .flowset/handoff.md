@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0041-docs Automation Runner S2 Review Packet.
+Current WI: WI-CX0043-docs Post-Bootstrap Automation Cadence Decision Handback.
 
-WI-CX0041-docs status: validated.
+WI-CX0043-docs status: validated.
 
 Machine-readable flow-state snapshot is available at `.flowset/state.json` and is validator-checked against `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.
 
@@ -23,6 +23,8 @@ Layer 2 project scope code remains user-gated. Recommended answer: `A, use <CODE
 No standalone A2 runner fresh-run output exists yet. The actual first fresh-run output review remains triggered work and must not be treated as complete until a new runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 
 Automation runner S2 review packet is available at `docs/records/automation-runner-s2-review-packet-2026-07-08.md`. It prepares S2 but does not satisfy E2 by itself.
+
+Post-bootstrap automation cadence handback is available at `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. It prepares a user decision and does not change automation settings or authority.
 
 Layer 2 scaffold generation remains blocked until the user chooses the Layer 2 project scope code rule and the accepted decision is recorded.
 
@@ -46,6 +48,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0039-docs: Flow State Readable Snapshot. Evidence: `.flowset/state.json`, `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`, and `docs/records/validation-wi-cx0039-docs.md`.
 - WI-CX0040-chore: Tooling Strictness Probe. Evidence: `scripts/report-type-strictness.mjs`, `docs/decisions/2026-07-08-tooling-strictness-probe.md`, and `docs/records/validation-wi-cx0040-chore.md`.
 - WI-CX0041-docs: Automation Runner S2 Review Packet. Evidence: `docs/records/automation-runner-s2-review-packet-2026-07-08.md` and `docs/records/validation-wi-cx0041-docs.md`.
+- WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Evidence: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md` and `docs/records/validation-wi-cx0043-docs.md`.
 
 ## Orientation SSOT
 
@@ -56,6 +59,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Validator: `scripts/validate-repo.mjs` via `npm run validate`.
 - Strictness probe: `scripts/report-type-strictness.mjs` via `npm run typecheck:strict-probe`.
 - Automation runner S2 packet: `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
+- Automation cadence handback: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
 - Context pack builder: `scripts/build-context-pack.mjs` via `npm run context:pack`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code options packet: `docs/records/layer-2-scope-code-options-2026-07-08.md`.
@@ -77,13 +81,14 @@ Release publication, deployment, package publication, and OSS program submission
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness; WI-CX0041 installed the review packet only.
 - Strict TypeScript source conversion remains DQ-DEBT; WI-CX0040 installed measurement only and did not enable strict mode.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
+- Post-bootstrap automation cadence and authority remains user-gated; WI-CX0043 installed the handback only.
 
 ## Git State
 
 - Remote `main` is the repository standard after completed PR merges.
 - Historical: work after WI-CX0014 continued in `C:\tmp\fdp-codex-bootstrap-reconciliation` while `C:\dev\FDP_Codex` had no local commits.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`; pre-realignment backup is `C:\tmp\fdp-codex-dev-backup-20260708-140739`.
-- Active WI branch for this cycle: `wi/cx0041-docs-automation-runner-s2-review-packet`.
+- Active WI branch for this cycle: `wi/cx0043-docs-post-bootstrap-automation-cadence-decision-handback`.
 
 ## Next Action
 
@@ -103,6 +108,7 @@ Recommended answer shape:
 - Package publication is not approved.
 - OSS program submission is not approved.
 - Generalized A2/A3 expansion is blocked on S2 blind review debt and a future decision. Use `docs/records/automation-runner-s2-review-packet-2026-07-08.md` when a separate reviewer is available.
+- Long-lived post-bootstrap automation cadence and authority is blocked until the user chooses from `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
 
 ## New Session Procedure
 

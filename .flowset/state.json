@@ -2,19 +2,19 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T08:51:00Z",
+  "updated_at": "2026-07-08T09:03:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md"
   ],
   "current_wi": {
-    "id": "WI-CX0041-docs",
+    "id": "WI-CX0043-docs",
     "category": "docs",
-    "title": "Automation Runner S2 Review Packet",
+    "title": "Post-Bootstrap Automation Cadence Decision Handback",
     "status": "validated",
-    "branch": "wi/cx0041-docs-automation-runner-s2-review-packet",
-    "validation_record": "docs/records/validation-wi-cx0041-docs.md"
+    "branch": "wi/cx0043-docs-post-bootstrap-automation-cadence-decision-handback",
+    "validation_record": "docs/records/validation-wi-cx0043-docs.md"
   },
   "current_priority": {
     "kind": "user_decision",
