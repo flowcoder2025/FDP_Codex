@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0051-test Worktree Isolation Repair Gate.
+Current WI: WI-CX0053-docs Strategic Goal Steering Contract.
 
-WI-CX0051-test status: validated. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`.
+WI-CX0053-docs status: validated. Evidence: `AGENTS.md`, `docs/decisions/2026-07-08-collaboration-response-contract.md`, `docs/policies/autonomy-and-approval.md`, `scripts/validate-repo.mjs`, and `docs/records/validation-wi-cx0053-docs.md`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
 
@@ -18,7 +18,7 @@ Runtime snapshot remains `.flowset/runtime-snapshot.json`. It records the parent
 
 A2 handoff receiver contract is accepted at `docs/specifications/a2-handoff-receiver-contract.md` and `docs/records/validation-wi-cx0049-docs.md`.
 
-Next priority is a user/control-plane decision to repair the A2 worktree execution surface so a future receiver can satisfy `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
+Next priority is WI-CX0052-test: pause the A2 runner automation first, then push/open the validated WI-CX0052 draft PR from the receiver branch without merge.
 
 Layer 2 scope code decision handback is available at `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`. Recommended answer: `A, use <CODE>`.
 
@@ -37,6 +37,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0001-docs through WI-CX0049-docs: bootstrap foundation, reconciliation, OSS baseline, CI, evaluation, context pack surfaces, decision policies, runner installation, flow/runtime snapshots, S2/cadence handbacks, control-plane audit, and A2 handoff receiver contract. Evidence: matching `docs/decisions/`, `docs/specifications/`, and `docs/records/validation-wi-*.md` files registered in `docs/manifest.yaml`.
 - WI-CX0050-test: Worktree Isolation Verification. Evidence: `docs/records/validation-wi-cx0050-test.md`. Result: blocked, not proven.
 - WI-CX0051-test: Worktree Isolation Repair Gate. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`. Result: gate defined; user/control-plane repair needed.
+- WI-CX0053-docs: Strategic Goal Steering Contract. Evidence: `docs/records/validation-wi-cx0053-docs.md`. Result: collaboration instructions now require goal steering, not obedient agreement, and require Codex to apply a brake when a user-suggested path conflicts with the final goal or operating boundaries.
 
 ## Orientation SSOT
 
@@ -51,6 +52,7 @@ Release publication, deployment, package publication, and OSS program submission
 - A2 handoff receiver contract: `docs/specifications/a2-handoff-receiver-contract.md`.
 - Worktree isolation verification: `docs/records/validation-wi-cx0050-test.md`.
 - Worktree isolation repair gate: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
+- Strategic goal steering contract: `docs/records/validation-wi-cx0053-docs.md`.
 - Session orchestration audit: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code handback: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
@@ -92,6 +94,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 - WI-CX0048-test: Runtime Snapshot Validator. Runtime snapshot: `.flowset/runtime-snapshot.json`.
 - WI-CX0049-docs: A2 Handoff Receiver Contract. Start WI-CX0050-test Worktree Isolation Verification was the next action before WI-CX0050 completed.
 - WI-CX0051-test: Worktree Isolation Repair Gate. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`.
+- WI-CX0053-docs: Strategic Goal Steering Contract. Evidence: `docs/records/validation-wi-cx0053-docs.md`; goal steering and brake behavior are validator-checked.
 - WI-CX0031-chore: Context Ledger Dedupe Policy. Source ledger remains append-only audit evidence. Evidence: `docs/records/validation-wi-cx0031-chore.md`.
 - Actual first fresh-run output review remains triggered by future standalone A2 runner output.
 - WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Automation cadence handback: `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. Post-bootstrap automation cadence and authority remains user-gated.
@@ -100,16 +103,16 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0051-test-worktree-isolation-repair-gate`.
+- Active WI branch for this cycle: `wi/cx0053-docs-strategic-goal-steering-contract`.
 
 ## Next Action
 
-Wait for user/control-plane repair of the A2 worktree execution surface, then run a future receiver validation against `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
+Pause the A2 runner automation to stop visible thread fan-out, then push/open the validated WI-CX0052-test draft PR from the receiver branch without merge.
 
 ## Blocked Work
 
 - First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule and control-plane confidence checks.
-- A2 worktree isolation repair is blocked until the user/control-plane repairs the execution surface and a future receiver satisfies `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`.
+- A2 worktree isolation repair is being repaid by WI-CX0052-test; pause the A2 runner automation before pushing/opening the draft PR, and do not merge without approval.
 - WI-CX0038-docs Layer 2 Scope Code Accepted Decision is blocked until the user chooses the scope code rule and worktree confidence debt is repaid.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.
