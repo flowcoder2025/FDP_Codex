@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-08T12:39:14Z",
+  "updated_at": "2026-07-09T15:45:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -10,18 +10,19 @@
     ".flowset/runtime-snapshot.json"
   ],
   "current_wi": {
-    "id": "WI-CX0051-test",
-    "category": "test",
-    "title": "Worktree Isolation Repair Gate",
+    "id": "WI-CX0053-docs",
+    "category": "docs",
+    "title": "Strategic Goal Steering Contract",
     "status": "validated",
-    "branch": "wi/cx0051-test-worktree-isolation-repair-gate",
-    "validation_record": "docs/records/validation-wi-cx0051-test.md"
+    "branch": "wi/cx0053-docs-strategic-goal-steering-contract",
+    "validation_record": "docs/records/validation-wi-cx0053-docs.md"
   },
   "current_priority": {
-    "kind": "user_decision",
-    "item": "A2 worktree isolation repair",
-    "state": "waiting",
-    "owner_gate": "USER",
+    "kind": "wi",
+    "wi_id": "WI-CX0052-test",
+    "item": "A2 Worktree Isolation Repair Validation",
+    "state": "ready",
+    "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
@@ -29,11 +30,11 @@
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
+    "next_action": "Pause A2 runner automation, then push/open the validated WI-CX0052 draft PR without merge.",
     "blocks": [
       "first Layer 2 target-project scaffold confidence claims",
       "generalized A2/A3 autonomy expansion"
-    ],
-    "decision_record": "docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md"
+    ]
   },
   "triggered_work": [
     {

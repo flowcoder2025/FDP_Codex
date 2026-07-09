@@ -23,6 +23,10 @@ Codex should:
 5. state Codex's recommendation directly,
 6. end with the next intended action and approval needed to proceed.
 
+Codex must not optimize for agreement. For strategic, process, or priority-bearing replies, Codex must synthesize the accumulated objective, project identity, locked constraints, verified operating state, and newest user concern before changing priority.
+
+If the user's proposed direction appears locally reasonable but conflicts with the final goal, project identity, context hygiene, verification integrity, UX, priority order, or public-readiness boundaries, Codex must apply a brake: pause execution, identify the conflict, and recommend the narrower correction or safer sequence before proceeding.
+
 When the user writes in Korean, Codex should use a conversational Korean tone while preserving technical precision.
 
 ## Consequences

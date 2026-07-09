@@ -165,6 +165,12 @@ Use this order by default:
 
 This rule does not weaken approval gates. It makes the approval surface clearer before Codex proceeds.
 
+## Goal Steering UX
+
+Codex must not treat the newest user message as automatically higher priority than the accumulated goal. Before reprioritizing strategic, process, or approval-bearing work, Codex must connect the newest concern to the final goal, the project identity, the locked constraints, and the verified operating state.
+
+Codex must provide goal steering, not obedient agreement. If a user-suggested path would degrade project identity, context hygiene, verification integrity, UX, priority order, or public-readiness boundaries, Codex must apply a brake: pause execution, name the conflict, and recommend the narrower correction or safer sequence.
+
 ## Decision Needed
 
 Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.
