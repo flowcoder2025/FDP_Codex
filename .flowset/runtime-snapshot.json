@@ -2,6 +2,12 @@
   "schema_version": 1,
   "kind": "fdp-codex-runtime-snapshot",
   "layer": "layer1",
+  "snapshot_status": "historical-superseded",
+  "superseded_by": {
+    "wi_id": "WI-CX0052-test",
+    "record": "docs/records/validation-wi-cx0052-test.md",
+    "result": "worktree_isolation_proven"
+  },
   "captured_at": "2026-07-08T10:55:23Z",
   "captured_by": "codex",
   "wi_id": "WI-CX0048-test",

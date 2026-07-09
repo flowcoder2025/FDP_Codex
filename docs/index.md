@@ -62,6 +62,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`
 - `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`
 - `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`
+- `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md`
 
 ## Runbooks
 
@@ -128,6 +129,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0051-test.md`
 - `docs/records/validation-wi-cx0052-test.md`
 - `docs/records/validation-wi-cx0053-docs.md`
+- `docs/records/validation-wi-cx0054-fix.md`
 
 ## Tooling
 

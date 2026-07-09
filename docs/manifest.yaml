@@ -1484,7 +1484,7 @@ chunks:
     source: .flowset/runtime-snapshot.json
     type: flow-state
     layer: layer1
-    status: live
+    status: historical-superseded
     loads_for:
       - validation
       - automation-planning
@@ -1568,6 +1568,34 @@ chunks:
       - handoff
       - collaboration-response-contract
       - validation
+      - wi-start
+    body_carryover: forbidden
+  - id: decision.runtime-snapshot-state-reconciliation
+    title: Runtime Snapshot State Reconciliation
+    source: docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - validation
+      - automation-planning
+      - session-boundary
+      - target-project-generation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0054-fix
+    title: WI-CX0054-fix Validation Record
+    source: docs/records/validation-wi-cx0054-fix.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - validation
+      - automation-planning
+      - target-project-generation
       - wi-start
     body_carryover: forbidden
 hook_contract:

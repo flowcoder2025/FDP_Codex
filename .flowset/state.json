@@ -2,39 +2,59 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-09T15:02:00Z",
+  "updated_at": "2026-07-09T19:12:58Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md",
-    ".flowset/runtime-snapshot.json"
+    ".flowset/runtime-snapshot.json",
+    "docs/records/validation-wi-cx0052-test.md",
+    "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md"
   ],
   "current_wi": {
-    "id": "WI-CX0052-test",
-    "category": "test",
-    "title": "A2 Worktree Isolation Repair Validation",
+    "id": "WI-CX0054-fix",
+    "category": "fix",
+    "title": "Runtime Snapshot State Reconciliation",
     "status": "validated",
-    "branch": "wi/cx0052-test-a2-worktree-isolation-repair-validation",
-    "validation_record": "docs/records/validation-wi-cx0052-test.md"
+    "branch": "wi/cx0054-fix-runtime-snapshot-state-reconciliation",
+    "validation_record": "docs/records/validation-wi-cx0054-fix.md"
   },
   "current_priority": {
-    "kind": "user_decision",
-    "item": "Layer 2 project scope code rule",
-    "state": "DQ-USER",
-    "owner_gate": "USER",
-    "lock_blocker": "conditional",
-    "prompt": "docs/records/layer-2-scope-code-decision-handback-2026-07-08.md",
-    "recommended_answer_shape": "A, use <CODE>",
+    "kind": "wi",
+    "wi_id": "WI-CX0038-docs",
+    "item": "Layer 2 Scope Code Accepted Decision",
+    "state": "ready",
+    "owner_gate": "CODEX",
+    "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "VAL",
-      "Risk": "R2",
+      "WTC": "DOCS",
+      "Risk": "R1",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "WI-CX0038-docs",
       "first Layer 2 target-project scaffold generation"
     ]
+  },
+  "control_plane": {
+    "runtime_snapshot": {
+      "path": ".flowset/runtime-snapshot.json",
+      "status": "historical-superseded",
+      "captured_wi": "WI-CX0048-test",
+      "superseded_by": "docs/records/validation-wi-cx0052-test.md"
+    },
+    "handoff_receiver": {
+      "status": "proven",
+      "evidence": "docs/records/validation-wi-cx0052-test.md"
+    },
+    "worktree_isolation": {
+      "status": "proven",
+      "evidence": "docs/records/validation-wi-cx0052-test.md"
+    },
+    "automation": {
+      "id": "fdp-codex-a2-worktree-wi-runner",
+      "status": "PAUSED"
+    }
   },
   "triggered_work": [
     {
