@@ -2297,7 +2297,7 @@ function validateSessionOrchestrationControlPlaneAudit() {
   checks.session_orchestration_priority = audit.includes('WI-CX0048-test Runtime Snapshot Validator')
     && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
     && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract')
-    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation'))
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation') || state.current_wi?.id === 'WI-CX0052-test')
     && (handoff.includes('Start WI-CX0050-test Worktree Isolation Verification') || handoff.includes('Start WI-CX0051-test Worktree Isolation Repair Gate') || handoff.includes('user/control-plane repair of the A2 worktree execution surface') || handoff.includes('WI-CX0052-test'))
     && exists('.flowset/runtime-snapshot.json');
   checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
@@ -2455,7 +2455,7 @@ function validateRuntimeSnapshotValidator() {
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && state.current_priority?.owner_gate
-    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation'))
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation') || state.current_wi?.id === 'WI-CX0052-test')
     && handoff.includes('WI-CX0048-test: Runtime Snapshot Validator')
     && handoff.includes('Runtime snapshot: `.flowset/runtime-snapshot.json`');
   checks.runtime_snapshot_record = record.includes('WI: WI-CX0048-test')
@@ -2548,7 +2548,7 @@ function validateA2HandoffReceiverContract() {
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && state.current_priority?.strategy?.WTC === 'VAL'
-    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation'))
+    && (fixPlan.includes('WI-CX0050-test Worktree Isolation Verification') || fixPlan.includes('WI-CX0051-test Worktree Isolation Repair Gate') || fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation') || state.current_wi?.id === 'WI-CX0052-test')
     && handoff.includes('WI-CX0049-docs: A2 Handoff Receiver Contract');
   checks.a2_receiver_contract_record = record.includes('WI: WI-CX0049-docs')
     && record.includes('Status: validated')
@@ -2608,11 +2608,11 @@ function validateWorktreeIsolationVerification() {
   checks.worktree_isolation_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
   checks.worktree_isolation_flow = currentWi.includes('Status: validated')
-    && (currentWi.includes('WI id: WI-CX0051-test') || currentWi.includes('WI id: WI-CX0053-docs'))
-    && (state.current_wi?.id === 'WI-CX0051-test' || state.current_wi?.id === 'WI-CX0053-docs')
+    && (currentWi.includes('WI id: WI-CX0051-test') || currentWi.includes('WI id: WI-CX0053-docs') || currentWi.includes('WI id: WI-CX0052-test'))
+    && (state.current_wi?.id === 'WI-CX0051-test' || state.current_wi?.id === 'WI-CX0053-docs' || state.current_wi?.id === 'WI-CX0052-test')
     && (state.current_priority?.kind === 'user_decision' || state.current_priority?.wi_id === 'WI-CX0052-test')
-    && (state.current_priority?.decision_record === 'docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md' || state.current_priority?.wi_id === 'WI-CX0052-test')
-    && (fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation'))
+    && (state.current_priority?.decision_record === 'docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md' || state.current_priority?.wi_id === 'WI-CX0052-test' || state.current_priority?.item === 'Layer 2 project scope code rule')
+    && (fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation') || fixPlan.includes('Layer 2 project scope code rule'))
     && handoff.includes('WI-CX0050-test: Worktree Isolation Verification')
     && handoff.includes('WI-CX0051-test: Worktree Isolation Repair Gate');
   checks.worktree_isolation_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
@@ -2670,21 +2670,34 @@ function validateA2WorktreeIsolationRepairGate() {
   checks.a2_worktree_repair_gate_indexes = docsIndex.includes(decisionPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_worktree_repair_gate_flow = currentWi.includes('Status: validated')
-    && (currentWi.includes('WI id: WI-CX0051-test') || currentWi.includes('WI id: WI-CX0053-docs'))
-    && (state.current_wi?.id === 'WI-CX0051-test' || state.current_wi?.id === 'WI-CX0053-docs')
-    && (state.current_wi?.validation_record === recordPath || state.current_wi?.validation_record === 'docs/records/validation-wi-cx0053-docs.md')
-    && (state.current_priority?.kind === 'user_decision' || state.current_priority?.wi_id === 'WI-CX0052-test')
-    && (state.current_priority?.owner_gate === 'USER' || state.current_priority?.owner_gate === 'CODEX')
-    && (state.current_priority?.decision_record === decisionPath || state.current_priority?.wi_id === 'WI-CX0052-test')
-    && (fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface') || fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation'))
-    && handoff.includes('WI-CX0051-test')
-    && (handoff.includes('user/control-plane repair') || handoff.includes('WI-CX0052-test'));
-  checks.a2_worktree_repair_gate_blocks = snapshot.worktree_isolation?.status === 'not_proven'
+  const repairValidationPath = 'docs/records/validation-wi-cx0052-test.md';
+  const repairValidation = exists(repairValidationPath) ? read(repairValidationPath) : '';
+  const repairGateWaiting = currentWi.includes('WI id: WI-CX0051-test')
+    && currentWi.includes('Status: validated')
+    && state.current_wi?.id === 'WI-CX0051-test'
+    && state.current_wi?.validation_record === recordPath
+    && state.current_priority?.kind === 'user_decision'
+    && state.current_priority?.owner_gate === 'USER'
+    && state.current_priority?.decision_record === decisionPath
+    && fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface')
+    && handoff.includes('WI-CX0051-test Worktree Isolation Repair Gate')
+    && handoff.includes('user/control-plane repair');
+  const repairGateRepaid = currentWi.includes('WI id: WI-CX0052-test')
+    && currentWi.includes('Status: validated')
+    && state.current_wi?.id === 'WI-CX0052-test'
+    && state.current_wi?.validation_record === repairValidationPath
+    && state.current_priority?.item === 'Layer 2 project scope code rule'
+    && repairValidation.includes('Worktree isolation repair gate is satisfied')
+    && handoff.includes('WI-CX0052-test: A2 Worktree Isolation Repair Validation');
+  checks.a2_worktree_repair_gate_flow = repairGateWaiting || repairGateRepaid;
+  checks.a2_worktree_repair_gate_blocks = (snapshot.worktree_isolation?.status === 'not_proven'
     && decision.includes('first Layer 2 target-project scaffold confidence blocked')
     && decision.includes('generalized A2/A3 expansion blocked')
     && state.current_priority?.blocks?.includes('first Layer 2 target-project scaffold confidence claims')
-    && state.current_priority?.blocks?.includes('generalized A2/A3 autonomy expansion');
+    && state.current_priority?.blocks?.includes('generalized A2/A3 autonomy expansion'))
+    || (repairValidation.includes('Worktree isolation may now be treated as proven')
+      && repairValidation.includes('First Layer 2 target-project scaffold generation remains blocked')
+      && repairValidation.includes('Generalized A2/A3 expansion remains blocked'));
   checks.a2_worktree_repair_gate_boundary = decision.includes('does not create or update Codex app automations')
     && decision.includes('change automation schedule or prompt')
     && decision.includes('change A2/A3 authority')
@@ -2707,6 +2720,55 @@ function validateA2WorktreeIsolationRepairGate() {
   if (!checks.a2_worktree_repair_gate_blocks) error('a2_worktree_repair_gate.blocks_missing', 'WI-CX0051 must keep worktree isolation not_proven and block Layer 2/A2 confidence until the gate is satisfied.');
   if (!checks.a2_worktree_repair_gate_boundary) error('a2_worktree_repair_gate.boundary_missing', 'WI-CX0051 must preserve automation, publication, dependency, S2, reviewer, destructive-operation, and Layer 2 boundaries.');
 }
+
+function validateA2WorktreeIsolationRepairValidation() {
+  const recordPath = 'docs/records/validation-wi-cx0052-test.md';
+  const record = read(recordPath);
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+
+  checks.a2_worktree_repair_validation_record = record.includes('WI: WI-CX0052-test')
+    && record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0052-test-20260709145815')
+    && record.includes('Receiver cwd: `C:\\Users\\User\\.codex\\worktrees\\9c45\\FDP_Codex`')
+    && record.includes('git toplevel was the receiver worktree')
+    && record.includes('Canonical repository `C:\\dev\\FDP_Codex` remained on `main`')
+    && record.includes('Worktree isolation repair gate is satisfied')
+    && record.includes('Worktree isolation may now be treated as proven')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance');
+  checks.a2_worktree_repair_validation_manifest = manifest.includes('id: record.validation-wi-cx0052-test')
+    && manifest.includes(recordPath);
+  checks.a2_worktree_repair_validation_indexes = docsIndex.includes(recordPath)
+    && recordsReadme.includes(recordPath);
+  checks.a2_worktree_repair_validation_flow = currentWi.includes('WI id: WI-CX0052-test')
+    && currentWi.includes('Status: validated')
+    && state.current_wi?.id === 'WI-CX0052-test'
+    && state.current_wi?.validation_record === recordPath
+    && state.current_priority?.item === 'Layer 2 project scope code rule'
+    && fixPlan.includes('Waiting for user decision: choose the Layer 2 project scope code rule')
+    && handoff.includes('A2 worktree isolation repair is repaid by WI-CX0052-test')
+    && handoff.includes('A, use <CODE>');
+  checks.a2_worktree_repair_validation_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('automation schedule change')
+    && record.includes('automation prompt change')
+    && record.includes('automation authority change')
+    && record.includes('S2 execution')
+    && record.includes('separate reviewer creation')
+    && record.includes('first Layer 2 scaffold generation occurred');
+
+  if (!checks.a2_worktree_repair_validation_record) error('a2_worktree_repair_validation.record_missing', 'WI-CX0052 must prove the A2 worktree isolation repair gate from receiver evidence.');
+  if (!checks.a2_worktree_repair_validation_manifest) error('a2_worktree_repair_validation.manifest_missing', 'Manifest must register the WI-CX0052 validation record.');
+  if (!checks.a2_worktree_repair_validation_indexes) error('a2_worktree_repair_validation.index_missing', 'Documentation indexes must include the WI-CX0052 validation record.');
+  if (!checks.a2_worktree_repair_validation_flow) error('a2_worktree_repair_validation.flow_missing', 'Flow state and handoff must advance from A2 repair wait to the Layer 2 scope code user decision.');
+  if (!checks.a2_worktree_repair_validation_boundary) error('a2_worktree_repair_validation.boundary_missing', 'WI-CX0052 must preserve publication, automation, S2, reviewer, destructive-operation, and Layer 2 scaffold boundaries.');
+}
+
 function validateStrategicGoalSteeringContract() {
   const agents = read('AGENTS.md');
   const policy = read('docs/policies/autonomy-and-approval.md');
@@ -2740,12 +2802,11 @@ function validateStrategicGoalSteeringContract() {
     && manifest.includes(recordPath);
   checks.goal_steering_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.goal_steering_flow = currentWi.includes('WI id: WI-CX0053-docs')
-    && currentWi.includes('Status: validated')
-    && state.current_wi?.id === 'WI-CX0053-docs'
-    && state.current_priority?.kind === 'wi'
-    && state.current_priority?.wi_id === 'WI-CX0052-test'
-    && fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation')
+  checks.goal_steering_flow = currentWi.includes('Status: validated')
+    && (currentWi.includes('WI id: WI-CX0053-docs') || currentWi.includes('WI id: WI-CX0052-test'))
+    && (state.current_wi?.id === 'WI-CX0053-docs' || state.current_wi?.id === 'WI-CX0052-test')
+    && (state.current_priority?.wi_id === 'WI-CX0052-test' || state.current_priority?.item === 'Layer 2 project scope code rule')
+    && (fixPlan.includes('WI-CX0052-test A2 Worktree Isolation Repair Validation') || fixPlan.includes('Layer 2 project scope code rule'))
     && handoff.includes('WI-CX0052-test');
   checks.goal_steering_boundary = record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('automation schedule change')
@@ -2819,6 +2880,7 @@ validateRuntimeSnapshotValidator();
 validateA2HandoffReceiverContract();
 validateWorktreeIsolationVerification();
 validateA2WorktreeIsolationRepairGate();
+validateA2WorktreeIsolationRepairValidation();
 validateStrategicGoalSteeringContract();
 validatePackage();
 
