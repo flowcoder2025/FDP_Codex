@@ -48,6 +48,8 @@ The second independent reviewer, agent `019f4c97-a251-7282-9478-3606432ddb82`, r
 
 The next clean reviewer found that the PR #58-only write-capable `pull_request` trigger would remain editable by future same-repository candidate branches. Agent `019f4cb4-39df-72a2-9e16-934560004ab7` returned FAIL on head `c7ee6b6ff4f44496088892e10d69c01b08e6defe` in GitHub review `4673022662`. The final workflow removes that trigger entirely. PR #58's supervised bootstrap uses one rerun of fixed Actions run `29104125595` only after an exact-head PASS; future publication is default-branch-controlled.
 
+Agent `019f4cc5-6f2e-7bd3-bd06-5a5ddcff4a31` returned FAIL on head `e56c5b642dc8191c7a959fed201cc18b85048ca2` in GitHub review `4673105127`. Null evidence members and a disposition-only P3 could pass the evidence-shape check, and the issue-governance label taxonomy omitted the independent-pass label. The next candidate validates every evidence/finding member and synchronizes the policy taxonomy.
+
 KI-CX-REVIEW-001 / Issue #59 records that the current execution surface provides no signed multi-agent identity receipt. Controller-attested receipts can support supervised work with actual clean-agent execution, live receipt inspection, current-head evidence, and active user approval, but they do not authorize unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, or OSS submission.
 
 The repository-backed read-only model smoke was rejected before execution and again after the user explicitly approved the stated transmission risk. Codex did not bypass the policy. KI-CX-PROVIDER-001 now owns that external-provider trust boundary and blocks dogfood continuation, generalized unattended model workers, and runner reactivation.

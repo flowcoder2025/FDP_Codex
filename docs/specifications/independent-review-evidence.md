@@ -68,6 +68,8 @@ The JSON object must contain:
 
 Every P3 finding must include a non-empty disposition. The independent review audit runs before pr:approved-merge is applied and fails if that label is already present.
 
+`reviewed_files`, `evidence`, and `attacks_attempted` contain non-empty strings. `commands` contains non-empty strings or objects with non-empty `command` and `result`. Every P0-P3 finding contains non-empty `id`, `title`, `location`, `reproduction`, `impact`, and `required_fix`; P3 also contains non-empty `disposition`. `residual_risks` may be empty, but every present member is a non-empty string.
+
 GitHub's review `commit_id` and `reviewed_head` must both equal the live PR head.
 
 ## Invalidating Events

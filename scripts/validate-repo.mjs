@@ -4214,6 +4214,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   const agents = read('AGENTS.md');
   const evaluation = read('docs/policies/evaluation-strategy.md');
   const gitPolicy = read('docs/policies/git-workflow.md');
+  const issuePolicy = read('docs/policies/github-issue-governance.md');
   const prTemplate = read('.github/PULL_REQUEST_TEMPLATE.md');
   const labels = read('.github/labels.yml');
   const currentWi = read('.flowset/current-wi.md');
@@ -4322,6 +4323,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && selfTest?.cases?.p3_without_disposition_rejected === true
     && selfTest?.cases?.ambiguous_multiple_payload_rejected === true
     && selfTest?.cases?.pre_marker_payload_rejected === true
+    && selfTest?.cases?.malformed_evidence_members_rejected === true
+    && selfTest?.cases?.disposition_only_p3_rejected === true
     && selfTest?.cases?.review_101_latest_failure_wins === true
     && selfTest?.cases?.missing_label_rejected === true
     && selfTest?.cases?.premature_merge_approval_rejected === true
@@ -4339,6 +4342,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && audit.includes('payload.implementation_context_received === false')
     && audit.includes("'review.orchestrator_receipt_attested'")
     && audit.includes("source.slice(0, markerIndex).trim() !== ''")
+    && audit.includes('isNonEmptyStringArray(payload.reviewed_files)')
+    && audit.includes('isValidFinding(finding, { requireDisposition: true })')
     && audit.includes("'--paginate', '--slurp'")
     && audit.includes("['P0', 'P1', 'P2']")
     && audit.includes("payload?.verdict === 'PASS'")
@@ -4350,6 +4355,7 @@ function validateIndependentBlindAdversarialReviewGate() {
     && prTemplate.includes('Independent reviewer used a clean context')
     && prTemplate.includes('review payload')
     && prTemplate.includes('pr:approved-merge')
+    && issuePolicy.includes('`pr:independent-review-passed`')
     && controlAudit.includes('independentReviewBaselinePr')
     && controlAudit.includes('requiredIndependentReviewLabels')
     && controlAudit.includes('inspectIndependentReview')
@@ -4428,6 +4434,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('returned FAIL')
     && record.includes('4672749444')
     && record.includes('4673022662')
+    && record.includes('4673105127')
+    && record.includes('null/empty evidence members and disposition-only P3 findings rejected')
     && record.includes('final merged workflow contains no write-capable `pull_request` event')
     && record.includes('29104125595')
     && record.includes('GitHub Actions app id `15368`')

@@ -46,6 +46,7 @@ Install an executable independent blind adversarial review gate for every non-tr
 - P2 blocking finding rejected;
 - ambiguous multiple-payload review rejected;
 - a contradictory pre-marker payload rejected;
+- null/empty evidence members and disposition-only P3 findings rejected;
 - a 101st, newer failing review overrides an older passing review;
 - missing required label rejected.
 - premature pr:approved-merge rejected.
@@ -68,6 +69,8 @@ It found two P1 and three P2 defects: no required GitHub check, no machine-verif
 Independent agent `019f4c97-a251-7282-9478-3606432ddb82` then reviewed head `04b78c0c7f3fa6fe77fedc6647d45901492ce27b` and returned FAIL in GitHub review `4672749444`. It found an out-of-order status overwrite race, an unbound required-status publisher, and acceptance of a contradictory pre-marker payload. That head was not marked passed. The next remediation adds PR concurrency cancellation, pending-before-audit publication, stable double-read generation checks, complete-body parsing, GitHub Actions app binding, and live control-plane checks for protection and status creator.
 
 Independent agent `019f4cb4-39df-72a2-9e16-934560004ab7` reviewed head `c7ee6b6ff4f44496088892e10d69c01b08e6defe` and returned FAIL in GitHub review `4673022662`. It found that retaining a write-capable `pull_request` bootstrap trigger in the merged workflow would let future same-repository candidate workflow code publish the protected context. That head was not marked passed. The final candidate removes `pull_request` entirely and keeps only default-branch-controlled `pull_request_target`, `pull_request_review`, and `workflow_dispatch` publication.
+
+Independent agent `019f4cc5-6f2e-7bd3-bd06-5a5ddcff4a31` reviewed head `e56c5b642dc8191c7a959fed201cc18b85048ca2` and returned FAIL in GitHub review `4673105127`. It found that null evidence members and a disposition-only P3 could satisfy the evidence-shape check, and that the issue-governance label taxonomy omitted `pr:independent-review-passed`. The next candidate validates every evidence and finding member and synchronizes the policy label list.
 
 ## Bootstrap Enforcement
 

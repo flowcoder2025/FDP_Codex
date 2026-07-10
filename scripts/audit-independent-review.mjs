@@ -45,6 +45,37 @@ function parseReviewPayload(body) {
   }
 }
 
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isNonEmptyStringArray(value) {
+  return Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+}
+
+function isValidCommand(value) {
+  return isNonEmptyString(value) || (value !== null
+    && typeof value === 'object'
+    && isNonEmptyString(value.command)
+    && isNonEmptyString(value.result));
+}
+
+function isValidLocation(value) {
+  return isNonEmptyString(value) || isNonEmptyStringArray(value);
+}
+
+function isValidFinding(value, { requireDisposition = false } = {}) {
+  return value !== null
+    && typeof value === 'object'
+    && isNonEmptyString(value.id)
+    && isNonEmptyString(value.title)
+    && isValidLocation(value.location)
+    && isNonEmptyString(value.reproduction)
+    && isNonEmptyString(value.impact)
+    && isNonEmptyString(value.required_fix)
+    && (!requireDisposition || isNonEmptyString(value.disposition));
+}
+
 function evaluate({ pullRequest, reviews }) {
   const labels = pullRequest.labels.map((label) => typeof label === 'string' ? label : label.name);
   const markedReviews = reviews
@@ -89,16 +120,18 @@ function evaluate({ pullRequest, reviews }) {
       && typeof receipt.verification_reference === 'string'
       && receipt.verification_reference.trim().length > 0,
     'review.evidence_shape': Boolean(payload)
-      && Array.isArray(payload.reviewed_files)
-      && payload.reviewed_files.length > 0
-      && Array.isArray(payload.evidence)
-      && payload.evidence.length > 0
+      && isNonEmptyStringArray(payload.reviewed_files)
+      && isNonEmptyStringArray(payload.evidence)
       && Array.isArray(payload.commands)
       && payload.commands.length > 0
-      && Array.isArray(payload.attacks_attempted)
-      && payload.attacks_attempted.length > 0
-      && ['P0', 'P1', 'P2', 'P3'].every((severity) => Array.isArray(findings[severity]))
-      && Array.isArray(payload.residual_risks),
+      && payload.commands.every(isValidCommand)
+      && isNonEmptyStringArray(payload.attacks_attempted)
+      && ['P0', 'P1', 'P2'].every((severity) => Array.isArray(findings[severity])
+        && findings[severity].every((finding) => isValidFinding(finding)))
+      && Array.isArray(findings.P3)
+      && findings.P3.every((finding) => isValidFinding(finding, { requireDisposition: true }))
+      && Array.isArray(payload.residual_risks)
+      && payload.residual_risks.every(isNonEmptyString),
     'review.verdict_pass': payload?.verdict === 'PASS',
     'review.no_blocking_findings': blockingFindings.length === 0,
     'review.p3_dispositions': p3Findings.every((finding) => typeof finding?.disposition === 'string'
@@ -217,6 +250,29 @@ function selfTest() {
       body: `\`\`\`json\n${JSON.stringify({ ...payload, verdict: 'FAIL' })}\n\`\`\`\n\n${review.body}`,
     }],
   });
+  const malformedMembers = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
+        ...payload,
+        reviewed_files: [null],
+        evidence: [''],
+        commands: [null],
+        attacks_attempted: [0],
+      })}\n\`\`\``,
+    }],
+  });
+  const dispositionOnlyP3 = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
+        ...payload,
+        findings: { ...payload.findings, P3: [{ disposition: 'accepted' }] },
+      })}\n\`\`\``,
+    }],
+  });
   const laterFailPayload = {
     ...payload,
     verdict: 'FAIL',
@@ -260,6 +316,8 @@ function selfTest() {
       && ambiguousBody.errors.some((item) => item.id === 'review.latest_marker_present'
         || item.id === 'review.evidence_shape')
       && preMarkerPayload.errors.length > 0
+      && malformedMembers.errors.some((item) => item.id === 'review.evidence_shape')
+      && dispositionOnlyP3.errors.some((item) => item.id === 'review.evidence_shape')
       && paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass')
       && missingLabel.errors.some((item) => item.id === 'pr.required_labels')
       && prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),
@@ -272,6 +330,8 @@ function selfTest() {
       p3_without_disposition_rejected: p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions'),
       ambiguous_multiple_payload_rejected: ambiguousBody.errors.length > 0,
       pre_marker_payload_rejected: preMarkerPayload.errors.length > 0,
+      malformed_evidence_members_rejected: malformedMembers.errors.some((item) => item.id === 'review.evidence_shape'),
+      disposition_only_p3_rejected: dispositionOnlyP3.errors.some((item) => item.id === 'review.evidence_shape'),
       review_101_latest_failure_wins: paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass'),
       missing_label_rejected: missingLabel.errors.some((item) => item.id === 'pr.required_labels'),
       premature_merge_approval_rejected: prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),
