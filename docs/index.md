@@ -63,6 +63,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`
 - `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md`
 - `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md`
+- `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`
 
 ## Runbooks
 
@@ -112,6 +113,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0036-docs.md`
 - `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`
 - `docs/records/validation-wi-cx0037-docs.md`
+- `docs/records/validation-wi-cx0038-docs.md`
 - `docs/records/validation-wi-cx0039-docs.md`
 - `docs/records/validation-wi-cx0040-chore.md`
 - `docs/records/automation-runner-s2-review-packet-2026-07-08.md`

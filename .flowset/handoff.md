@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0054-fix Runtime Snapshot State Reconciliation.
+Current WI: WI-CX0038-docs Layer 2 Scope Code Accepted Decision.
 
-WI-CX0051-test status: validated. Evidence: `docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md` and `docs/records/validation-wi-cx0051-test.md`. WI-CX0052-test status: validated. Evidence: `docs/records/validation-wi-cx0052-test.md`. WI-CX0054-fix status: validated locally. Evidence: `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md` and `docs/records/validation-wi-cx0054-fix.md`.
+WI-CX0051-test and WI-CX0052-test are validated. WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is validated locally. Evidence: `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` and `docs/records/validation-wi-cx0038-docs.md`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
 
@@ -20,11 +20,11 @@ A2 handoff receiver contract is accepted at `docs/specifications/a2-handoff-rece
 
 A2 worktree isolation repair is repaid by WI-CX0052-test. WI-CX0054-fix reconciles that result with the historical runtime snapshot before the first dogfood scaffold.
 
-The user selected a separate dogfood target at `C:\dev\FDP_Codex_Dogfood`; the mnemonic code to record in WI-CX0038 is `FCD`.
+The user selected a separate dogfood target at `C:\dev\FDP_Codex_Dogfood`; WI-CX0038 accepts project id `fdp-codex-dogfood`, mnemonic code `FCD`, and target WI pattern `WI-FCDNNNN-category`.
 
 Layer 2 chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
-First Layer 2 target-project scaffold generation remains blocked on the Layer 2 project scope code rule. Layer 2 scaffold generation remains blocked until the user chooses.
+The Layer 2 scope-code gate is resolved. WI-CX0055-feat may generate the first dogfood scaffold after WI-CX0038 merges; no target directory or Layer 2 files are created by WI-CX0038.
 
 Automation runner S2 review packet is available at `docs/records/automation-runner-s2-review-packet-2026-07-08.md`. It prepares S2 but does not satisfy E2 by itself.
 
@@ -40,6 +40,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0052-test: A2 Worktree Isolation Repair Validation. Evidence: `docs/records/validation-wi-cx0052-test.md`. Result: worktree isolation repair gate satisfied.
 - WI-CX0053-docs: Strategic Goal Steering Contract. Evidence: `docs/records/validation-wi-cx0053-docs.md`. Result: collaboration instructions require goal steering, not obedient agreement, and require Codex to apply a brake when a user-suggested path conflicts with the final goal or operating boundaries.
 - WI-CX0054-fix: Runtime Snapshot State Reconciliation. Evidence: `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md` and `docs/records/validation-wi-cx0054-fix.md`. Result: historical snapshot and current WI-CX0052 proof are validator-linked.
+- WI-CX0038-docs: Layer 2 Scope Code Accepted Decision. Evidence: `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` and `docs/records/validation-wi-cx0038-docs.md`. Result: `FCD` is accepted for `fdp-codex-dogfood`; next WI is WI-CX0055-feat.
 
 ## Orientation SSOT
 
@@ -57,6 +58,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Worktree isolation repair validation: `docs/records/validation-wi-cx0052-test.md`.
 - Strategic goal steering contract: `docs/records/validation-wi-cx0053-docs.md`.
 - Runtime snapshot state reconciliation: `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md` and `docs/records/validation-wi-cx0054-fix.md`.
+- Layer 2 dogfood scope code: `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` and `docs/records/validation-wi-cx0038-docs.md`.
 - Session orchestration audit: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code handback: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
@@ -72,7 +74,7 @@ Release publication, deployment, package publication, and OSS program submission
 - `.flowset/runtime-snapshot.json` is historical WI-CX0048 evidence; `.flowset/state.json` owns current control-plane status and must link superseding records.
 - Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
 - Layer 2 target chunk ids are scoped per target project; cross-manifest references must be qualified.
-- First Layer 2 target-project scaffold generation is blocked on the scope code decision.
+- The first Layer 2 dogfood scope code is accepted as `FCD`; generation is staged in WI-CX0055-feat after WI-CX0038 merges.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
 - Strict TypeScript source conversion remains DQ-DEBT; the strictness probe records debt only.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
@@ -95,7 +97,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 - WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback. Long-lived post-bootstrap automation cadence and authority remains user-gated.
 - WI-CX0034-docs: Layer 2 Scope Code Options Packet. No Layer 2 target-project scaffold generation occurred.
 - WI-CX0036-docs: Chunk Id Scope Policy. Per-target-project chunk id scope is accepted.
-- WI-CX0037-docs: Layer 2 Scope Code Decision Handback. The Layer 2 project scope code rule remains user-gated; recommended answer: `A, use <CODE>`.
+- WI-CX0037-docs: Layer 2 Scope Code Decision Handback. At handback time, the Layer 2 project scope code rule remained user-gated and the recommended answer was `A, use <CODE>`. WI-CX0038 later resolved it as `FCD`.
 - WI-CX0047-test: Session Orchestration Control-Plane Audit. It records parent thread, automation, runner ids, duplicate-stop evidence, and the validation gap.
 - WI-CX0048-test: Runtime Snapshot Validator. Runtime snapshot: `.flowset/runtime-snapshot.json`.
 - WI-CX0049-docs: A2 Handoff Receiver Contract. Start WI-CX0050-test Worktree Isolation Verification was the next action before WI-CX0050 completed.
@@ -111,16 +113,15 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0054-fix-runtime-snapshot-state-reconciliation`.
+- Active WI branch for this cycle: `wi/cx0038-docs-layer-2-scope-code-accepted-decision`.
 
 ## Next Action
 
-Publish and merge WI-CX0054 after approval, then start WI-CX0038 to record `C:\dev\FDP_Codex_Dogfood` with project scope code `FCD`.
+Publish and merge WI-CX0038, sync `main`, then start WI-CX0055-feat to generate the first Layer 2 dogfood scaffold at `C:\dev\FDP_Codex_Dogfood` with project scope code `FCD`.
 
 ## Blocked Work
 
-- First Layer 2 target-project scaffold generation remains blocked until WI-CX0054 is merged and WI-CX0038 records `FCD`.
-- WI-CX0038-docs Layer 2 Scope Code Accepted Decision is ready after WI-CX0054 merge; the selected target is `C:\dev\FDP_Codex_Dogfood` and code is `FCD`.
+- WI-CX0055-feat must not create the dogfood directory before WI-CX0038 merges; after that merge, scaffold generation is inside the approved sequence.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.
 - Deployment is not approved.
@@ -136,4 +137,4 @@ Publish and merge WI-CX0054 after approval, then start WI-CX0038 to record `C:\d
 3. Gather or validate control-plane evidence before claiming a fresh run, handoff receiver, or clean session boundary.
 4. Build a fresh context pack for the next WI.
 5. Run `npm run validate` before declaring repository policy work complete.
-6. Stop at Layer 2 scaffold generation, release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive local realignment boundaries unless explicitly approved.
+6. Layer 2 scaffold generation is approved only through WI-CX0055-feat after WI-CX0038 merges. Stop at release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive operations outside the accepted target-directory creation unless explicitly approved.

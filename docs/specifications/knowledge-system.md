@@ -102,9 +102,9 @@ That contract defines required scaffold roles for target manifests, handoffs, co
 
 Layer 2 chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
-Layer 2 scaffold generation remains blocked until the live Decision Needed queue resolves or explicitly defers the Layer 2 project scope code rule with a hard stop.
+The first dogfood target scope code is accepted as `FCD` by `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`. Scaffold generation may proceed through the separately scoped WI-CX0055-feat after that decision is merged.
 
 ## Decision Needed
 
 - Whether Layer 2 generated artifacts should use the same folder names or a smaller target-project profile.
-- Layer 2 project scope code remains user-gated before first target-project scaffold generation.
+- Whether future Layer 2 targets may derive scope codes automatically or always require an explicit acceptance decision.

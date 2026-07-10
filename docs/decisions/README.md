@@ -26,6 +26,8 @@ Current decisions:
 - `docs/decisions/2026-07-08-flow-state-readable-snapshot.md`: accepted compact machine-readable Layer 1 flow-state snapshot.
 - `docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md`: accepted current-and-forward portfolio guardrail validator baseline.
 - `docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md`: accepted autonomous work exhaustion stop gate.
+- `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md`: accepted historical/runtime current-state reconciliation.
+- `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`: accepted `FCD` scope code for the first Layer 2 dogfood target.
 
 Decision Needed:
 

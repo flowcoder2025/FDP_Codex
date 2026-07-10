@@ -2,38 +2,39 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-09T19:12:58Z",
+  "updated_at": "2026-07-10T04:08:12Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
     ".flowset/handoff.md",
     ".flowset/runtime-snapshot.json",
     "docs/records/validation-wi-cx0052-test.md",
-    "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md"
+    "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md",
+    "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md"
   ],
   "current_wi": {
-    "id": "WI-CX0054-fix",
-    "category": "fix",
-    "title": "Runtime Snapshot State Reconciliation",
+    "id": "WI-CX0038-docs",
+    "category": "docs",
+    "title": "Layer 2 Scope Code Accepted Decision",
     "status": "validated",
-    "branch": "wi/cx0054-fix-runtime-snapshot-state-reconciliation",
-    "validation_record": "docs/records/validation-wi-cx0054-fix.md"
+    "branch": "wi/cx0038-docs-layer-2-scope-code-accepted-decision",
+    "validation_record": "docs/records/validation-wi-cx0038-docs.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0038-docs",
-    "item": "Layer 2 Scope Code Accepted Decision",
+    "wi_id": "WI-CX0055-feat",
+    "item": "First Layer 2 Dogfood Scaffold Generation",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "DOCS",
-      "Risk": "R1",
+      "WTC": "KNOW",
+      "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "first Layer 2 target-project scaffold generation"
+      "generation before WI-CX0038 merge"
     ]
   },
   "control_plane": {
@@ -72,12 +73,20 @@
     "a3_publication_behavior",
     "public_api_or_external_contract_change",
     "production_dependency_addition",
-    "destructive_filesystem_or_git_operation",
-    "first_layer2_target_project_scaffold_generation"
+    "destructive_filesystem_or_git_operation"
   ],
   "hygiene": {
     "body_storage": "forbidden",
     "context_bodies_carried": false,
     "snapshot_role": "machine-readable flow snapshot; not a context body store"
+  },
+  "layer2_target": {
+    "project_id": "fdp-codex-dogfood",
+    "root": "C:\\dev\\FDP_Codex_Dogfood",
+    "project_scope_code": "FCD",
+    "scope_code_status": "accepted",
+    "scope_code_decision_ref": "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
+    "wi_pattern": "WI-FCDNNNN-category",
+    "scaffold_status": "approved-after-wi-cx0038-merge"
   }
 }
