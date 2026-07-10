@@ -30,12 +30,14 @@ function parseReviewPayload(body) {
   const markerCount = source.split(marker).length - 1;
   if (markerCount !== 1) return null;
   const markerIndex = source.indexOf(marker);
+  if (source.slice(0, markerIndex).trim() !== '') return null;
   const suffix = source.slice(markerIndex + marker.length);
-  const matches = [...suffix.matchAll(/```json\s*([\s\S]*?)```/gi)];
+  const matches = [...source.matchAll(/```json\s*([\s\S]*?)```/gi)];
   if (matches.length !== 1) return null;
   const match = matches[0];
-  if (suffix.slice(0, match.index).trim() !== '') return null;
-  if (suffix.slice((match.index || 0) + match[0].length).trim() !== '') return null;
+  if ((match.index || 0) < markerIndex + marker.length) return null;
+  if (source.slice(markerIndex + marker.length, match.index).trim() !== '') return null;
+  if (source.slice((match.index || 0) + match[0].length).trim() !== '') return null;
   try {
     return JSON.parse(match[1]);
   } catch {
@@ -208,6 +210,13 @@ function selfTest() {
       body: `${review.body}\n\n\`\`\`json\n${JSON.stringify({ ...payload, verdict: 'FAIL' })}\n\`\`\``,
     }],
   });
+  const preMarkerPayload = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `\`\`\`json\n${JSON.stringify({ ...payload, verdict: 'FAIL' })}\n\`\`\`\n\n${review.body}`,
+    }],
+  });
   const laterFailPayload = {
     ...payload,
     verdict: 'FAIL',
@@ -250,6 +259,7 @@ function selfTest() {
       && p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions')
       && ambiguousBody.errors.some((item) => item.id === 'review.latest_marker_present'
         || item.id === 'review.evidence_shape')
+      && preMarkerPayload.errors.length > 0
       && paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass')
       && missingLabel.errors.some((item) => item.id === 'pr.required_labels')
       && prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),
@@ -261,6 +271,7 @@ function selfTest() {
       blocking_finding_rejected: finding.errors.some((item) => item.id === 'review.no_blocking_findings'),
       p3_without_disposition_rejected: p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions'),
       ambiguous_multiple_payload_rejected: ambiguousBody.errors.length > 0,
+      pre_marker_payload_rejected: preMarkerPayload.errors.length > 0,
       review_101_latest_failure_wins: paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass'),
       missing_label_rejected: missingLabel.errors.some((item) => item.id === 'pr.required_labels'),
       premature_merge_approval_rejected: prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),

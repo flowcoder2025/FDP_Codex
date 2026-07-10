@@ -37,6 +37,12 @@ function sameValues(actual, expected) {
   return JSON.stringify(sorted(actual)) === JSON.stringify(sorted(expected));
 }
 
+function latestStatusForContext(statuses, context) {
+  return statuses
+    .filter((item) => item.context === context)
+    .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')))[0] || null;
+}
+
 function inspectIndependentReview(reviewPrNumber, { allowMerged = false } = {}) {
   const commandArgs = [
     'scripts/audit-independent-review.mjs',
@@ -113,6 +119,29 @@ addCheck('codex.recorded_runner_task_closeout', integrityState.runner_tasks_arch
   live_app_query_required: true,
 });
 
+const repo = run('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']);
+const branchProtection = JSON.parse(run('gh', ['api', `repos/${repo}/branches/main/protection`]));
+const protectionChecks = branchProtection.required_status_checks?.checks || [];
+const expectedProtectedContexts = [
+  'validate (node 20.x)',
+  'validate (node 24.x)',
+  'independent-review',
+];
+addCheck('github.main_branch_protection', branchProtection.required_status_checks?.strict === true
+  && branchProtection.enforce_admins?.enabled === true
+  && branchProtection.required_conversation_resolution?.enabled === true
+  && branchProtection.allow_force_pushes?.enabled === false
+  && branchProtection.allow_deletions?.enabled === false
+  && expectedProtectedContexts.every((context) => protectionChecks.some((check) => check.context === context
+    && check.app_id === 15368)), {
+  strict: branchProtection.required_status_checks?.strict,
+  enforce_admins: branchProtection.enforce_admins?.enabled,
+  conversation_resolution: branchProtection.required_conversation_resolution?.enabled,
+  allow_force_pushes: branchProtection.allow_force_pushes?.enabled,
+  allow_deletions: branchProtection.allow_deletions?.enabled,
+  checks: protectionChecks,
+});
+
 const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,labels,url']));
 for (const knownIssue of state.known_issues || []) {
   const issue = issues.find((candidate) => candidate.number === knownIssue.github_issue_number);
@@ -136,7 +165,7 @@ for (const knownIssue of state.known_issues || []) {
   });
 }
 
-const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,labels,url']));
+const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;
 const independentReviewBaselinePr = state.control_plane?.independent_review?.pr_baseline_from ?? Number.POSITIVE_INFINITY;
 const requiredPrLabels = ['fdp:approved-work', 'needs:validator', 'pr:ready-for-review', 'pr:approved-merge'];
@@ -155,6 +184,10 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
   if (pullRequest.number >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
     const independentReview = inspectIndependentReview(pullRequest.number, { allowMerged: true });
     addCheck(`pr.${pullRequest.number}.independent_review`, independentReview.ok === true, independentReview);
+    const status = JSON.parse(run('gh', ['api', `repos/${repo}/commits/${pullRequest.headRefOid}/status`]));
+    const independentStatus = latestStatusForContext(status.statuses || [], 'independent-review');
+    addCheck(`pr.${pullRequest.number}.independent_review_status`, independentStatus?.state === 'success'
+      && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
   }
 }
 
@@ -181,6 +214,10 @@ if (prNumber) {
   if (currentPr && prNumber >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
     const independentReview = inspectIndependentReview(prNumber, { allowMerged: phase === 'post-merge' });
     addCheck('pr.current_independent_review', independentReview.ok === true, independentReview);
+    const status = JSON.parse(run('gh', ['api', `repos/${repo}/commits/${currentPr.headRefOid}/status`]));
+    const independentStatus = latestStatusForContext(status.statuses || [], 'independent-review');
+    addCheck('pr.current_independent_review_status', independentStatus?.state === 'success'
+      && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
   }
 }
 

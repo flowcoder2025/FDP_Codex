@@ -108,6 +108,7 @@ const requiredFiles = [
   'scripts/fixtures/managed-worker-tree.mjs',
   'scripts/audit-control-plane.mjs',
   'scripts/audit-independent-review.mjs',
+  'scripts/publish-independent-review-status.mjs',
   'docs/records/validation-wi-cx0055-feat.md',
   'docs/records/validation-wi-cx0056-test.md',
   'docs/records/validation-wi-cx0057-docs.md',
@@ -190,6 +191,7 @@ const requiredChunkIds = [
   'decision.independent-blind-adversarial-review-gate',
   'spec.independent-review-evidence',
   'tool.audit-independent-review',
+  'tool.publish-independent-review-status',
   'record.validation-wi-cx0063-feat',
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
@@ -4203,6 +4205,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   const specPath = 'docs/specifications/independent-review-evidence.md';
   const auditPath = 'scripts/audit-independent-review.mjs';
   const workflowPath = '.github/workflows/independent-review.yml';
+  const publisherPath = 'scripts/publish-independent-review-status.mjs';
   const recordPath = 'docs/records/validation-wi-cx0063-feat.md';
   const decision = read(decisionPath);
   const spec = read(specPath);
@@ -4224,6 +4227,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   const recordsIndex = read('docs/records/README.md');
   const controlAudit = read('scripts/audit-control-plane.mjs');
   const workflow = read(workflowPath);
+  const publisher = read(publisherPath);
   const manifestChunks = parseManifestChunks(manifest);
   const ledgerEntries = read('.flowset/context-ledger.jsonl')
     .split('\n')
@@ -4233,6 +4237,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && entry.timestamp === '2026-07-10T14:31:15.585Z');
   let selfTest = null;
   let selfTestError = null;
+  let publisherSelfTest = null;
+  let publisherSelfTestError = null;
   try {
     selfTest = JSON.parse(execFileSync(process.execPath, [auditPath, '--self-test'], {
       cwd: repoRoot,
@@ -4242,6 +4248,16 @@ function validateIndependentBlindAdversarialReviewGate() {
     }));
   } catch (caught) {
     selfTestError = caught?.stderr?.toString?.() || caught?.message || String(caught);
+  }
+  try {
+    publisherSelfTest = JSON.parse(execFileSync(process.execPath, [publisherPath, '--self-test'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }));
+  } catch (caught) {
+    publisherSelfTestError = caught?.stderr?.toString?.() || caught?.message || String(caught);
   }
   const reviewState = state.control_plane?.independent_review ?? {};
   const reviewIssue = state.known_issues?.find((item) => item.id === 'KI-CX-REVIEW-001');
@@ -4258,10 +4274,13 @@ function validateIndependentBlindAdversarialReviewGate() {
     && manifest.includes(recordPath)
     && manifest.includes('id: github.workflow.independent-review')
     && manifest.includes(workflowPath)
+    && manifest.includes('id: tool.publish-independent-review-status')
+    && manifest.includes(publisherPath)
     && docsIndex.includes(decisionPath)
     && docsIndex.includes(specPath)
     && docsIndex.includes(auditPath)
     && docsIndex.includes(workflowPath)
+    && docsIndex.includes(publisherPath)
     && docsIndex.includes(recordPath)
     && decisionsIndex.includes(decisionPath)
     && recordsIndex.includes(recordPath);
@@ -4302,15 +4321,24 @@ function validateIndependentBlindAdversarialReviewGate() {
     && selfTest?.cases?.blocking_finding_rejected === true
     && selfTest?.cases?.p3_without_disposition_rejected === true
     && selfTest?.cases?.ambiguous_multiple_payload_rejected === true
+    && selfTest?.cases?.pre_marker_payload_rejected === true
     && selfTest?.cases?.review_101_latest_failure_wins === true
     && selfTest?.cases?.missing_label_rejected === true
-    && selfTest?.cases?.premature_merge_approval_rejected === true;
+    && selfTest?.cases?.premature_merge_approval_rejected === true
+    && publisherSelfTestError === null
+    && publisherSelfTest?.ok === true
+    && publisherSelfTest?.cases?.stable_pass_accepted === true
+    && publisherSelfTest?.cases?.newer_failure_rejected === true
+    && publisherSelfTest?.cases?.changed_review_rejected === true
+    && publisherSelfTest?.cases?.changed_head_rejected === true
+    && publisherSelfTest?.cases?.initial_failure_rejected === true;
   checks.independent_review_audit = audit.includes("const marker = '<!-- fdp-independent-review:v1 -->'")
     && audit.includes("'review.github_head_anchor'")
     && audit.includes("payload.context_mode === 'blind-clean'")
     && audit.includes('payload.fork_context === false')
     && audit.includes('payload.implementation_context_received === false')
     && audit.includes("'review.orchestrator_receipt_attested'")
+    && audit.includes("source.slice(0, markerIndex).trim() !== ''")
     && audit.includes("'--paginate', '--slurp'")
     && audit.includes("['P0', 'P1', 'P2']")
     && audit.includes("payload?.verdict === 'PASS'")
@@ -4326,12 +4354,21 @@ function validateIndependentBlindAdversarialReviewGate() {
     && controlAudit.includes('requiredIndependentReviewLabels')
     && controlAudit.includes('inspectIndependentReview')
     && controlAudit.includes("'--allow-merged'")
+    && controlAudit.includes("'github.main_branch_protection'")
+    && controlAudit.includes("check.app_id === 15368")
+    && controlAudit.includes("creator?.login === 'github-actions[bot]'")
     && workflow.includes('pull_request_target:')
+    && workflow.includes('pull_request:')
     && workflow.includes('statuses: write')
+    && workflow.includes('cancel-in-progress: true')
     && workflow.includes('Checkout trusted default branch')
-    && workflow.includes('context="independent-review"')
-    && workflow.includes('steps.audit.outcome')
-    && workflow.includes('Enforce audit result');
+    && workflow.includes('github.event.pull_request.number == 58')
+    && workflow.includes(publisherPath)
+    && publisher.includes("const context = 'independent-review'")
+    && publisher.includes("'pending'")
+    && publisher.includes('const first = readAudit(prNumber)')
+    && publisher.includes('const latest = readAudit(prNumber)')
+    && publisher.includes('first.latest_review_id === latest.latest_review_id');
   checks.independent_review_state = state.current_wi?.id === 'WI-CX0063-feat'
     && state.current_wi?.branch === 'wi/cx0063-feat-independent-blind-adversarial-review-gate'
     && state.current_wi?.validation_record === recordPath
@@ -4343,7 +4380,11 @@ function validateIndependentBlindAdversarialReviewGate() {
     && reviewState.head_change_invalidates_review === true
     && reviewState.pass_label === 'pr:independent-review-passed'
     && reviewState.required_check === 'independent-review'
-    && reviewState.branch_protection === 'required-before-pr58-merge'
+    && reviewState.status_publisher === publisherPath
+    && reviewState.status_publisher_app_id === 15368
+    && reviewState.status_publication === 'pending-then-stable-double-read'
+    && reviewState.status_concurrency === 'per-pr-cancel-in-progress'
+    && reviewState.branch_protection === 'required-github-actions-app-bound'
     && reviewState.provenance_mode === 'controller-attested'
     && reviewState.provenance_issue === 59
     && reviewIssue?.severity === 'High'
@@ -4373,10 +4414,13 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('missing controller-attested orchestrator receipt rejected')
     && record.includes('P2 blocking finding rejected')
     && record.includes('ambiguous multiple-payload review rejected')
+    && record.includes('a contradictory pre-marker payload rejected')
     && record.includes('a 101st, newer failing review overrides an older passing review')
     && record.includes('premature pr:approved-merge rejected')
     && record.includes('Any finding-driven edit changes the head and requires a new independent reviewer pass')
     && record.includes('returned FAIL')
+    && record.includes('4672749444')
+    && record.includes('GitHub Actions app id `15368`')
     && record.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
     && state.current_priority?.state === 'blocked-external'
@@ -4393,7 +4437,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   if (!checks.independent_review_policy) error('independent_review.policy_missing', 'Evaluation and Git policies must define E2+E3 S2 execution and merge ordering.');
   if (!checks.independent_review_decision) error('independent_review.decision_missing', 'Decision must define scope, independence, invalidation, findings, and obsolete runner debt.');
   if (!checks.independent_review_spec) error('independent_review.spec_missing', 'Evidence specification must define blind inputs, result schema, and current-head binding.');
-  if (!checks.independent_review_self_test) error('independent_review.self_test_failed', 'Independent review audit negative and positive fixtures must pass.', selfTestError);
+  if (!checks.independent_review_self_test) error('independent_review.self_test_failed', 'Independent review audit and status publisher negative and positive fixtures must pass.', selfTestError || publisherSelfTestError);
   if (!checks.independent_review_audit) error('independent_review.audit_missing', 'Audit must inspect live marker, GitHub head anchor, context separation, verdict, labels, and blocking findings.');
   if (!checks.independent_review_github_surface) error('independent_review.github_surface_missing', 'PR template, labels, and control-plane audit must expose the new gate.');
   if (!checks.independent_review_state) error('independent_review.state_missing', 'Machine state must expose the independent review baseline and invalidation contract.');

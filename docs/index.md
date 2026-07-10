@@ -165,6 +165,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/fixtures/managed-worker-tree.mjs`
 - `scripts/audit-control-plane.mjs`
 - `scripts/audit-independent-review.mjs`
+- `scripts/publish-independent-review-status.mjs`
 
 ## GitHub Templates
 

@@ -38,7 +38,9 @@ Required PR labels are:
 
 `pr:approved-merge` is applied only after the independent review audit passes.
 
-The `independent-review` commit status is a required `main` branch protection check. The trusted default-branch workflow audits the live review and publishes that status against the PR head; the control-plane audit independently reruns the same evidence check rather than trusting labels alone.
+The `independent-review` commit status is a required `main` branch protection check bound to GitHub Actions app id `15368`. The trusted default-branch workflow audits the live review and publishes that status against the PR head; the control-plane audit independently reruns the same evidence check and verifies the branch-protection publisher binding rather than trusting labels alone.
+
+Status publication is fail-closed and monotonic within the supervised boundary. The workflow cancels superseded runs for the same PR. Its publisher sets `pending`, reads the live audit twice, and publishes success only when both reads identify the same passing head and review id. A changed or failing generation publishes failure.
 
 ## Provenance Boundary
 

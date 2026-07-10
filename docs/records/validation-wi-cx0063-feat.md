@@ -32,6 +32,7 @@ Install an executable independent blind adversarial review gate for every non-tr
 - `scripts/audit-independent-review.mjs` reads live PR labels, head SHA, and GitHub reviews.
 - `pr:approved-merge` is forbidden until `pr:independent-review-passed` exists and the live audit passes.
 - `.github/workflows/independent-review.yml` audits trusted default-branch code and publishes the required `independent-review` status against the PR head.
+- `scripts/publish-independent-review-status.mjs` sets pending, performs two current-generation audits, and only then publishes the GitHub Actions app-bound result.
 - `scripts/audit-control-plane.mjs` reruns the live independent-review audit for non-R0 PR #58 and later instead of trusting labels alone.
 
 ## Deterministic Evidence
@@ -44,6 +45,7 @@ Install an executable independent blind adversarial review gate for every non-tr
 - missing controller-attested orchestrator receipt rejected;
 - P2 blocking finding rejected;
 - ambiguous multiple-payload review rejected;
+- a contradictory pre-marker payload rejected;
 - a 101st, newer failing review overrides an older passing review;
 - missing required label rejected.
 - premature pr:approved-merge rejected.
@@ -63,9 +65,11 @@ Independent agent `019f4c80-ff2c-75a0-82a8-be3751794767` reviewed PR #58 head `0
 
 It found two P1 and three P2 defects: no required GitHub check, no machine-verifiable reviewer provenance, active obsolete runner review chunks, acceptance of multiple JSON payloads, and missing review pagination. The head was not marked passed. This remediation adds required-status enforcement, actual-review re-audit, strict single-payload parsing, pagination, historical-obsolete manifest status, and KI-CX-REVIEW-001 / Issue #59 for the remaining execution-platform provenance limit.
 
+Independent agent `019f4c97-a251-7282-9478-3606432ddb82` then reviewed head `04b78c0c7f3fa6fe77fedc6647d45901492ce27b` and returned FAIL in GitHub review `4672749444`. It found an out-of-order status overwrite race, an unbound required-status publisher, and acceptance of a contradictory pre-marker payload. That head was not marked passed. The next remediation adds PR concurrency cancellation, pending-before-audit publication, stable double-read generation checks, complete-body parsing, GitHub Actions app binding, and live control-plane checks for protection and status creator.
+
 ## Bootstrap Enforcement
 
-PR #58 introduces the trusted default-branch workflow, so that workflow cannot govern PR #58 from `main` before it merges. Before the fresh final review, `main` branch protection must require `independent-review` plus both existing Node validation checks. Only after the actual independent PASS on the exact final head may the controller publish the one-time bootstrap `independent-review` success status for that head. Future PRs are evaluated by the trusted default-branch workflow; this bootstrap exception does not remove the KI-CX-REVIEW-001 provenance boundary.
+PR #58 introduces the trusted default-branch workflow, so a one-time `pull_request` bootstrap event runs the exact independently reviewed candidate workflow for PR #58 only. It publishes through the GitHub Actions app rather than a controller token. `main` protection binds Node 20, Node 24, and `independent-review` to GitHub Actions app id `15368`; after merge, `pull_request_target` and review events use the trusted default-branch workflow. This bootstrap path does not remove the KI-CX-REVIEW-001 reviewer-provenance boundary.
 
 ## Historical Runner Review
 

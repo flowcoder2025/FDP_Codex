@@ -1960,6 +1960,18 @@ chunks:
       - validation
       - tooling
     body_carryover: forbidden
+  - id: tool.publish-independent-review-status
+    title: Independent Review Status Publisher
+    source: scripts/publish-independent-review-status.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
   - id: record.validation-wi-cx0063-feat
     title: WI-CX0063-feat Validation Record
     source: docs/records/validation-wi-cx0063-feat.md

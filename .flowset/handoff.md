@@ -40,9 +40,11 @@ The control-plane integrity audit found ten historical KIs with zero GitHub Issu
 
 PR #57 merged WI-CX0062 at `48f2a88daba2bf307022901aa5d2d76beb56ac0d`. Its two-pass post-merge audit passed and Issue #56 is closed.
 
-WI-CX0063 adds a live GitHub review audit, required `independent-review` status, and branch-protection gate. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change. The control-plane audit reruns the actual review audit rather than trusting labels.
+WI-CX0063 adds a live GitHub review audit, GitHub Actions app-bound `independent-review` status, and branch-protection gate. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change. The control-plane audit reruns the actual review audit and verifies branch protection plus status creator rather than trusting labels.
 
 The first independent reviewer, agent `019f4c80-ff2c-75a0-82a8-be3751794767`, returned FAIL on PR #58 head `028f5530b824fff8c76d0b408cddb57e0d4378de`. Its unchanged GitHub review `4672572326` found missing required-check enforcement, forgeable provenance, active obsolete manifest chunks, multiple-payload parsing, and review pagination gaps. Remediation retains the FAIL as evidence and requires a fresh reviewer on the new head.
+
+The second independent reviewer, agent `019f4c97-a251-7282-9478-3606432ddb82`, returned FAIL on head `04b78c0c7f3fa6fe77fedc6647d45901492ce27b` in GitHub review `4672749444`. It found a stale-success workflow race, an unbound status publisher, and pre-marker payload ambiguity. The next candidate adds PR concurrency cancellation, pending-first stable double-read publication, GitHub Actions app id `15368` binding, complete-body parsing, and control-plane verification of remote protection and status creator.
 
 KI-CX-REVIEW-001 / Issue #59 records that the current execution surface provides no signed multi-agent identity receipt. Controller-attested receipts can support supervised work with actual clean-agent execution, live receipt inspection, current-head evidence, and active user approval, but they do not authorize unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, or OSS submission.
 

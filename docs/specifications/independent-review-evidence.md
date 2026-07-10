@@ -76,6 +76,19 @@ Any change to the PR head invalidates the prior review, including implementation
 
 Comments without the marker, same-thread self-review, inherited implementation context, a stale commit, conditional verdict, or unresolved P0-P2 findings do not satisfy the gate.
 
+The marker must be the first non-whitespace content in the complete review body. Exactly one JSON fence may exist in the complete body, and only whitespace may appear after it. A payload or narrative before the marker is invalid.
+
+## Required Status Publication
+
+`scripts/publish-independent-review-status.mjs` owns the `independent-review` commit status.
+
+- GitHub Actions app id `15368` is the required publisher in branch protection.
+- The workflow uses per-PR concurrency and cancels superseded runs.
+- Publication sets the current head to `pending` before evaluation.
+- The publisher runs the live audit twice and requires the same head, `latest_review_id`, `reviewed_head`, and PASS verdict in both reads.
+- A missing, changed, stale, malformed, or blocking generation publishes failure.
+- The control-plane audit verifies strict branch protection, admin enforcement, conversation resolution, force-push/deletion denial, required contexts, publisher app id, and the current-head status creator.
+
 ## Provenance Limitation
 
 `orchestrator_receipt` is controller-attested metadata, not a signed execution-platform identity. The repository audit can reject missing or inconsistent attestations, but cannot independently prove who created the payload. KI-CX-REVIEW-001 / Issue #59 blocks unattended or generalized automated merge and release-boundary use until the execution surface supplies machine-verifiable reviewer provenance or an independently authenticated reviewer identity.
@@ -84,5 +97,6 @@ Comments without the marker, same-thread self-review, inherited implementation c
 
 ```powershell
 npm.cmd run audit:independent-review -- --self-test
+node scripts/publish-independent-review-status.mjs --self-test
 npm.cmd run audit:independent-review -- --pr <number>
 ```

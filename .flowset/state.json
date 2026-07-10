@@ -107,7 +107,11 @@
       "blocking_findings": ["P0", "P1", "P2"],
       "pass_label": "pr:independent-review-passed",
       "required_check": "independent-review",
-      "branch_protection": "required-before-pr58-merge",
+      "status_publisher": "scripts/publish-independent-review-status.mjs",
+      "status_publisher_app_id": 15368,
+      "status_publication": "pending-then-stable-double-read",
+      "status_concurrency": "per-pr-cancel-in-progress",
+      "branch_protection": "required-github-actions-app-bound",
       "provenance_mode": "controller-attested",
       "provenance_issue": 59
     },

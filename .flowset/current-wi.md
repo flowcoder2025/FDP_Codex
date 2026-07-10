@@ -34,6 +34,7 @@ Make independent blind adversarial review an executable merge gate for every non
 - Add a machine-readable independent-review evidence contract.
 - Add a live GitHub review audit with deterministic self-tests.
 - Add a required `independent-review` GitHub status and branch protection gate.
+- Bind the required status to GitHub Actions app id `15368` and reject changed/out-of-order review generations before success publication.
 - Require separate clean-context review and adversarial findings for all non-trivial R1/R2/R3 WIs.
 - Forbid `pr:approved-merge` until the current PR head passes the independent review audit.
 - Run repository CI, working and PR control-plane audits, and a separate `fork_context: false` reviewer on this WI.
@@ -43,6 +44,7 @@ Make independent blind adversarial review an executable merge gate for every non
 
 - Context pack `ctx-wi-cx0063-feat-20260710143115`; timestamp `2026-07-10T14:31:15.585Z`; 19 metadata-only ledger entries; no chunk bodies.
 - `scripts/audit-independent-review.mjs --self-test` rejects stale head, inherited context, blocking findings, and missing labels while accepting a valid review.
+- `scripts/publish-independent-review-status.mjs --self-test` rejects a newer failure, changed review id, changed head, and initial failure.
 - Decision `docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md` defines the merge boundary.
 - Specification `docs/specifications/independent-review-evidence.md` defines clean reviewer input and live GitHub evidence.
 - Validation record `docs/records/validation-wi-cx0063-feat.md` records repository evidence and the required external review sequence.

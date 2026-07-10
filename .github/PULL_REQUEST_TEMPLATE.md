@@ -21,6 +21,7 @@
 - [ ] Review payload includes a controller-verified orchestrator receipt, and any KI-CX-REVIEW-001 boundary is respected.
 - [ ] `npm run audit:independent-review -- --pr <number>` passes.
 - [ ] Required `independent-review` status succeeds on the current PR head.
+- [ ] Branch protection binds `independent-review` to the GitHub Actions app and the live control-plane audit verifies it.
 - [ ] No implementation or policy change occurred after the passing review.
 
 ## Policy Checks
