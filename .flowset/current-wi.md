@@ -54,6 +54,7 @@ Make independent blind adversarial review an executable merge gate for every non
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open and blocks the existing managed CLI worker proof, dogfood continuation on that surface, and runner reactivation.
 - KI-CX-REVIEW-001 / Issue #59 remains open because the execution surface does not provide signed reviewer provenance. Supervised current-head review may continue with an actual clean agent and live tool receipt, but unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission remain blocked.
+- KI-CX-STATUS-001 / Issue #60 remains open because GitHub Free can bind a status to the shared Actions app but not to one trusted workflow identity. The status remains defense in depth; supervised merge also requires fixed-run evidence, exact-head review, live audit, and active user approval.
 
 ## Boundary
 

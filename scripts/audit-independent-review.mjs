@@ -91,6 +91,12 @@ function evaluate({ pullRequest, reviews }) {
   const p3Findings = Array.isArray(findings.P3) ? findings.P3 : [];
   const receipt = payload?.orchestrator_receipt || {};
   const allowedSurfaces = new Set(['multi_agent_v1', 'separate_codex_thread', 'human_reviewer']);
+  const reviewerAgentId = payload?.reviewer_agent_id;
+  const reviewerIdValid = isNonEmptyString(reviewerAgentId)
+    && reviewerAgentId === reviewerAgentId.trim()
+    && reviewerAgentId.toLowerCase() !== 'controller'
+    && (payload?.execution_surface !== 'multi_agent_v1'
+      || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewerAgentId));
 
   const checks = {
     'pr.state_allowed': pullRequest.state === 'OPEN' || (allowMerged && pullRequest.state === 'MERGED'),
@@ -104,9 +110,7 @@ function evaluate({ pullRequest, reviews }) {
       && payload.kind === 'fdp-independent-blind-adversarial-review'
       && payload.schema_version === 1
       && payload.reviewer_role === 'independent-adversarial-reviewer'
-      && typeof payload.reviewer_agent_id === 'string'
-      && payload.reviewer_agent_id.length >= 8
-      && payload.reviewer_agent_id !== 'controller'
+      && reviewerIdValid
       && payload.agent_separation_declared === true
       && payload.context_mode === 'blind-clean'
       && payload.fork_context === false
@@ -161,7 +165,7 @@ function selfTest() {
     schema_version: 1,
     kind: 'fdp-independent-blind-adversarial-review',
     reviewer_role: 'independent-adversarial-reviewer',
-    reviewer_agent_id: 'agent-12345678',
+    reviewer_agent_id: '11111111-2222-4333-8444-555555555555',
     agent_separation_declared: true,
     execution_surface: 'multi_agent_v1',
     context_mode: 'blind-clean',
@@ -177,7 +181,7 @@ function selfTest() {
     residual_risks: [],
     orchestrator_receipt: {
       provider: 'multi_agent_v1',
-      agent_id: 'agent-12345678',
+      agent_id: '11111111-2222-4333-8444-555555555555',
       fork_context: false,
       controller_verified: true,
       verification_reference: 'tool-call:test',
@@ -213,6 +217,33 @@ function selfTest() {
       body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
         ...payload,
         orchestrator_receipt: undefined,
+      })}\n\`\`\``,
+    }],
+  });
+  const whitespaceReviewerId = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
+        ...payload,
+        reviewer_agent_id: '        ',
+        orchestrator_receipt: { ...payload.orchestrator_receipt, agent_id: '        ' },
+      })}\n\`\`\``,
+    }],
+  });
+  const controllerVariant = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
+        ...payload,
+        execution_surface: 'separate_codex_thread',
+        reviewer_agent_id: 'Controller',
+        orchestrator_receipt: {
+          ...payload.orchestrator_receipt,
+          provider: 'separate_codex_thread',
+          agent_id: 'Controller',
+        },
       })}\n\`\`\``,
     }],
   });
@@ -311,6 +342,8 @@ function selfTest() {
       && stale.errors.some((item) => item.id === 'review.github_head_anchor')
       && inherited.errors.some((item) => item.id === 'review.independent_clean_context')
       && missingReceipt.errors.some((item) => item.id === 'review.orchestrator_receipt_attested')
+      && whitespaceReviewerId.errors.some((item) => item.id === 'review.independent_clean_context')
+      && controllerVariant.errors.some((item) => item.id === 'review.independent_clean_context')
       && finding.errors.some((item) => item.id === 'review.no_blocking_findings')
       && p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions')
       && ambiguousBody.errors.some((item) => item.id === 'review.latest_marker_present'
@@ -326,6 +359,8 @@ function selfTest() {
       stale_head_rejected: stale.errors.some((item) => item.id === 'review.github_head_anchor'),
       inherited_context_rejected: inherited.errors.some((item) => item.id === 'review.independent_clean_context'),
       missing_orchestrator_receipt_rejected: missingReceipt.errors.some((item) => item.id === 'review.orchestrator_receipt_attested'),
+      whitespace_reviewer_id_rejected: whitespaceReviewerId.errors.some((item) => item.id === 'review.independent_clean_context'),
+      controller_variant_rejected: controllerVariant.errors.some((item) => item.id === 'review.independent_clean_context'),
       blocking_finding_rejected: finding.errors.some((item) => item.id === 'review.no_blocking_findings'),
       p3_without_disposition_rejected: p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions'),
       ambiguous_multiple_payload_rejected: ambiguousBody.errors.length > 0,

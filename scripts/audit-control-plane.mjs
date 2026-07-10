@@ -142,6 +142,26 @@ addCheck('github.main_branch_protection', branchProtection.required_status_check
   checks: protectionChecks,
 });
 
+const independentReviewState = state.control_plane?.independent_review ?? {};
+const bootstrapStatusRunId = independentReviewState.bootstrap_status_run || null;
+const bootstrapStatusRun = bootstrapStatusRunId
+  ? JSON.parse(run('gh', [
+    'run', 'view', String(bootstrapStatusRunId),
+    '--json', 'databaseId,event,headSha,status,conclusion,url',
+  ]))
+  : null;
+
+function statusSourceMatches(pullRequestNumber, status) {
+  const actionsStatus = status?.creator?.login === 'github-actions[bot]';
+  if (!actionsStatus || pullRequestNumber !== 58) return actionsStatus;
+  return bootstrapStatusRun?.databaseId === bootstrapStatusRunId
+    && bootstrapStatusRun?.event === 'pull_request'
+    && bootstrapStatusRun?.headSha === independentReviewState.bootstrap_status_source_head
+    && bootstrapStatusRun?.status === 'completed'
+    && bootstrapStatusRun?.conclusion === 'success'
+    && status.target_url === bootstrapStatusRun.url;
+}
+
 const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,labels,url']));
 for (const knownIssue of state.known_issues || []) {
   const issue = issues.find((candidate) => candidate.number === knownIssue.github_issue_number);
@@ -187,7 +207,10 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
     const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${pullRequest.headRefOid}`]));
     const independentStatus = latestStatusForContext(statuses, 'independent-review');
     addCheck(`pr.${pullRequest.number}.independent_review_status`, independentStatus?.state === 'success'
-      && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
+      && statusSourceMatches(pullRequest.number, independentStatus), {
+      status: independentStatus || null,
+      bootstrap_run: pullRequest.number === 58 ? bootstrapStatusRun : null,
+    });
   }
 }
 
@@ -217,7 +240,10 @@ if (prNumber) {
     const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${currentPr.headRefOid}`]));
     const independentStatus = latestStatusForContext(statuses, 'independent-review');
     addCheck('pr.current_independent_review_status', independentStatus?.state === 'success'
-      && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
+      && statusSourceMatches(prNumber, independentStatus), {
+      status: independentStatus || null,
+      bootstrap_run: prNumber === 58 ? bootstrapStatusRun : null,
+    });
   }
 }
 

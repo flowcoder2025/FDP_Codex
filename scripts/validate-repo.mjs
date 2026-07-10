@@ -4262,6 +4262,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   }
   const reviewState = state.control_plane?.independent_review ?? {};
   const reviewIssue = state.known_issues?.find((item) => item.id === 'KI-CX-REVIEW-001');
+  const statusIssue = state.known_issues?.find((item) => item.id === 'KI-CX-STATUS-001');
   const oldRunnerReview = manifestChunks.find((item) => item.id === 'record.automation-runner-s2-review-packet');
   const oldCadence = manifestChunks.find((item) => item.id === 'record.post-bootstrap-automation-cadence-decision-handback');
 
@@ -4319,6 +4320,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && selfTest?.cases?.stale_head_rejected === true
     && selfTest?.cases?.inherited_context_rejected === true
     && selfTest?.cases?.missing_orchestrator_receipt_rejected === true
+    && selfTest?.cases?.whitespace_reviewer_id_rejected === true
+    && selfTest?.cases?.controller_variant_rejected === true
     && selfTest?.cases?.blocking_finding_rejected === true
     && selfTest?.cases?.p3_without_disposition_rejected === true
     && selfTest?.cases?.ambiguous_multiple_payload_rejected === true
@@ -4342,6 +4345,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && audit.includes('payload.implementation_context_received === false')
     && audit.includes("'review.orchestrator_receipt_attested'")
     && audit.includes("source.slice(0, markerIndex).trim() !== ''")
+    && audit.includes('reviewerAgentId === reviewerAgentId.trim()')
+    && audit.includes("reviewerAgentId.toLowerCase() !== 'controller'")
     && audit.includes('isNonEmptyStringArray(payload.reviewed_files)')
     && audit.includes('isValidFinding(finding, { requireDisposition: true })')
     && audit.includes("'--paginate', '--slurp'")
@@ -4363,6 +4368,9 @@ function validateIndependentBlindAdversarialReviewGate() {
     && controlAudit.includes("'github.main_branch_protection'")
     && controlAudit.includes("check.app_id === 15368")
     && controlAudit.includes("creator?.login === 'github-actions[bot]'")
+    && controlAudit.includes('status.target_url === bootstrapStatusRun.url')
+    && controlAudit.includes("bootstrapStatusRun?.event === 'pull_request'")
+    && controlAudit.includes("bootstrapStatusRun?.conclusion === 'success'")
     && workflow.includes('pull_request_target:')
     && workflow.includes('pull_request_review:')
     && workflow.includes('workflow_dispatch:')
@@ -4391,6 +4399,9 @@ function validateIndependentBlindAdversarialReviewGate() {
     && reviewState.required_check === 'independent-review'
     && reviewState.status_publisher === publisherPath
     && reviewState.status_publisher_app_id === 15368
+    && reviewState.status_role === 'defense-in-depth'
+    && reviewState.workflow_identity_enforcement === 'unavailable-github-free'
+    && reviewState.workflow_identity_issue === 60
     && reviewState.status_publication === 'pending-then-stable-double-read'
     && reviewState.status_concurrency === 'per-pr-cancel-in-progress'
     && reviewState.branch_protection === 'required-github-actions-app-bound'
@@ -4402,7 +4413,10 @@ function validateIndependentBlindAdversarialReviewGate() {
     && reviewState.provenance_issue === 59
     && reviewIssue?.severity === 'High'
     && reviewIssue?.status === 'open'
-    && reviewIssue?.github_issue_number === 59;
+    && reviewIssue?.github_issue_number === 59
+    && statusIssue?.severity === 'High'
+    && statusIssue?.status === 'open'
+    && statusIssue?.github_issue_number === 60;
   checks.independent_review_ledger = wiLedger.length === 19
     && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
     && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
@@ -4435,6 +4449,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('4672749444')
     && record.includes('4673022662')
     && record.includes('4673105127')
+    && record.includes('4673210128')
+    && record.includes('KI-CX-STATUS-001 / Issue #60')
     && record.includes('null/empty evidence members and disposition-only P3 findings rejected')
     && record.includes('final merged workflow contains no write-capable `pull_request` event')
     && record.includes('29104125595')
@@ -4446,6 +4462,7 @@ function validateIndependentBlindAdversarialReviewGate() {
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
     && reviewIssue?.hard_stop.includes('unattended or generalized automated merge')
+    && statusIssue?.hard_stop.includes('unattended or generalized automated merge')
     && decision.includes('does not authorize dogfood continuation')
     && record.includes('No dogfood continuation or provider-policy workaround occurred')
     && record.includes('No release publication, deployment, package publication, OSS program submission');

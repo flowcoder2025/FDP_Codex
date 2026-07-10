@@ -47,6 +47,7 @@ Install an executable independent blind adversarial review gate for every non-tr
 - ambiguous multiple-payload review rejected;
 - a contradictory pre-marker payload rejected;
 - null/empty evidence members and disposition-only P3 findings rejected;
+- whitespace-only, padded, non-UUID multi-agent, and controller-variant reviewer ids rejected;
 - a 101st, newer failing review overrides an older passing review;
 - missing required label rejected.
 - premature pr:approved-merge rejected.
@@ -72,6 +73,8 @@ Independent agent `019f4cb4-39df-72a2-9e16-934560004ab7` reviewed head `c7ee6b6f
 
 Independent agent `019f4cc5-6f2e-7bd3-bd06-5a5ddcff4a31` reviewed head `e56c5b642dc8191c7a959fed201cc18b85048ca2` and returned FAIL in GitHub review `4673105127`. It found that null evidence members and a disposition-only P3 could satisfy the evidence-shape check, and that the issue-governance label taxonomy omitted `pr:independent-review-passed`. The next candidate validates every evidence and finding member and synchronizes the policy label list.
 
+Independent agent `019f4cd0-8a3d-7663-8baa-1f3ddb12a84d` reviewed head `3fd65a17af0b38617584ba58f9159e1429aac5db` and returned FAIL in GitHub review `4673210128`. It found a whitespace-only reviewer id bypass and confirmed that Actions app binding does not identify one workflow. The id bypass is fixed directly. The platform limitation is recorded as KI-CX-STATUS-001 / Issue #60: GitHub Free has no organization required-workflow rule, so the status is defense in depth and PR #58 remains a supervised merge requiring fixed run `29104125595`, exact-head review, live audit, and active user approval.
+
 ## Bootstrap Enforcement
 
 PR #58 introduces the trusted default-branch workflow, so the final merged workflow contains no write-capable `pull_request` event. After an actual independent PASS on the exact final head, the controller may rerun the already fixed GitHub Actions run `29104125595` once. That immutable run resolves PR #58's live head and publishes the app-bound status, while its candidate trigger is absent from the final merged workflow. `main` protection binds Node 20, Node 24, and `independent-review` to GitHub Actions app id `15368`. Future publication uses only the trusted default-branch workflow. This supervised bootstrap does not remove the KI-CX-REVIEW-001 reviewer-provenance boundary.
@@ -84,6 +87,7 @@ WI-CX0042 and the runner-specific S2 debt are obsolete, not passed. The hourly w
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open.
 - KI-CX-REVIEW-001 / Issue #59 remains open. Controller-attested provenance blocks unattended/generalized automated merge, A2/A3 expansion, and release-boundary use until machine-verifiable reviewer identity exists.
+- KI-CX-STATUS-001 / Issue #60 remains open. Shared Actions app status cannot prove one workflow identity on the current GitHub Free plan, so it blocks the same unattended and release-boundary authority.
 - No dogfood continuation or provider-policy workaround occurred.
 - The retired runner was not recreated.
 - The Layer 2 target was not touched.

@@ -70,6 +70,8 @@ Every P3 finding must include a non-empty disposition. The independent review au
 
 `reviewed_files`, `evidence`, and `attacks_attempted` contain non-empty strings. `commands` contains non-empty strings or objects with non-empty `command` and `result`. Every P0-P3 finding contains non-empty `id`, `title`, `location`, `reproduction`, `impact`, and `required_fix`; P3 also contains non-empty `disposition`. `residual_risks` may be empty, but every present member is a non-empty string.
 
+`reviewer_agent_id` has no leading or trailing whitespace, is not any case variant of `controller`, and for `multi_agent_v1` is a UUID. `orchestrator_receipt.agent_id` exactly matches it.
+
 GitHub's review `commit_id` and `reviewed_head` must both equal the live PR head.
 
 ## Invalidating Events
@@ -91,6 +93,7 @@ The marker must be the first non-whitespace content in the complete review body.
 - A missing, changed, stale, malformed, or blocking generation publishes failure.
 - The control-plane audit verifies strict branch protection, admin enforcement, conversation resolution, force-push/deletion denial, required contexts, publisher app id, and the current-head status creator.
 - The merged workflow must not include a write-capable `pull_request` trigger; publication runs from default-branch-controlled `pull_request_target`, `pull_request_review`, or `workflow_dispatch` only.
+- GitHub Actions app binding does not prove which workflow published a context. Under KI-CX-STATUS-001, the status is defense in depth and supervised merge additionally verifies the exact expected run, current-head review, live audit, and user approval.
 
 ## Provenance Limitation
 

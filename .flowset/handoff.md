@@ -50,6 +50,8 @@ The next clean reviewer found that the PR #58-only write-capable `pull_request` 
 
 Agent `019f4cc5-6f2e-7bd3-bd06-5a5ddcff4a31` returned FAIL on head `e56c5b642dc8191c7a959fed201cc18b85048ca2` in GitHub review `4673105127`. Null evidence members and a disposition-only P3 could pass the evidence-shape check, and the issue-governance label taxonomy omitted the independent-pass label. The next candidate validates every evidence/finding member and synchronizes the policy taxonomy.
 
+Agent `019f4cd0-8a3d-7663-8baa-1f3ddb12a84d` returned FAIL on head `3fd65a17af0b38617584ba58f9159e1429aac5db` in GitHub review `4673210128`. It found whitespace-only reviewer ids and proved that shared GitHub Actions app binding is not one-workflow identity. Reviewer ids are now canonicalized and UUID-checked for `multi_agent_v1`. KI-CX-STATUS-001 / Issue #60 records the GitHub Free workflow-identity limit and blocks unattended/generalized merge and release-boundary authority; supervised PR #58 still requires fixed-run evidence, exact-head review, live audit, and user approval.
+
 KI-CX-REVIEW-001 / Issue #59 records that the current execution surface provides no signed multi-agent identity receipt. Controller-attested receipts can support supervised work with actual clean-agent execution, live receipt inspection, current-head evidence, and active user approval, but they do not authorize unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, or OSS submission.
 
 The repository-backed read-only model smoke was rejected before execution and again after the user explicitly approved the stated transmission risk. Codex did not bypass the policy. KI-CX-PROVIDER-001 now owns that external-provider trust boundary and blocks dogfood continuation, generalized unattended model workers, and runner reactivation.
@@ -126,6 +128,7 @@ Release publication, deployment, package publication, and OSS program submission
 - KI-CX-CONTROL-001 / Issue #56 is repaid and closed after PR #57 closeout and two-pass post-merge audit evidence.
 - Independent E2+E3 review is a current-head merge gate for every non-trivial R1/R2/R3 WI.
 - KI-CX-REVIEW-001 / Issue #59 blocks unattended/generalized automated merge and release-boundary use until reviewer provenance is machine-verifiable.
+- KI-CX-STATUS-001 / Issue #60 blocks the same authority until required checks can identify one trusted workflow or a dedicated publisher.
 - Strict TypeScript source conversion remains DQ-DEBT; the strictness probe records debt only.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 

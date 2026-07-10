@@ -117,7 +117,7 @@ Repository-wide non-trivial WI default:
 - R0 may use S0 or S1 only when it does not change policy, workflow, public behavior, validation, context, or external state.
 - PASS with no unresolved P0/P1/P2 finding is required before `pr:approved-merge`.
 - The required `independent-review` status and live audit must pass; labels alone do not satisfy S2.
-- The required status publisher must be GitHub Actions app-bound, PR-serialized, pending-before-audit, and stable across two live reads of the same review generation.
+- The required status publisher is GitHub Actions app-bound, PR-serialized, pending-before-audit, and stable across two live reads. This is defense in depth; KI-CX-STATUS-001 records that GitHub Free cannot bind the context to one workflow identity.
 
 Foundation policy:
 

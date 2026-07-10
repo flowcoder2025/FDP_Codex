@@ -109,6 +109,9 @@
       "required_check": "independent-review",
       "status_publisher": "scripts/publish-independent-review-status.mjs",
       "status_publisher_app_id": 15368,
+      "status_role": "defense-in-depth",
+      "workflow_identity_enforcement": "unavailable-github-free",
+      "workflow_identity_issue": 60,
       "status_publication": "pending-then-stable-double-read",
       "status_concurrency": "per-pr-cancel-in-progress",
       "branch_protection": "required-github-actions-app-bound",
@@ -340,6 +343,18 @@
       "status": "open",
       "github_issue_number": 59,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/59"
+    },
+    {
+      "id": "KI-CX-STATUS-001",
+      "severity": "High",
+      "owner": "H1 / GitHub plan or dedicated publisher",
+      "trigger": "GitHub Free can bind independent-review to the shared Actions app but cannot bind the context to one trusted workflow file or event",
+      "defer_reason": "supervised merge still requires fixed-run evidence, exact-head independent review, live audit, and active user approval without claiming unattended enforcement",
+      "repayment_condition": "enable an organization or enterprise required-workflow ruleset or install a dedicated authenticated publisher identity unavailable to candidate workflows",
+      "hard_stop": "before unattended or generalized automated merge, A2/A3 authority expansion, release candidate, public release, or OSS submission",
+      "status": "open",
+      "github_issue_number": 60,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/60"
     }
   ],
   "context_selection": {

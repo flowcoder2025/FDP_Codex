@@ -38,11 +38,13 @@ Required PR labels are:
 
 `pr:approved-merge` is applied only after the independent review audit passes.
 
-The `independent-review` commit status is a required `main` branch protection check bound to GitHub Actions app id `15368`. The trusted default-branch workflow audits the live review and publishes that status against the PR head; the control-plane audit independently reruns the same evidence check and verifies the branch-protection publisher binding rather than trusting labels alone.
+The `independent-review` commit status is a required `main` branch protection check bound to GitHub Actions app id `15368`. It is defense in depth rather than proof of one workflow identity. The default-branch workflow audits the live review and publishes that status; the supervised control-plane audit independently reruns the evidence check and verifies expected run evidence rather than trusting labels or status alone.
 
 Status publication is fail-closed and monotonic within the supervised boundary. The workflow cancels superseded runs for the same PR. Its publisher sets `pending`, reads the live audit twice, and publishes success only when both reads identify the same passing head and review id. A changed or failing generation publishes failure.
 
 The merged workflow does not accept a write-capable `pull_request` event. Status publication is controlled by workflow code on the default branch through `pull_request_target`, `pull_request_review`, or `workflow_dispatch`.
+
+GitHub Free branch protection cannot distinguish which workflow file or event used the shared GitHub Actions app, and organization required-workflow rules are unavailable on the current plan. KI-CX-STATUS-001 / Issue #60 records this boundary. It blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until a workflow-bound ruleset or dedicated publisher identity exists.
 
 ## Provenance Boundary
 
