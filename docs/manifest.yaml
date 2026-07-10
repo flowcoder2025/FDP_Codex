@@ -1667,6 +1667,21 @@ chunks:
       - validation
       - wi-start
     body_carryover: forbidden
+  - id: record.validation-wi-cx0056-test
+    title: WI-CX0056-test Validation Record
+    source: docs/records/validation-wi-cx0056-test.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - session-boundary
+      - fresh-run-continuation
+      - target-project-generation
+      - validation
+      - wi-start
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs

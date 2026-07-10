@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof: in a new clean target session, rebuild context from `C:\dev\FDP_Codex_Dogfood` SSOT, continue as WI-FCD0002-test, and repay `VD-FCD0001` before claiming the dogfood workflow is validated.
+- [ ] WI-CX0057-docs Ephemeral Worker Controller Boundary Contract: formalize one visible control task plus ephemeral CLI workers, with controller-owned branch and commit operations and worker-owned reconstruction, editing, and validation, before runner reactivation.
 
 ## Triggered Work
 
@@ -26,8 +26,16 @@ Discipline:
 
 ## Next Candidates
 
+- WI-CX0058-fix Context Pack Selection Breadth Guard: tighten token matching or add a deterministic breadth guard after WI-CX0056 selected 123 metadata chunks for a broad validation intent.
 - WI-CX0042-test Automation Runner S2 Review Execution: start only after a separate Codex thread, separate reviewer, or human reviewer is available to execute `docs/records/automation-runner-s2-review-packet-2026-07-08.md`.
 - WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision: start only after the user chooses from `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`.
+
+## Known Issue Debt
+
+| Item | Severity | Owner | Trigger | Defer reason | Repayment condition | Hard stop | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership. | Medium | CODEX | Default `workspace-write` worker cannot create a branch because `.git` is read-only. | The controller safely owns branch creation and commit after independent validation. | WI-CX0057-docs defines and validator-backs the controller/worker boundary. | Before runner reactivation or full worker Git-lifecycle claims. | open |
+| KI-CX-CONTEXT-001 Context-pack selection breadth. | Medium | CODEX | Broad WI-CX0056 intent selected and appended 123 metadata chunks. | No chunk bodies were stored or carried; only directly relevant selected sources were loaded. | WI-CX0058-fix adds a deterministic breadth guard or more precise matching. | Before generalized automated WI cadence or efficiency claims. | open |
 
 ## Decision Needed Queue
 

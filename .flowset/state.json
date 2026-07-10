@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T04:32:44Z",
+  "updated_at": "2026-07-10T07:10:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -11,32 +11,33 @@
     "docs/records/validation-wi-cx0052-test.md",
     "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md",
     "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
-    "docs/records/validation-wi-cx0055-feat.md"
+    "docs/records/validation-wi-cx0055-feat.md",
+    "docs/records/validation-wi-cx0056-test.md"
   ],
   "current_wi": {
-    "id": "WI-CX0055-feat",
-    "category": "feat",
-    "title": "First Layer 2 Dogfood Scaffold Generation",
+    "id": "WI-CX0056-test",
+    "category": "test",
+    "title": "Layer 2 Fresh-Context Handoff Continuation Proof",
     "status": "validated",
-    "branch": "wi/cx0055-feat-first-layer-2-dogfood-scaffold",
-    "validation_record": "docs/records/validation-wi-cx0055-feat.md"
+    "branch": "wi/cx0056-test-layer-2-fresh-context-handoff-continuation-proof",
+    "validation_record": "docs/records/validation-wi-cx0056-test.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0056-test",
-    "item": "Layer 2 Fresh-Context Handoff Continuation Proof",
+    "wi_id": "WI-CX0057-docs",
+    "item": "Ephemeral Worker Controller Boundary Contract",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "VAL",
+      "WTC": "AUTO",
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "fresh target session evidence",
-      "claiming the dogfood workflow is validated"
+      "runner reactivation",
+      "claiming an ephemeral worker owns the complete WI Git lifecycle"
     ]
   },
   "control_plane": {
@@ -67,6 +68,28 @@
       "trigger": "new FDP_Codex runner thread, branch, PR, or recorded output for fdp-codex-a2-worktree-wi-runner"
     }
   ],
+  "known_issues": [
+    {
+      "id": "KI-CX-DOGFOOD-001",
+      "severity": "Medium",
+      "owner": "CODEX",
+      "trigger": "default workspace-write ephemeral worker cannot write target Git metadata",
+      "defer_reason": "controller safely owns branch creation and commit after independent validation",
+      "repayment_condition": "WI-CX0057-docs validator-backs the controller and worker ownership boundary",
+      "hard_stop": "before runner reactivation or complete worker Git-lifecycle claims",
+      "status": "open"
+    },
+    {
+      "id": "KI-CX-CONTEXT-001",
+      "severity": "Medium",
+      "owner": "CODEX",
+      "trigger": "WI-CX0056 broad intent selected and appended 123 metadata chunks",
+      "defer_reason": "no chunk bodies were stored or carried and only directly relevant selected sources were loaded",
+      "repayment_condition": "WI-CX0058-fix adds a deterministic breadth guard or more precise matching",
+      "hard_stop": "before generalized automated WI cadence or efficiency claims",
+      "status": "open"
+    }
+  ],
   "hard_stops": [
     "release_publication",
     "deployment",
@@ -89,13 +112,27 @@
     "scope_code_status": "accepted",
     "scope_code_decision_ref": "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
     "wi_pattern": "WI-FCDNNNN-category",
-    "scaffold_status": "generated-validated-local",
-    "current_wi": "WI-FCD0001-docs",
-    "next_wi": "WI-FCD0002-test",
+    "scaffold_status": "fresh-context-validated-local",
+    "current_wi": "WI-FCD0002-test",
+    "next_wi": null,
     "verification_debt": "VD-FCD0001",
+    "verification_debt_status": "repaid",
+    "verification_debt_evidence": "target:FCD:docs/records/validation-wi-fcd0002-test.md",
     "git_repository": true,
-    "git_head": "09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9",
+    "git_branch": "WI-FCD0002-test",
+    "git_head": "a2702ab4fd370f37af1e804cb6b7e4977ea98f6a",
     "remote_configured": false,
-    "validation_command": "npm.cmd run validate"
+    "validation_command": "npm.cmd run validate",
+    "wi_validation_command": "npm.cmd run validate:wi-fcd0002",
+    "fresh_context_proof": {
+      "execution_surface": "codex-cli-ephemeral",
+      "bootstrap_commit": "09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9",
+      "minimal_prompt_session_id": "019f4ad7-d478-7ae1-809c-19c19d20780b",
+      "continuation_session_id": "019f4acb-3066-7c12-b39e-ce3b2e371294",
+      "controller_precreated_branch": true,
+      "controller_created_commit": true,
+      "previous_conversation_bodies_carried": false,
+      "target_commit": "a2702ab4fd370f37af1e804cb6b7e4977ea98f6a"
+    }
   }
 }
