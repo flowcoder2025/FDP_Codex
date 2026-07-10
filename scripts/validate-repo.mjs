@@ -70,6 +70,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-portfolio-guardrail-validator-baseline.md',
   'docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md',
   'docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md',
+  'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -94,6 +95,7 @@ const requiredFiles = [
   'scripts/validate-layer2-scaffold.mjs',
   'docs/records/validation-wi-cx0055-feat.md',
   'docs/records/validation-wi-cx0056-test.md',
+  'docs/records/validation-wi-cx0057-docs.md',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -805,7 +807,8 @@ function validateFlowStateReadableSnapshotContract() {
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')));
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')));
   checks.flow_state_snapshot_record = record.includes('WI: WI-CX0039-docs')
     && record.includes('Machine-readable flow-state snapshot exists and is validator-backed')
     && record.includes('No Layer 2 project scope code rule was chosen')
@@ -1126,7 +1129,8 @@ function validatePortfolioGuardrailValidatorBaseline() {
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')))
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no');
   checks.portfolio_guardrail_manifest = manifest.includes('id: decision.portfolio-guardrail-validator-baseline')
     && manifest.includes(decisionPath)
@@ -1203,7 +1207,8 @@ function validateAutonomousWorkExhaustionStopGate() {
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')))
     && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
@@ -1831,7 +1836,8 @@ function validateLayer2KnowledgeScaffoldContract() {
     && spec.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
   checks.layer2_scaffold_knowledge_link = knowledge.includes('docs/specifications/layer-2-knowledge-scaffold.md')
@@ -2109,7 +2115,8 @@ function validateLayer2ScopeCodeOptionsPacket() {
       || (fixPlan.includes('docs/decisions/2026-07-10-layer-2-scope-code-accepted.md')
         && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'))));
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))));
   checks.layer2_scope_code_manifest = manifest.includes('record.layer-2-scope-code-options')
     && manifest.includes('docs/records/layer-2-scope-code-options-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0034-docs')
@@ -2181,7 +2188,8 @@ function validateLayer2ChunkIdScopePolicy() {
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')));
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')));
   checks.layer2_chunk_id_manifest = manifest.includes('decision.layer-2-chunk-id-scope-policy')
     && manifest.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
     && manifest.includes('record.validation-wi-cx0036-docs')
@@ -2247,7 +2255,8 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && fixPlan.includes('docs/decisions/2026-07-10-layer-2-scope-code-accepted.md')
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'));
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'));
   checks.layer2_scope_handback_manifest = manifest.includes('record.layer-2-scope-code-decision-handback')
     && manifest.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0037-docs')
@@ -2322,7 +2331,7 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && handback.includes('Status: resolved-by-WI-CX0038')
     && handback.includes('Resolution: the user selected Option A with code `FCD`');
   checks.layer2_scope_accepted_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && ['WI-CX0055-feat', 'WI-CX0056-test', 'WI-CX0057-docs'].includes(state.current_priority?.wi_id)
+    && ['WI-CX0055-feat', 'WI-CX0056-test', 'WI-CX0057-docs', 'WI-CX0058-fix'].includes(state.current_priority?.wi_id)
     && state.layer2_target?.project_id === 'fdp-codex-dogfood'
     && state.layer2_target?.root === targetRoot
     && state.layer2_target?.project_scope_code === 'FCD'
@@ -2334,7 +2343,8 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && currentWi.includes('Status: validated')
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && handoff.includes('WI-CX0038-docs is merged through PR #39')
     && handoff.includes('C:\\dev\\FDP_Codex_Dogfood');
@@ -2925,11 +2935,13 @@ function validateA2WorktreeIsolationRepairValidation() {
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
       || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.wi_id === 'WI-CX0057-docs'
+      || state.current_priority?.wi_id === 'WI-CX0058-fix'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
       || fixPlan.includes('Waiting for user decision: choose the Layer 2 project scope code rule'))
     && handoff.includes('A2 worktree isolation repair is repaid by WI-CX0052-test')
     && (handoff.includes('A, use <CODE>') || handoff.includes('code is `FCD`'));
@@ -2987,11 +2999,13 @@ function validateStrategicGoalSteeringContract() {
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
       || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.wi_id === 'WI-CX0057-docs'
+      || state.current_priority?.wi_id === 'WI-CX0058-fix'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
-      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract'))
+      || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
       || fixPlan.includes('Layer 2 project scope code rule'))
     && handoff.includes('WI-CX0052-test')
     && handoff.includes('WI-CX0053-docs: Strategic Goal Steering Contract');
@@ -3107,12 +3121,12 @@ function validateLayer2ScaffoldGenerator() {
     && docsIndex.includes(scaffoldValidatorPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.layer2_generator_flow = currentWi.includes('WI id: WI-CX0056-test')
+  checks.layer2_generator_flow = currentWi.includes('WI id: WI-CX0057-docs')
     && currentWi.includes('Status: validated')
-    && fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+    && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
     && handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`')
-    && state.current_wi?.id === 'WI-CX0056-test'
-    && state.current_priority?.wi_id === 'WI-CX0057-docs'
+    && state.current_wi?.id === 'WI-CX0057-docs'
+    && state.current_priority?.wi_id === 'WI-CX0058-fix'
     && state.layer2_target?.scaffold_status === 'fresh-context-validated-local'
     && state.layer2_target?.git_head === 'a2702ab4fd370f37af1e804cb6b7e4977ea98f6a'
     && state.layer2_target?.remote_configured === false
@@ -3139,7 +3153,7 @@ function validateLayer2ScaffoldGenerator() {
   if (!checks.layer2_generator_command_surface) error('layer2_generator.command_surface_missing', 'Package and specification must expose the Layer 2 generator and validator commands.');
   if (!checks.layer2_generator_smoke) error('layer2_generator.smoke_failed', 'Generic Layer 2 scaffold generation, validation, or overwrite refusal failed.', smokeError);
   if (!checks.layer2_generator_registration) error('layer2_generator.registration_missing', 'Manifest and indexes must register WI-CX0055 tools and evidence.');
-  if (!checks.layer2_generator_flow) error('layer2_generator.flow_missing', 'Flow state must record the validated FCD target and advance to WI-CX0056.');
+  if (!checks.layer2_generator_flow) error('layer2_generator.flow_missing', 'Flow state must preserve the validated FCD target through the current WI transition.');
   if (!checks.layer2_generator_record) error('layer2_generator.record_missing', 'WI-CX0055 record must capture context, source, target commit, strategy, and fresh-context debt.');
   if (!checks.layer2_generator_boundary) error('layer2_generator.boundary_missing', 'WI-CX0055 must preserve runner, publication, dependency, and external-contract boundaries.');
 }
@@ -3171,13 +3185,12 @@ function validateLayer2FreshContextContinuation() {
   const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
   const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-001');
   const contextKi = knownIssues.find((item) => item.id === 'KI-CX-CONTEXT-001');
-  const completeKi = (item) => item?.severity === 'Medium'
+  const completeKiFields = (item) => item?.severity === 'Medium'
     && item.owner === 'CODEX'
     && Boolean(item.trigger)
     && Boolean(item.defer_reason)
     && Boolean(item.repayment_condition)
-    && Boolean(item.hard_stop)
-    && item.status === 'open';
+    && Boolean(item.hard_stop);
 
   checks.layer2_fresh_context_registration = manifest.includes('id: record.validation-wi-cx0056-test')
     && manifest.includes(recordPath)
@@ -3199,15 +3212,14 @@ function validateLayer2FreshContextContinuation() {
     && record.includes('VD-FCD0001 is repaid')
     && record.includes('controller pre-created the target branch')
     && record.includes('does not support a claim that the worker can own the full Git lifecycle');
-  checks.layer2_fresh_context_flow = currentWi.includes('WI id: WI-CX0056-test')
+  checks.layer2_fresh_context_flow = currentWi.includes('WI id: WI-CX0057-docs')
     && currentWi.includes('Status: validated')
-    && fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
     && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
     && handoff.includes('WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof')
     && handoff.includes('Fresh-context continuation is proven')
-    && handoff.includes('WI-CX0057-docs')
-    && state.current_wi?.id === 'WI-CX0056-test'
-    && state.current_priority?.wi_id === 'WI-CX0057-docs';
+    && handoff.includes('WI-CX0057-docs: Ephemeral Worker Controller Boundary Contract')
+    && state.current_wi?.id === 'WI-CX0057-docs'
+    && state.current_priority?.wi_id === 'WI-CX0058-fix';
   checks.layer2_fresh_context_state = target.project_id === 'fdp-codex-dogfood'
     && target.root === approvedTargetRoot
     && target.project_scope_code === 'FCD'
@@ -3228,9 +3240,14 @@ function validateLayer2FreshContextContinuation() {
     && proof.controller_created_commit === true
     && proof.previous_conversation_bodies_carried === false
     && proof.target_commit === target.git_head;
-  checks.layer2_fresh_context_known_issues = completeKi(dogfoodKi)
-    && completeKi(contextKi)
-    && fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
+  checks.layer2_fresh_context_known_issues = completeKiFields(dogfoodKi)
+    && dogfoodKi.status === 'repaid'
+    && dogfoodKi.repaid_by === 'WI-CX0057-docs'
+    && dogfoodKi.decision_ref === 'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md'
+    && dogfoodKi.evidence === 'docs/records/validation-wi-cx0057-docs.md'
+    && completeKiFields(contextKi)
+    && contextKi.status === 'open'
+    && !fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
     && fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
     && record.includes('## Known Issues')
     && record.includes('Hard stop: before reactivating the runner')
@@ -3286,13 +3303,158 @@ function validateLayer2FreshContextContinuation() {
   if (!checks.layer2_fresh_context_registration) error('layer2_fresh_context.registration_missing', 'Manifest and indexes must register WI-CX0056 qualified evidence.');
   if (!checks.layer2_fresh_context_ledger) error('layer2_fresh_context.ledger_missing', 'WI-CX0056 must preserve its 123-entry metadata-only Layer 1 context selection evidence.');
   if (!checks.layer2_fresh_context_record) error('layer2_fresh_context.record_missing', 'WI-CX0056 must record minimal-prompt reconstruction, real continuation, controller boundary, debt repayment, and target commit evidence.');
-  if (!checks.layer2_fresh_context_flow) error('layer2_fresh_context.flow_missing', 'Flow state must validate WI-CX0056 and advance to the controller-boundary contract.');
+  if (!checks.layer2_fresh_context_flow) error('layer2_fresh_context.flow_missing', 'Flow state must preserve WI-CX0056 proof and advance through the controller-boundary contract.');
   if (!checks.layer2_fresh_context_state) error('layer2_fresh_context.state_missing', 'Layer 1 state must expose qualified FCD continuation evidence without target bodies.');
-  if (!checks.layer2_fresh_context_known_issues) error('layer2_fresh_context.known_issues_missing', 'Dogfood Git ownership and context breadth findings must retain full Medium KI repayment fields.');
+  if (!checks.layer2_fresh_context_known_issues) error('layer2_fresh_context.known_issues_missing', 'Dogfood Git ownership must be repaid by WI-CX0057 while context breadth remains an open Medium KI.');
   if (!checks.layer2_fresh_context_separation) error('layer2_fresh_context.separation_missing', 'Layer 1 must import only qualified target metadata and evidence pointers.');
   if (!checks.layer2_fresh_context_boundary) error('layer2_fresh_context.boundary_missing', 'WI-CX0056 must preserve target remote, runner, publication, dependency, and external-contract hard stops.');
   if (!checks.layer2_fresh_context_local_target) error('layer2_fresh_context.local_target_mismatch', 'When the local FCD target exists, its branch, head, clean state, remote boundary, evidence, and validation must match Layer 1 state.', localTargetError ?? localTargetStatus);
 }
+
+function validateEphemeralWorkerControllerBoundary() {
+  const decisionPath = 'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md';
+  const recordPath = 'docs/records/validation-wi-cx0057-docs.md';
+  const decision = read(decisionPath);
+  const record = read(recordPath);
+  const autonomy = read('docs/policies/autonomy-and-approval.md');
+  const gitPolicy = read('docs/policies/git-workflow.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const ledgerEntries = read('.flowset/context-ledger.jsonl')
+    .split('\n')
+    .filter(Boolean)
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line)];
+      } catch {
+        return [];
+      }
+    });
+  const wiContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0057-docs'
+    && entry.timestamp === '2026-07-10T07:35:24.654Z');
+  const topology = state.control_plane?.worker_topology ?? {};
+  const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
+  const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-001');
+  const contextKi = knownIssues.find((item) => item.id === 'KI-CX-CONTEXT-001');
+  const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
+  let liveRunnerStatus = 'not-present';
+  if (existsSync(runnerConfigPath)) {
+    const runnerConfig = readFileSync(runnerConfigPath, 'utf8');
+    liveRunnerStatus = /^status\s*=\s*"PAUSED"\s*$/m.test(runnerConfig) ? 'paused' : 'not-paused';
+  }
+
+  checks.ephemeral_worker_registration = manifest.includes('id: decision.ephemeral-worker-controller-boundary')
+    && manifest.includes(decisionPath)
+    && manifest.includes('id: record.validation-wi-cx0057-docs')
+    && manifest.includes(recordPath)
+    && docsIndex.includes(decisionPath)
+    && docsIndex.includes(recordPath)
+    && decisionsReadme.includes(decisionPath)
+    && recordsReadme.includes(recordPath);
+  checks.ephemeral_worker_ledger = wiContextPackEntries.length === 120
+    && wiContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
+    && wiContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
+    && wiContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
+    && record.includes('120 metadata-only ledger entries')
+    && record.includes('contains_chunk_bodies: false')
+    && record.includes('general `handoff` token')
+    && record.includes('KI-CX-CONTEXT-001 and WI-CX0058-fix');
+  checks.ephemeral_worker_policy = autonomy.includes('### Controller And Ephemeral Worker Split')
+    && autonomy.includes('one visible control task')
+    && autonomy.includes('codex exec --ephemeral')
+    && autonomy.includes('The controller owns branch creation and commit')
+    && autonomy.includes('The worker owns repository reconstruction, worktree edits, and validation')
+    && autonomy.includes('must not create user-owned Codex app tasks')
+    && autonomy.includes('must not use `danger-full-access` solely to write Git metadata')
+    && autonomy.includes('A2 runner remains paused');
+  checks.ephemeral_worker_git_policy = gitPolicy.includes('## Controller-Owned Git Boundary For Ephemeral Workers')
+    && gitPolicy.includes('controller owns branch creation, staged review, commit, push, PR, and merge')
+    && gitPolicy.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && gitPolicy.includes('Do not grant `danger-full-access` solely')
+    && gitPolicy.includes('not an exception that permits implementation on `main`');
+  checks.ephemeral_worker_decision = decision.includes('Status: accepted-v0')
+    && decision.includes('one visible control task plus ephemeral CLI workers')
+    && decision.includes('codex exec --ephemeral')
+    && decision.includes('without creating a user-owned Codex app task')
+    && decision.includes('controller owns branch creation and commit')
+    && decision.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && decision.includes('must not use `danger-full-access` solely to write Git metadata')
+    && decision.includes('without persistent app task fan-out')
+    && decision.includes('repays KI-CX-DOGFOOD-001');
+  checks.ephemeral_worker_record = record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0057-docs-20260710073524')
+    && record.includes('019f4ad7-d478-7ae1-809c-19c19d20780b')
+    && record.includes('019f4acb-3066-7c12-b39e-ce3b2e371294')
+    && record.includes('a2702ab4fd370f37af1e804cb6b7e4977ea98f6a')
+    && record.includes('status = "PAUSED"')
+    && record.includes('PSC: P1')
+    && record.includes('WTC: AUTO')
+    && record.includes('Risk: R2')
+    && record.includes('ESC: E1+E3+E5+E6')
+    && record.includes('Primary evaluator stance')
+    && record.includes('Validator stance')
+    && record.includes('node --check scripts/validate-repo.mjs')
+    && record.includes('npm.cmd run validate')
+    && record.includes('ephemeral_worker_live_runner_status: paused')
+    && record.includes('npm.cmd run ci:check')
+    && record.includes('git diff --check');
+  checks.ephemeral_worker_flow = currentWi.includes('WI id: WI-CX0057-docs')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0057-docs-ephemeral-worker-controller-boundary')
+    && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+    && !fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
+    && handoff.includes('Current WI: WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+    && handoff.includes('KI-CX-DOGFOOD-001 is repaid')
+    && state.current_wi?.id === 'WI-CX0057-docs'
+    && state.current_priority?.wi_id === 'WI-CX0058-fix';
+  checks.ephemeral_worker_topology = topology.mode === 'single-visible-controller-ephemeral-workers'
+    && topology.controller_task_count === 1
+    && topology.worker_surface === 'codex-cli-ephemeral'
+    && topology.worker_sandbox === 'workspace-write'
+    && JSON.stringify(topology.controller_git_ownership) === JSON.stringify(['branch', 'stage', 'commit', 'push', 'pr', 'merge'])
+    && JSON.stringify(topology.worker_ownership) === JSON.stringify(['reconstruct', 'edit', 'validate'])
+    && topology.app_task_fanout === 'forbidden'
+    && topology.decision_ref === decisionPath;
+  checks.ephemeral_worker_known_issues = dogfoodKi?.status === 'repaid'
+    && dogfoodKi.repaid_by === 'WI-CX0057-docs'
+    && dogfoodKi.decision_ref === decisionPath
+    && dogfoodKi.evidence === recordPath
+    && contextKi?.status === 'open'
+    && contextKi.repayment_condition.includes('WI-CX0058-fix')
+    && contextKi.trigger.includes('123 metadata chunks')
+    && contextKi.trigger.includes('120');
+  checks.ephemeral_worker_boundary = state.control_plane?.automation?.status === 'PAUSED'
+    && state.layer2_target?.remote_configured === false
+    && decision.includes('does not reactivate it, change its prompt or schedule')
+    && record.includes('No target remote, target push, or target PR occurred')
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('A3 publication behavior')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('first Layer 2 scaffold generation')
+    && record.includes('No destructive filesystem or git operation occurred');
+  checks.ephemeral_worker_live_runner_status = liveRunnerStatus;
+  checks.ephemeral_worker_live_runner = ['not-present', 'paused'].includes(liveRunnerStatus);
+
+  if (!checks.ephemeral_worker_registration) error('ephemeral_worker.registration_missing', 'Manifest and indexes must register the WI-CX0057 decision and evidence.');
+  if (!checks.ephemeral_worker_ledger) error('ephemeral_worker.ledger_missing', 'WI-CX0057 must preserve its 120-entry metadata-only selection and context-breadth evidence.');
+  if (!checks.ephemeral_worker_policy) error('ephemeral_worker.policy_missing', 'Autonomy policy must define one controller, ephemeral workers, role ownership, sandbox limits, and runner pause.');
+  if (!checks.ephemeral_worker_git_policy) error('ephemeral_worker.git_policy_missing', 'Git policy must keep branch-first execution and controller-owned Git operations.');
+  if (!checks.ephemeral_worker_decision) error('ephemeral_worker.decision_missing', 'Decision must define the accepted controller and ephemeral worker topology.');
+  if (!checks.ephemeral_worker_record) error('ephemeral_worker.record_missing', 'WI-CX0057 evidence must record context, dogfood inputs, strategy, and runner state.');
+  if (!checks.ephemeral_worker_flow) error('ephemeral_worker.flow_missing', 'Flow state must validate WI-CX0057 and advance to WI-CX0058.');
+  if (!checks.ephemeral_worker_topology) error('ephemeral_worker.topology_missing', 'Machine-readable state must expose controller, worker, sandbox, Git, and app task boundaries.');
+  if (!checks.ephemeral_worker_known_issues) error('ephemeral_worker.known_issues_missing', 'KI-CX-DOGFOOD-001 must be repaid while KI-CX-CONTEXT-001 remains open for WI-CX0058.');
+  if (!checks.ephemeral_worker_boundary) error('ephemeral_worker.boundary_missing', 'WI-CX0057 must retain runner, target remote, publication, authority, dependency, API, and destructive-operation hard stops.');
+  if (!checks.ephemeral_worker_live_runner) error('ephemeral_worker.runner_not_paused', 'When the local runner config exists, it must remain PAUSED.', liveRunnerStatus);
+}
+
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -3353,6 +3515,7 @@ validateA2WorktreeIsolationRepairValidation();
 validateStrategicGoalSteeringContract();
 validateLayer2ScaffoldGenerator();
 validateLayer2FreshContextContinuation();
+validateEphemeralWorkerControllerBoundary();
 validatePackage();
 
 const result = {

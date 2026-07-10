@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T07:10:00Z",
+  "updated_at": "2026-07-10T07:45:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -12,32 +12,34 @@
     "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md",
     "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
     "docs/records/validation-wi-cx0055-feat.md",
-    "docs/records/validation-wi-cx0056-test.md"
+    "docs/records/validation-wi-cx0056-test.md",
+    "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
+    "docs/records/validation-wi-cx0057-docs.md"
   ],
   "current_wi": {
-    "id": "WI-CX0056-test",
-    "category": "test",
-    "title": "Layer 2 Fresh-Context Handoff Continuation Proof",
+    "id": "WI-CX0057-docs",
+    "category": "docs",
+    "title": "Ephemeral Worker Controller Boundary Contract",
     "status": "validated",
-    "branch": "wi/cx0056-test-layer-2-fresh-context-handoff-continuation-proof",
-    "validation_record": "docs/records/validation-wi-cx0056-test.md"
+    "branch": "wi/cx0057-docs-ephemeral-worker-controller-boundary",
+    "validation_record": "docs/records/validation-wi-cx0057-docs.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0057-docs",
-    "item": "Ephemeral Worker Controller Boundary Contract",
+    "wi_id": "WI-CX0058-fix",
+    "item": "Context Pack Selection Breadth Guard",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "AUTO",
+      "WTC": "VAL",
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "runner reactivation",
-      "claiming an ephemeral worker owns the complete WI Git lifecycle"
+      "generalized automated WI cadence claims",
+      "context-pack efficiency claims"
     ]
   },
   "control_plane": {
@@ -58,6 +60,16 @@
     "automation": {
       "id": "fdp-codex-a2-worktree-wi-runner",
       "status": "PAUSED"
+    },
+    "worker_topology": {
+      "mode": "single-visible-controller-ephemeral-workers",
+      "controller_task_count": 1,
+      "worker_surface": "codex-cli-ephemeral",
+      "worker_sandbox": "workspace-write",
+      "controller_git_ownership": ["branch", "stage", "commit", "push", "pr", "merge"],
+      "worker_ownership": ["reconstruct", "edit", "validate"],
+      "app_task_fanout": "forbidden",
+      "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md"
     }
   },
   "triggered_work": [
@@ -76,14 +88,17 @@
       "trigger": "default workspace-write ephemeral worker cannot write target Git metadata",
       "defer_reason": "controller safely owns branch creation and commit after independent validation",
       "repayment_condition": "WI-CX0057-docs validator-backs the controller and worker ownership boundary",
-      "hard_stop": "before runner reactivation or complete worker Git-lifecycle claims",
-      "status": "open"
+      "hard_stop": "runner reactivation still requires separate approval and remaining gates",
+      "status": "repaid",
+      "repaid_by": "WI-CX0057-docs",
+      "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
+      "evidence": "docs/records/validation-wi-cx0057-docs.md"
     },
     {
       "id": "KI-CX-CONTEXT-001",
       "severity": "Medium",
       "owner": "CODEX",
-      "trigger": "WI-CX0056 broad intent selected and appended 123 metadata chunks",
+      "trigger": "WI-CX0056 selected 123 metadata chunks and WI-CX0057 selected 120 after a general handoff token matched historical metadata",
       "defer_reason": "no chunk bodies were stored or carried and only directly relevant selected sources were loaded",
       "repayment_condition": "WI-CX0058-fix adds a deterministic breadth guard or more precise matching",
       "hard_stop": "before generalized automated WI cadence or efficiency claims",
