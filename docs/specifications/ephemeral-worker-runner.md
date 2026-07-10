@@ -55,7 +55,7 @@ The direct child starts with `shell: false` and a hidden window on Windows. The 
 
 Windows obtains process metadata from `Get-CimInstance Win32_Process`. POSIX starts the worker in its own process group and obtains metadata from `ps -eo pid=,ppid=,pgid=,lstart=,comm=`. The process group keeps already observed descendants discoverable after the root exits.
 
-Tracked start time and executable name protect against terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active.
+The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid and, on POSIX, the dedicated process group id before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active.
 
 ## Completion And Cleanup
 

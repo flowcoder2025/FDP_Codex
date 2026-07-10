@@ -124,7 +124,17 @@ function mergeObservedTree(table, rootPid, observed) {
   const byPid = new Map(table.map((entry) => [entry.pid, entry]));
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
-  if (root && (!expectedRoot || sameIdentity(expectedRoot, root))) observed.set(rootPid, root);
+  const matchesSpawnedRoot = root
+    && root.ppid === process.pid
+    && (process.platform === 'win32' || root.pgid === rootPid);
+  const needsInitialIdentity = expectedRoot && expectedRoot.started_at === null;
+  if (root && (
+    !expectedRoot
+    || (needsInitialIdentity && matchesSpawnedRoot)
+    || sameIdentity(expectedRoot, root)
+  )) {
+    observed.set(rootPid, root);
+  }
 
   const parentPids = new Set(observed.keys());
   parentPids.add(rootPid);

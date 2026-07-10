@@ -41,6 +41,8 @@ Add a bounded, observable ephemeral worker supervisor that verifies descendant-p
 - `npm.cmd run worker:run -- --sandbox danger-full-access`: rejected before spawn with `--sandbox must be read-only or workspace-write`.
 - `npm.cmd run typecheck`: passed after implementation and after the local smoke split.
 - `npm.cmd run ci:check`: passed after process-group hardening, KI separation, and the blocked-external WI-CX0060 state update.
+- PR #44 initially passed Node 20 and failed Node 24 because the root process label could differ from the spawned executable name before its start-time identity was recorded. The supervisor now bootstraps the root from the exact spawned pid, supervisor parent pid, and POSIX process group, then tracks the operating-system start time. The fixture changes its root process title so this behavior remains covered.
+- `npm.cmd run worker:test` and `npm.cmd run ci:check`: passed locally after the Node 24 root-identity correction; the PR matrix rerun is the final cross-version gate.
 - Final post-CI process query found no `node.exe` process running `managed-worker-tree.mjs`.
 
 ## Approval-Gated Live Smoke

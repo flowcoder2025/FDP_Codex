@@ -10,6 +10,7 @@ if (mode === 'complete') {
   process.stderr.write('fixture stderr visible\n');
   setTimeout(() => process.exit(0), 50);
 } else if (mode === 'root') {
+  process.title = 'managed-worker-root';
   const child = spawn(process.execPath, [fixturePath, 'child'], {
     stdio: ['ignore', 'inherit', 'inherit'],
     windowsHide: true,
