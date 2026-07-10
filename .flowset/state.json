@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T10:39:59Z",
+  "updated_at": "2026-07-10T10:55:16Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -19,15 +19,16 @@
     "docs/records/validation-wi-cx0058-fix.md",
     "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
     "docs/specifications/ephemeral-worker-runner.md",
-    "docs/records/validation-wi-cx0059-fix.md"
+    "docs/records/validation-wi-cx0059-fix.md",
+    "docs/records/validation-wi-cx0061-fix.md"
   ],
   "current_wi": {
-    "id": "WI-CX0059-fix",
+    "id": "WI-CX0061-fix",
     "category": "fix",
-    "title": "Ephemeral Worker Process Lifecycle Guard",
+    "title": "Worker Descendant Temporal Identity Guard",
     "status": "validated",
-    "branch": "wi/cx0059-fix-ephemeral-worker-process-lifecycle-guard",
-    "validation_record": "docs/records/validation-wi-cx0059-fix.md"
+    "branch": "wi/cx0061-fix-worker-descendant-temporal-identity",
+    "validation_record": "docs/records/validation-wi-cx0061-fix.md"
   },
   "current_priority": {
     "kind": "wi",
@@ -76,7 +77,7 @@
       "worker_ownership": ["reconstruct", "edit", "validate"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "runtime_status": "managed-guard-validated-provider-smoke-policy-blocked",
+      "runtime_status": "managed-guard-temporal-identity-validated-provider-smoke-policy-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
         "observed_process_ids": [61312, 40280, 60288],
@@ -84,7 +85,7 @@
         "repayment_wi": "WI-CX0059-fix"
       },
       "managed_guard": {
-        "status": "validated-provider-smoke-policy-blocked",
+        "status": "validated-temporal-identity-provider-smoke-policy-blocked",
         "supervisor": "scripts/run-ephemeral-worker.mjs",
         "specification": "docs/specifications/ephemeral-worker-runner.md",
         "default_timeout_ms": 120000,
@@ -93,10 +94,17 @@
         "prompt_transport": "stdin",
         "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
         "deterministic_cases": {
-          "normal": "passed",
-          "timeout_descendant_cleanup": "passed",
-          "interruption_descendant_cleanup": "passed",
-          "residual_after_root_exit_cleanup": "passed"
+          "temporal_stale_parent_pid_exclusion": "passed-repeated-5",
+          "normal": "passed-repeated-5",
+          "timeout_descendant_cleanup": "passed-repeated-5",
+          "interruption_descendant_cleanup": "passed-repeated-5",
+          "residual_after_root_exit_cleanup": "passed-repeated-5"
+        },
+        "post_merge_validation": {
+          "trigger_commit": "b905fc6cd0db825dcf91edbaa19688ba2a0d44ec",
+          "initial_result": "intermittent-normal-case-false-residual",
+          "root_cause": "stale-parent-pid-row-started-before-reused-root-pid",
+          "repayment_wi": "WI-CX0061-fix"
         },
         "local_cli_smoke": {
           "command_surface": "codex exec --help",
@@ -159,6 +167,18 @@
       "repaid_by": "WI-CX0059-fix",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
       "evidence": "docs/records/validation-wi-cx0059-fix.md"
+    },
+    {
+      "id": "KI-CX-WORKER-002",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "post-merge normal-case validation intermittently treated stale Windows parent-pid metadata as a live descendant",
+      "defer_reason": "none; the defect was handled before dogfood continuation or runner reactivation",
+      "repayment_condition": "WI-CX0061-fix adds temporal descendant filtering, deterministic stale-row coverage, repeated lifecycle passes, and repository validation",
+      "hard_stop": "before dogfood continuation, generalized unattended worker use, or runner reactivation",
+      "status": "repaid",
+      "repaid_by": "WI-CX0061-fix",
+      "evidence": "docs/records/validation-wi-cx0061-fix.md"
     },
     {
       "id": "KI-CX-PROVIDER-001",

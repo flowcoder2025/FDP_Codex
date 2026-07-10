@@ -1,9 +1,49 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { runManagedProcess } from './lib/managed-process.mjs';
+import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+
+function runTemporalIdentityCase() {
+  const rootPid = 50000;
+  const root = {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: rootPid,
+    name: 'node',
+    started_at: '2026-07-10T10:00:00.000Z',
+  };
+  const observed = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    root,
+    {
+      pid: 50001,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'stale-process',
+      started_at: '2026-07-10T09:00:00.000Z',
+    },
+    {
+      pid: 50002,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'child',
+      started_at: '2026-07-10T10:00:00.100Z',
+    },
+    {
+      pid: 50003,
+      ppid: 50002,
+      pgid: rootPid,
+      name: 'grandchild',
+      started_at: '2026-07-10T10:00:00.200Z',
+    },
+  ], rootPid, observed);
+  assert.equal(observed.has(50001), false);
+  assert.equal(observed.has(50002), true);
+  assert.equal(observed.has(50003), true);
+  return { stale_excluded: true, descendant_count: observed.size - 1 };
+}
 
 async function runNormalCase() {
   const events = [];
@@ -87,6 +127,7 @@ async function runResidualCase() {
   return result;
 }
 
+const temporalIdentity = runTemporalIdentityCase();
 const normal = await runNormalCase();
 const timeout = await runTimeoutCase();
 const interruption = await runInterruptionCase();
@@ -95,6 +136,7 @@ const residual = await runResidualCase();
 console.log(JSON.stringify({
   ok: true,
   cases: {
+    temporal_identity: temporalIdentity,
     normal: {
       status: normal.status,
       stdout_line_count: normal.stdout_line_count,
