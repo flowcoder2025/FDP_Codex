@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation.
+Current WI: WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof.
 
-WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is validated locally. Evidence: `docs/records/validation-wi-cx0055-feat.md`.
+WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is validated locally. Evidence: `docs/records/validation-wi-cx0056-test.md`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
 
@@ -24,7 +24,9 @@ The user selected a separate dogfood target at `C:\dev\FDP_Codex_Dogfood`; WI-CX
 
 Layer 2 chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
-The first Layer 2 scaffold is generated and validated at `C:\dev\FDP_Codex_Dogfood`. It is a separate local Git repository at head `09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9` with no remote. Fresh-context continuation remains unproven debt.
+The first Layer 2 scaffold is generated and validated at `C:\dev\FDP_Codex_Dogfood`. It is a separate local Git repository on branch `WI-FCD0002-test` at head `a2702ab4fd370f37af1e804cb6b7e4977ea98f6a` with no remote. Fresh-context continuation is proven, and target debt `VD-FCD0001` is repaid by qualified evidence `target:FCD:docs/records/validation-wi-fcd0002-test.md`.
+
+The dogfood run supports one visible control task plus ephemeral CLI workers, but the default worker sandbox cannot write Git metadata. KI-CX-DOGFOOD-001 blocks runner reactivation until WI-CX0057-docs formalizes controller-owned branch and commit operations.
 
 Automation runner S2 review packet is available at `docs/records/automation-runner-s2-review-packet-2026-07-08.md`. It prepares S2 but does not satisfy E2 by itself.
 
@@ -42,6 +44,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0054-fix: Runtime Snapshot State Reconciliation. Evidence: `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md` and `docs/records/validation-wi-cx0054-fix.md`. Result: historical snapshot and current WI-CX0052 proof are validator-linked.
 - WI-CX0038-docs: Layer 2 Scope Code Accepted Decision. Evidence: `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` and `docs/records/validation-wi-cx0038-docs.md`. Result: `FCD` is accepted for `fdp-codex-dogfood`.
 - WI-CX0055-feat: First Layer 2 Dogfood Scaffold Generation. Evidence: `docs/records/validation-wi-cx0055-feat.md`. Result: reusable generator and validator pass generic smoke; separate FCD target is locally committed and validated.
+- WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof. Evidence: `docs/records/validation-wi-cx0056-test.md`. Result: a minimal prompt reconstructed the next target WI and debt, the target continued without prior conversation bodies, and VD-FCD0001 is repaid.
 
 ## Orientation SSOT
 
@@ -62,6 +65,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Layer 2 dogfood scope code: `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` and `docs/records/validation-wi-cx0038-docs.md`.
 - Layer 2 generator and validator: `scripts/generate-layer2-scaffold.mjs` and `scripts/validate-layer2-scaffold.mjs`.
 - First scaffold evidence: `docs/records/validation-wi-cx0055-feat.md`.
+- Fresh-context dogfood evidence: `docs/records/validation-wi-cx0056-test.md`.
 - Session orchestration audit: `docs/records/session-orchestration-control-plane-audit-2026-07-08.md`.
 - Layer 2 scaffold contract: `docs/specifications/layer-2-knowledge-scaffold.md`.
 - Layer 2 scope code handback: `docs/records/layer-2-scope-code-decision-handback-2026-07-08.md`.
@@ -77,7 +81,8 @@ Release publication, deployment, package publication, and OSS program submission
 - `.flowset/runtime-snapshot.json` is historical WI-CX0048 evidence; `.flowset/state.json` owns current control-plane status and must link superseding records.
 - Layer 2 target-project facts, WIs, KIs, handoffs, and ledgers remain separate from Layer 1 facts unless explicitly imported by Layer 1 decision.
 - Layer 2 target chunk ids are scoped per target project; cross-manifest references must be qualified.
-- The first FCD scaffold is generated, but `VD-FCD0001` blocks any claim that fresh-context continuation or the full dogfood workflow is validated.
+- Fresh-context continuation is validated and `VD-FCD0001` is repaid, but KI-CX-DOGFOOD-001 blocks runner reactivation and full worker Git-lifecycle claims until WI-CX0057-docs.
+- KI-CX-CONTEXT-001 records the 123-chunk metadata selection observed in WI-CX0056 and blocks generalized automated cadence efficiency claims until WI-CX0058-fix.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
 - Strict TypeScript source conversion remains DQ-DEBT; the strictness probe records debt only.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
@@ -116,15 +121,16 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0055-feat-first-layer-2-dogfood-scaffold`.
+- Active WI branch for this cycle: `wi/cx0056-test-layer-2-fresh-context-handoff-continuation-proof`.
 
 ## Next Action
 
-After explicit Layer 1 publication approval, publish and merge WI-CX0055. Then start WI-CX0056-test as a new clean target session and continue with target WI-FCD0002-test.
+Publish and merge WI-CX0056 inside the approved envelope. Then start WI-CX0057-docs to formalize the single-control-task and ephemeral-worker Git ownership boundary before runner reactivation.
 
 ## Blocked Work
 
-- WI-CX0056-test requires WI-CX0055 to be merged and a new clean session rooted at `C:\dev\FDP_Codex_Dogfood`.
+- KI-CX-DOGFOOD-001 blocks runner reactivation and full worker Git-lifecycle claims until WI-CX0057-docs.
+- KI-CX-CONTEXT-001 blocks generalized automated cadence efficiency claims until WI-CX0058-fix.
 - WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked until a standalone A2 runner thread, branch, PR, or recorded output exists for `fdp-codex-a2-worktree-wi-runner`.
 - Release publication is not approved.
 - Deployment is not approved.
@@ -140,4 +146,4 @@ After explicit Layer 1 publication approval, publish and merge WI-CX0055. Then s
 3. Gather or validate control-plane evidence before claiming a fresh run, handoff receiver, or clean session boundary.
 4. Build a fresh context pack for the next WI.
 5. Run `npm run validate` before declaring repository policy work complete.
-6. Use a new clean target session for WI-CX0056-test. Stop at target remote creation, push, release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive operations unless explicitly approved.
+6. Start WI-CX0057-docs to define controller-owned branch and commit operations for ephemeral workers. Stop at target remote creation, target push, runner reactivation, release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive operations unless explicitly approved.
