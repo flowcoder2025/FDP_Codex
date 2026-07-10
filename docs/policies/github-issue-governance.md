@@ -22,7 +22,7 @@ GitHub Issues are operational records and collaboration queues. They do not over
 
 ## KI to Issue Rule
 
-A KI may start as a local record when the repository is private or during bootstrap.
+A KI may start as a local record only while the repository is private. FDP_Codex is public, so every new KI must have a GitHub Issue before a related public PR merges.
 
 A KI must be represented by a GitHub Issue before any of these boundaries:
 
@@ -33,9 +33,11 @@ A KI must be represented by a GitHub Issue before any of these boundaries:
 - repayment boundary declared in the KI,
 - any Critical KI that cannot be resolved in the next WI.
 
-High KI items should become GitHub Issues unless they are resolved in the same WI that found them.
+High KI items resolved in the same WI may be created and closed in that WI, but the GitHub Issue must exist before merge.
 
-Medium and Low KI items may remain local debt during bootstrap when the defer reason, repayment condition, and hard stop are recorded.
+Medium and Low KI items may remain open debt, but they still require GitHub Issues in the public repository. Local records and `.flowset/state.json` must link the Issue number and expected open or closed state.
+
+Historical backfill must say explicitly that the Issue did not exist at the original merge boundary. Backfilled labels or Issues must not be presented as contemporaneous compliance evidence.
 
 ## Required KI Issue Fields
 
@@ -153,6 +155,8 @@ Valid closing evidence includes:
 - user-approved cancellation rationale.
 
 Do not close a KI issue only because a narrative summary says it is handled.
+
+For same-WI repayment, keep the Issue open through PR validation and merge, then close it with the merged PR, validation record, and post-merge audit evidence.
 
 ## Automation Guardrail
 

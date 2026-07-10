@@ -137,7 +137,7 @@ The controller owns branch creation and commit. It also owns staging, push, PR, 
 
 The default ephemeral worker sandbox is `workspace-write`. FDP_Codex must not use `danger-full-access` solely to write Git metadata. When that sandbox cannot write `.git`, the controller pre-creates the dedicated WI branch, independently reviews the worker diff and validation evidence, reruns the relevant validation, and creates the commit.
 
-This split does not replace the separately verified Codex app worktree automation contract. The A2 runner remains paused until reactivation is separately approved and its remaining cadence, trigger, and review gates are satisfied.
+This split supersedes the retired Codex app worktree cron as the supported direction. The A2 runner was paused when the controller boundary was accepted and is now retired; reactivation or replacement requires a new explicit decision, retention design, and control-plane proof.
 
 ### Ephemeral Worker Process Lifecycle
 
@@ -196,3 +196,9 @@ Codex must provide goal steering, not obedient agreement. If a user-suggested pa
 ## Decision Needed
 
 Live unresolved policy items are tracked only in `.flowset/fix_plan.md` under the Decision Needed Queue.
+
+## Retired Worktree Cron Boundary
+
+The hourly `fdp-codex-a2-worktree-wi-runner` cron is retired. It created persistent user-visible tasks and worktree residue that conflicted with the accepted single-controller plus ephemeral-worker model.
+
+Do not recreate or reactivate a task-spawning worktree cron without an explicit user decision, a task/worktree retention policy, post-merge cleanup proof, and S2 repayment. The supported direction remains one visible controller with bounded workers that do not create Codex app task fan-out.

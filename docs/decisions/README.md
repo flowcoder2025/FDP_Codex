@@ -31,6 +31,7 @@ Current decisions:
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`: accepted one visible control task, ephemeral CLI workers, and controller-owned Git operations.
 - `docs/decisions/2026-07-10-context-selection-breadth-guard.md`: accepted exact specialized intent-tag matching and fail-before-append selection limits.
 - `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`: accepted bounded worker timeout, observable events, exact process-tree cleanup, and fail-closed verification.
+- `docs/decisions/2026-07-10-control-plane-operational-integrity.md`: accepted live Issue, PR, branch, worktree, task, automation, and post-merge closeout integrity contract.
 
 Decision Needed:
 
