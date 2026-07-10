@@ -9,6 +9,8 @@ const errors = [];
 const warnings = [];
 const checks = {};
 
+const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked)$/m.test(text);
+
 const allowedCategories = new Set([
   'feat',
   'fix',
@@ -114,6 +116,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0057-docs.md',
   'docs/records/validation-wi-cx0058-fix.md',
   'docs/records/validation-wi-cx0059-fix.md',
+  'docs/records/validation-wi-cx0060-test.md',
   'docs/records/validation-wi-cx0061-fix.md',
   'docs/records/validation-wi-cx0062-fix.md',
   'docs/records/validation-wi-cx0063-feat.md',
@@ -193,6 +196,7 @@ const requiredChunkIds = [
   'tool.audit-independent-review',
   'tool.publish-independent-review-status',
   'record.validation-wi-cx0063-feat',
+  'record.validation-wi-cx0060-test',
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
   'spec.runtime-snapshot',
@@ -709,6 +713,21 @@ function validateFlowState() {
     && snapshotBlocks.includes('runner reactivation')
     && fixPlanText.includes(`${snapshotPriority.wi_id} ${snapshotPriority.item}`)
     && handoffText.includes(snapshotPriority.wi_id);
+  const snapshotPriorityMatchesUserBlockedWi = snapshotPriority.kind === 'wi'
+    && snapshotPriority.wi_id === currentPriorityWiId
+    && snapshotPriority.state === 'blocked-user-approval'
+    && snapshotPriority.owner_gate === 'USER'
+    && snapshotPriority.lock_blocker === 'yes'
+    && snapshotPriority.strategy?.PSC
+    && snapshotPriority.strategy?.WTC
+    && snapshotPriority.strategy?.Risk
+    && snapshotPriority.strategy?.ESC
+    && currentPriorityMatches.length === 1
+    && snapshotBlocks.includes('dogfood continuation')
+    && snapshotBlocks.includes('runner reactivation')
+    && fixPlanText.includes(`${snapshotPriority.wi_id} ${snapshotPriority.item}`)
+    && handoffText.includes(snapshotPriority.wi_id)
+    && handoffText.includes('explicit user approval');
   const snapshotPriorityMatchesWi = snapshotPriority.kind === 'wi'
     && snapshotPriority.wi_id === currentPriorityWiId
     && snapshotPriority.state === 'ready'
@@ -723,7 +742,8 @@ function validateFlowState() {
     && handoffText.includes(snapshotPriority.wi_id);
   checks.flow_state_snapshot_priority = snapshotPriorityMatchesUserDecision
     || snapshotPriorityMatchesWi
-    || snapshotPriorityMatchesExternalBlockedWi;
+    || snapshotPriorityMatchesExternalBlockedWi
+    || snapshotPriorityMatchesUserBlockedWi;
   const snapshotHasRetiredRunner = snapshotTriggeredWork.length === 0
     && stateSnapshot.control_plane?.automation?.status === 'RETIRED'
     && fixPlanText.includes('The hourly worktree runner is retired')
@@ -1261,7 +1281,7 @@ function validateAutonomousWorkExhaustionStopGate() {
     && policy.includes('Codex must not start another independent WI merely to avoid stopping')
     && policy.includes('A new autonomous WI may start only when the user supplies a decision or approval');
   checks.autonomous_exhaustion_current_wi = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && (currentWi.includes('ESC: E1+E3+E5+E6')
       || currentWi.includes('ESC: E1+E2+E3+E5+E6'))
     && record.includes('WI: WI-CX0046-test')
@@ -1291,7 +1311,8 @@ function validateAutonomousWorkExhaustionStopGate() {
     && ((fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
       && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision'))
       || (retiredRunnerFlow
-        && fixPlan.includes('None while KI-CX-PROVIDER-001 / Issue #55 blocks the goal-critical worker proof')));
+        && (fixPlan.includes('None while KI-CX-PROVIDER-001 / Issue #55 blocks the goal-critical worker proof')
+          || fixPlan.includes('None while WI-CX0060-test is active'))));
   checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
     && handoff.includes('No further independent autonomous WI should start unless')
     && (handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
@@ -1672,7 +1693,7 @@ function validateToolingStrictnessProbe() {
     && decisionsReadme.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
     && recordsReadme.includes('docs/records/validation-wi-cx0040-chore.md');
   checks.ts_strictness_probe_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | Probe installed by WI-CX0040')
     && handoff.includes('WI-CX0040-chore: Tooling Strictness Probe')
     && handoff.includes('npm run typecheck:strict-probe')
@@ -2070,7 +2091,7 @@ function validateAutomationRunnerS2ReviewPacket() {
     && !fixPlan.includes('S2 blind review repayment for the automation runner')
     && handoff.includes('WI-CX0042 is obsolete rather than passed');
   checks.automation_s2_packet_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0041-docs: Automation Runner S2 Review Packet')
     && handoff.includes(packetPath)
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
@@ -2154,7 +2175,7 @@ function validatePostBootstrapAutomationCadenceHandback() {
     && !fixPlan.includes('Long-lived post-bootstrap automation cadence and authority. | DQ-USER')
     && handoff.includes('old cadence decision inactive');
   checks.automation_cadence_handback_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback')
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2439,7 +2460,7 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && state.layer2_target?.wi_pattern === 'WI-FCDNNNN-category'
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status);
   checks.layer2_scope_accepted_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
@@ -2537,7 +2558,7 @@ function validateSessionOrchestrationControlPlaneAudit() {
       || handoff.includes('WI-CX0054-fix: Runtime Snapshot State Reconciliation'))
     && exists('.flowset/runtime-snapshot.json');
   checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && state.current_priority?.owner_gate
@@ -2706,7 +2727,7 @@ function validateRuntimeSnapshotValidator() {
     && recordsReadme.includes(recordPath)
     && recordsReadme.includes(reconciliationRecordPath);
   checks.runtime_snapshot_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2824,7 +2845,7 @@ function validateA2HandoffReceiverContract() {
   checks.a2_receiver_contract_indexes = docsIndex.includes(contractPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_receiver_contract_flow = currentWi.includes('Status: validated')
+  checks.a2_receiver_contract_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2890,7 +2911,7 @@ function validateWorktreeIsolationVerification() {
     && manifest.includes(recordPath);
   checks.worktree_isolation_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.worktree_isolation_flow = currentWi.includes('Status: validated')
+  checks.worktree_isolation_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === 'docs/records/validation-wi-cx0052-test.md'
@@ -2955,7 +2976,7 @@ function validateA2WorktreeIsolationRepairGate() {
   const repairValidationPath = 'docs/records/validation-wi-cx0052-test.md';
   const repairValidation = exists(repairValidationPath) ? read(repairValidationPath) : '';
   const repairGateWaiting = currentWi.includes('WI id: WI-CX0051-test')
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && state.current_wi?.id === 'WI-CX0051-test'
     && state.current_wi?.validation_record === recordPath
     && state.current_priority?.kind === 'user_decision'
@@ -2964,7 +2985,7 @@ function validateA2WorktreeIsolationRepairGate() {
     && fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface')
     && handoff.includes('WI-CX0051-test Worktree Isolation Repair Gate')
     && handoff.includes('user/control-plane repair');
-  const repairGateRepaid = currentWi.includes('Status: validated')
+  const repairGateRepaid = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === repairValidationPath
@@ -3027,7 +3048,7 @@ function validateA2WorktreeIsolationRepairValidation() {
     && manifest.includes(recordPath);
   checks.a2_worktree_repair_validation_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_worktree_repair_validation_flow = currentWi.includes('Status: validated')
+  checks.a2_worktree_repair_validation_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === recordPath
@@ -3096,7 +3117,7 @@ function validateStrategicGoalSteeringContract() {
     && manifest.includes(recordPath);
   checks.goal_steering_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.goal_steering_flow = currentWi.includes('Status: validated')
+  checks.goal_steering_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && (state.current_priority?.wi_id === 'WI-CX0038-docs'
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
@@ -3228,7 +3249,7 @@ function validateLayer2ScaffoldGenerator() {
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
   checks.layer2_generator_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`')
     && state.current_priority?.wi_id === 'WI-CX0060-test'
@@ -3318,7 +3339,7 @@ function validateLayer2FreshContextContinuation() {
     && record.includes('controller pre-created the target branch')
     && record.includes('does not support a claim that the worker can own the full Git lifecycle');
   checks.layer2_fresh_context_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof')
     && handoff.includes('Fresh-context continuation is proven')
@@ -3752,10 +3773,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const decisionPath = 'docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md';
   const specPath = 'docs/specifications/ephemeral-worker-runner.md';
   const recordPath = 'docs/records/validation-wi-cx0059-fix.md';
+  const proofRecordPath = 'docs/records/validation-wi-cx0060-test.md';
   const temporalRecordPath = 'docs/records/validation-wi-cx0061-fix.md';
   const decision = read(decisionPath);
   const spec = read(specPath);
   const record = read(recordPath);
+  const proofRecord = read(proofRecordPath);
   const temporalRecord = read(temporalRecordPath);
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const managedProcess = read('scripts/lib/managed-process.mjs');
@@ -3787,10 +3810,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && entry.timestamp === '2026-07-10T09:50:04.441Z');
   const temporalContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0061-fix'
     && entry.timestamp === '2026-07-10T10:52:06.771Z');
+  const proofContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0060-test'
+    && entry.timestamp === '2026-07-10T17:32:49.743Z');
   const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
   const workerKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-001');
   const providerKi = knownIssues.find((item) => item.id === 'KI-CX-PROVIDER-001');
   const temporalKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-002');
+  const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
+  const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
   const topology = state.control_plane?.worker_topology ?? {};
   const guard = topology.managed_guard ?? {};
   const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
@@ -3834,6 +3861,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes(temporalRecordPath)
     && docsIndex.includes(temporalRecordPath)
     && recordsReadme.includes(temporalRecordPath);
+  checks.worker_proof_registration = manifest.includes('id: record.validation-wi-cx0060-test')
+    && manifest.includes(proofRecordPath)
+    && docsIndex.includes(proofRecordPath)
+    && recordsReadme.includes(proofRecordPath);
   checks.worker_lifecycle_ledger = wiContextPackEntries.length === 17
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
@@ -3847,6 +3878,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
     && temporalRecord.includes('17 metadata-only entries')
     && temporalRecord.includes('contains_chunk_bodies: false');
+  checks.worker_proof_ledger = proofContextPackEntries.length === 27
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'tool.run-ephemeral-worker')
+    && proofContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
+    && proofRecord.includes('27 metadata-only ledger entries')
+    && proofRecord.includes('contains_chunk_bodies: false');
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
     && managedProcess.includes("'ps', ['-eo', 'pid=,ppid=,pgid=,lstart=,comm=']")
     && managedProcess.includes('started_at')
@@ -3867,20 +3905,23 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
     && lifecycleTest.includes('assert.equal(observed.has(50003), true)');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
-    && runner.includes("'exec'")
-    && runner.includes("'--ephemeral'")
-    && runner.includes("'--json'")
-    && runner.includes("'--sandbox'")
-    && runner.includes("'-'")
+    && runner.includes('buildEphemeralWorkerArgs')
     && runner.includes('stdinText: prompt')
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
     && codexInvocation.includes('CODEX_CLI_PATH')
     && codexInvocation.includes("'@openai'")
+    && codexInvocation.includes("'exec'")
+    && codexInvocation.includes("'--ephemeral'")
+    && codexInvocation.includes("'--json'")
+    && codexInvocation.includes("'--disable', 'multi_agent'")
+    && codexInvocation.includes("'--sandbox'")
+    && codexInvocation.includes("'-'")
     && localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
+    && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && testResult?.cases?.normal?.status === 'completed'
@@ -3925,7 +3966,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('124 for timeout')
     && spec.includes('130 for interruption')
     && spec.includes('npm run worker:test')
-    && spec.includes('npm run worker:smoke-local');
+    && spec.includes('npm run worker:smoke-local')
+    && spec.includes('## Agent Confinement')
+    && spec.includes('must not spawn nested agents or enter collaboration wait states')
+    && spec.includes('rather than relying on prompt wording');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
     && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
@@ -3940,17 +3984,21 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('The user then explicitly approved that stated transmission risk')
     && record.includes('KI-CX-WORKER-001 is repaid by this WI')
     && record.includes('KI-CX-PROVIDER-001 now owns the separate external-provider trust boundary');
-  checks.worker_lifecycle_flow = currentWi.includes('Status: validated')
-    && /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+  checks.worker_lifecycle_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && fixPlan.includes('WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
-    && state.current_wi?.status === 'validated'
     && state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
     && state.current_priority?.lock_blocker === 'yes';
-  checks.worker_lifecycle_state = ['managed-guard-validated-provider-smoke-policy-blocked', 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'].includes(topology.runtime_status)
-    && ['validated-provider-smoke-policy-blocked', 'validated-temporal-identity-provider-smoke-policy-blocked'].includes(guard.status)
+  checks.worker_lifecycle_state = [
+    'managed-guard-validated-provider-smoke-policy-blocked',
+    'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+  ].includes(topology.runtime_status)
+    && [
+      'validated-provider-smoke-policy-blocked',
+      'validated-temporal-identity-provider-smoke-policy-blocked',
+      'confined-public-preflight-passed-dogfood-approval-blocked',
+    ].includes(guard.status)
     && guard.supervisor === 'scripts/run-ephemeral-worker.mjs'
     && guard.default_timeout_ms === 120000
     && JSON.stringify(guard.allowed_sandboxes) === JSON.stringify(['read-only', 'workspace-write'])
@@ -3961,7 +4009,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
-    && guard.live_model_smoke?.result === 'policy-rejected-after-user-approval';
+    && (guard.live_model_smoke?.result === 'policy-rejected-after-user-approval'
+      || guard.live_model_smoke?.public_repository_preflight?.result === 'passed');
   checks.worker_temporal_identity_record = temporalRecord.includes('Status: validated')
     && temporalRecord.includes('PSC: P1')
     && temporalRecord.includes('WTC: AUTO')
@@ -3971,13 +4020,19 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('Five consecutive full lifecycle runs passed')
     && temporalRecord.includes('KI-CX-WORKER-002 Windows stale parent-pid descendant false positive');
   checks.worker_temporal_identity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0061 rejects candidates that started before their observed parent')
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external';
-  checks.worker_temporal_identity_state = topology.runtime_status === 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'
-    && guard.status === 'validated-temporal-identity-provider-smoke-policy-blocked'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state);
+  checks.worker_temporal_identity_state = [
+    'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+  ].includes(topology.runtime_status)
+    && [
+      'validated-temporal-identity-provider-smoke-policy-blocked',
+      'confined-public-preflight-passed-dogfood-approval-blocked',
+    ].includes(guard.status)
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
@@ -3994,8 +4049,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && providerKi?.status === 'open'
     && providerKi.severity === 'Medium'
     && providerKi.owner === 'H1'
-    && providerKi.trigger.includes('after explicit user approval')
-    && providerKi.repayment_condition.includes('establishes the configured model service as trusted')
+    && providerKi.trigger.includes('explicit user approval')
+    && providerKi.repayment_condition.includes('explicitly approves')
     && providerKi.hard_stop.includes('dogfood continuation');
   checks.worker_temporal_identity_known_issue = temporalKi?.status === 'repaid'
     && temporalKi.severity === 'High'
@@ -4020,6 +4075,58 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('The Layer 2 target was not touched')
     && temporalRecord.includes('No live model smoke or provider-policy workaround was attempted')
     && temporalRecord.includes('No destructive filesystem or git operation occurred');
+  checks.worker_proof_implementation = codexInvocation.includes('export function buildEphemeralWorkerArgs')
+    && codexInvocation.includes("'--disable', 'multi_agent'")
+    && lifecycleTest.includes('function runInvocationConfinementCase()')
+    && lifecycleTest.includes('multi_agent_disabled: true')
+    && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
+  checks.worker_proof_record = proofRecord.includes('Status: validation-blocked')
+    && proofRecord.includes('PSC: P1')
+    && proofRecord.includes('WTC: AUTO')
+    && proofRecord.includes('Risk: R2')
+    && proofRecord.includes('ESC: E1+E2+E3+E5+E6')
+    && proofRecord.includes('FDP_CODEX_PROVIDER_TRUST_SMOKE_OK')
+    && proofRecord.includes('019f4d18-0d31-7d03-9962-817fb2c11e44')
+    && proofRecord.includes('alive_after_cleanup: []')
+    && proofRecord.includes('requires current explicit user approval');
+  checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
+    && currentWi.includes('Status: validation-blocked')
+    && currentWi.includes('ESC: E1+E2+E3+E5+E6')
+    && fixPlan.includes('active but validation-blocked')
+    && fixPlan.includes('post-fix dogfood retry requires current explicit user approval')
+    && handoff.includes('Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
+    && state.current_wi?.id === 'WI-CX0060-test'
+    && state.current_wi?.status === 'validation-blocked'
+    && state.current_priority?.state === 'blocked-user-approval'
+    && state.current_priority?.owner_gate === 'USER';
+  checks.worker_proof_state = topology.runtime_status === 'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked'
+    && guard.status === 'confined-public-preflight-passed-dogfood-approval-blocked'
+    && guard.nested_agent_confinement?.cli_flag === '--disable multi_agent'
+    && guard.nested_agent_confinement?.deterministic_test === 'passed'
+    && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_verified === true
+    && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.alive_after_cleanup) === '[]'
+    && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-pending-current-user-approval';
+  checks.worker_proof_known_issues = confinementKi?.severity === 'High'
+    && confinementKi?.owner === 'CODEX'
+    && confinementKi?.status === 'open'
+    && confinementKi?.github_issue_number === 61
+    && confinementKi?.hard_stop.includes('before completing WI-CX0060-test')
+    && dogfoodKi?.severity === 'High'
+    && dogfoodKi?.owner === 'CODEX'
+    && dogfoodKi?.status === 'open'
+    && dogfoodKi?.github_issue_number === 62
+    && dogfoodKi?.hard_stop.includes('before claiming target operating state is current')
+    && state.layer2_target?.observed_inconsistency?.layer1_ki === 'KI-CX-DOGFOOD-002'
+    && state.layer2_target?.observed_inconsistency?.github_issue_number === 62;
+  checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
+    && state.control_plane?.automation?.status === 'RETIRED'
+    && state.layer2_target?.remote_configured === false
+    && proofRecord.includes('The dogfood target was not edited')
+    && proofRecord.includes('No target branch, commit, remote, push, or PR was created')
+    && proofRecord.includes('No release publication, deployment, package publication, OSS program submission')
+    && proofRecord.includes('provider-policy workaround occurred');
 
   if (!checks.worker_lifecycle_registration) error('worker_lifecycle.registration_missing', 'Manifest and indexes must register the WI-CX0059 decision, specification, tools, fixture, and record.');
   if (!checks.worker_lifecycle_ledger) error('worker_lifecycle.ledger_missing', 'WI-CX0059 must retain its 17-entry metadata-only fresh context evidence.');
@@ -4044,6 +4151,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_temporal_identity_state) error('worker_temporal_identity.state_missing', 'Machine state must expose the repeated temporal identity result and post-merge trigger commit.');
   if (!checks.worker_temporal_identity_known_issue) error('worker_temporal_identity.known_issue_missing', 'KI-CX-WORKER-002 must record severity, ownership, repayment, evidence, and hard stop.');
   if (!checks.worker_temporal_identity_boundary) error('worker_temporal_identity.boundary_missing', 'WI-CX0061 must preserve runner, target, provider, publication, and destructive-operation boundaries.', liveRunnerStatus);
+  if (!checks.worker_proof_registration) error('worker_proof.registration_missing', 'Manifest and indexes must register the WI-CX0060 validation record.');
+  if (!checks.worker_proof_ledger) error('worker_proof.ledger_missing', 'WI-CX0060 must retain exactly 27 metadata-only fresh-context entries.');
+  if (!checks.worker_proof_implementation) error('worker_proof.confinement_missing', 'Managed workers must disable nested multi-agent collaboration and retain deterministic argument coverage.');
+  if (!checks.worker_proof_record) error('worker_proof.record_missing', 'WI-CX0060 must record the public preflight, first dogfood failure, cleanup, KIs, and approval gate.');
+  if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as validation-blocked on explicit user approval.');
+  if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
+  if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');
+  if (!checks.worker_proof_boundary) error('worker_proof.boundary_missing', 'WI-CX0060 must keep the target read-only and preserve runner, publication, authority, dependency, API, and destructive-operation boundaries.');
 }
 
 function validateControlPlaneOperationalIntegrity() {
@@ -4135,7 +4250,7 @@ function validateControlPlaneOperationalIntegrity() {
     && ['repaid-on-merge', 'repaid'].includes(control?.status)
     && control?.repayment_condition.includes('post-merge control-plane audit passes');
   checks.control_integrity_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && state.current_wi?.status === 'validated'
+    && ['validated', 'validation-blocked'].includes(state.current_wi?.status)
     && state.control_plane?.automation?.status === 'RETIRED'
     && ['repaid-on-merge', 'repaid'].includes(integrity.status)
     && integrity.control_issue === 56
@@ -4147,12 +4262,12 @@ function validateControlPlaneOperationalIntegrity() {
     && Array.isArray(state.triggered_work)
     && state.triggered_work.length === 0;
   checks.control_integrity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && /^Status: (?:validated|validation-blocked)$/m.test(currentWi)
     && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55')
     && fixPlan.includes('The hourly worktree runner is retired')
     && !fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && handoff.includes('WI-CX0062-fix: Control-Plane Integrity Reconciliation')
-    && handoff.includes('Query live GitHub state')
+    && handoff.includes('WI-CX0063 merged through PR #58')
     && handoff.includes('Issue #56')
     && handoff.includes('Issue #55');
   checks.control_integrity_audit = pkg.scripts?.['audit:control-plane'] === 'node scripts/audit-control-plane.mjs'
@@ -4179,8 +4294,8 @@ function validateControlPlaneOperationalIntegrity() {
     && record.includes('--expect-control-closed')
     && record.includes('Destructive operations were limited to the user-approved');
   checks.control_integrity_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
+    && ['H1', 'USER', 'CODEX'].includes(state.current_priority?.owner_gate)
     && state.layer2_target?.remote_configured === false
     && state.hygiene?.context_bodies_carried === false
     && decision.includes('does not resume dogfood')
@@ -4386,10 +4501,7 @@ function validateIndependentBlindAdversarialReviewGate() {
     && publisher.includes('const first = readAudit(prNumber)')
     && publisher.includes('const latest = readAudit(prNumber)')
     && publisher.includes('first.latest_review_id === latest.latest_review_id');
-  checks.independent_review_state = state.current_wi?.id === 'WI-CX0063-feat'
-    && state.current_wi?.branch === 'wi/cx0063-feat-independent-blind-adversarial-review-gate'
-    && state.current_wi?.validation_record === recordPath
-    && reviewState.status === 'required-before-merge'
+  checks.independent_review_state = reviewState.status === 'required-before-merge'
     && reviewState.pr_baseline_from === 58
     && JSON.stringify(reviewState.required_risks) === JSON.stringify(['R1', 'R2', 'R3'])
     && JSON.stringify(reviewState.required_evaluators) === JSON.stringify(['E2', 'E3'])
@@ -4421,15 +4533,13 @@ function validateIndependentBlindAdversarialReviewGate() {
     && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
     && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
     && wiLedger.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry));
-  checks.independent_review_flow = currentWi.includes('WI id: WI-CX0063-feat')
-    && currentWi.includes('ESC: E1+E2+E3+E5+E6')
-    && fixPlan.includes('Independent verification authority')
+  checks.independent_review_flow = fixPlan.includes('Independent verification authority')
     && !fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && !fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision')
     && !fixPlan.includes('S2 blind review repayment for the automation runner')
     && oldRunnerReview?.status === 'historical-obsolete'
     && oldCadence?.status === 'historical-obsolete'
-    && handoff.includes('Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate')
+    && handoff.includes('WI-CX0063 merged through PR #58')
     && handoff.includes('WI-CX0042 is obsolete rather than passed')
     && handoff.includes('Issue #55')
     && handoff.includes('Issue #59');
@@ -4457,8 +4567,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('GitHub Actions app id `15368`')
     && record.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
+    && ['H1', 'USER', 'CODEX'].includes(state.current_priority?.owner_gate)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
     && reviewIssue?.hard_stop.includes('unattended or generalized automated merge')

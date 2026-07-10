@@ -6,7 +6,11 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate. Every non-trivial R1/R2/R3 WI now requires a separate clean-context E2+E3 review of the current PR head before merge. KI-CX-PROVIDER-001 / Issue #55 and KI-CX-REVIEW-001 / Issue #59 remain separately open.
+Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof on branch `wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof`. It is validation-blocked pending current explicit user approval for one managed read-only transmission of the local dogfood repository to the configured model service.
+
+The official ChatGPT-login managed preflight passed. The first dogfood run reconstructed the target and passed both target validators, then timed out after entering unsupported nested collaboration; managed cleanup verified zero residual processes. The runner now enforces `--disable multi_agent`, and deterministic lifecycle tests pass.
+
+KI-CX-WORKER-003 / Issue #61 tracks the missing final-result failure. KI-CX-DOGFOOD-002 / Issue #62 tracks the stale target handoff that both target validators accepted. KI-CX-PROVIDER-001 / Issue #55 remains open until the approved post-fix dogfood proof completes.
 
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
@@ -40,7 +44,7 @@ The control-plane integrity audit found ten historical KIs with zero GitHub Issu
 
 PR #57 merged WI-CX0062 at `48f2a88daba2bf307022901aa5d2d76beb56ac0d`. Its two-pass post-merge audit passed and Issue #56 is closed.
 
-WI-CX0063 adds a live GitHub review audit, GitHub Actions app-bound `independent-review` status, and branch-protection gate. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change. The control-plane audit reruns the actual review audit and verifies branch protection plus status creator rather than trusting labels.
+WI-CX0063 merged through PR #58 at `0621049268e4633d260f64d555e35959c8c7dcba`. It adds a live GitHub review audit, GitHub Actions app-bound `independent-review` status, and branch-protection gate. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change.
 
 The first independent reviewer, agent `019f4c80-ff2c-75a0-82a8-be3751794767`, returned FAIL on PR #58 head `028f5530b824fff8c76d0b408cddb57e0d4378de`. Its unchanged GitHub review `4672572326` found missing required-check enforcement, forgeable provenance, active obsolete manifest chunks, multiple-payload parsing, and review pagination gaps. Remediation retains the FAIL as evidence and requires a fresh reviewer on the new head.
 
@@ -166,15 +170,17 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0063-feat-independent-blind-adversarial-review-gate`.
+- Active WI branch for this cycle: `wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof`.
 
 ## Next Action
 
-Query live GitHub state for `wi/cx0063-feat-independent-blind-adversarial-review-gate`. If its PR is open, require a fresh clean-context separate-agent PASS on the current head, run the independent review audit, install the required branch-protection check, then finish the approved supervised merge path. After closeout, reassess WI-CX0060-test and the next goal-critical worker surface without bypassing KI-CX-PROVIDER-001 / Issue #55 or KI-CX-REVIEW-001 / Issue #59.
+Obtain explicit approval for the disclosed local dogfood repository transmission risk, then rerun the same managed read-only WI-CX0060 proof with nested agents disabled. If it completes, update evidence, run repository CI, publish the supervised PR, and require a fresh clean-context separate-agent PASS on the final head.
 
 ## Blocked Work
 
-- KI-CX-PROVIDER-001 blocks dogfood continuation, generalized unattended model worker use, and runner reactivation until the configured model destination is established as trusted by the execution environment.
+- KI-CX-PROVIDER-001 blocks the post-fix dogfood proof until the user explicitly approves the currently disclosed local target transmission.
+- KI-CX-WORKER-003 blocks completion of WI-CX0060 until the post-fix run returns a final result before timeout with verified zero residuals.
+- KI-CX-DOGFOOD-002 blocks further target progression and target-handoff correctness claims until a qualified target fix and validator regression exist.
 - KI-CX-REVIEW-001 blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until reviewer provenance is machine-verifiable.
 - The historical WI-CX0035 runner trigger is canceled because the task-spawning hourly automation is retired.
 - Release publication is not approved.
@@ -190,4 +196,4 @@ Query live GitHub state for `wi/cx0063-feat-independent-blind-adversarial-review
 3. Gather or validate control-plane evidence before claiming a fresh run, handoff receiver, or clean session boundary.
 4. Build a fresh context pack for the next WI.
 5. Run `npm run validate` before declaring repository policy work complete.
-6. Query the live PR for WI-CX0063. If open, verify the current-head independent review before merge; if merged, run control-plane closeout. Then reassess WI-CX0060 and Issue #55 without retrying the rejected model smoke, using direct unmanaged `codex exec`, resuming dogfood, recreating the retired runner, or expanding authority through a workaround.
+6. For WI-CX0060, require explicit approval before the blocked managed dogfood retry; do not use direct unmanaged `codex exec`, another model surface, target edits, runner recreation, or authority expansion as a workaround.

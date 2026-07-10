@@ -1,61 +1,62 @@
 # Current WI
 
-WI id: WI-CX0063-feat
+WI id: WI-CX0060-test
 
-Category: feat
+Category: test
 
-Title: Independent Blind Adversarial Review Gate
+Title: Trusted Ephemeral Worker End-to-End Proof
 
 Layer: Layer 1
 
 Risk: R2
 
-Status: validated
+Status: validation-blocked
 
-Branch: wi/cx0063-feat-independent-blind-adversarial-review-gate
+Branch: wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof
 
-Approval envelope: the user explicitly required verification to use an independent agent with blind adversarial review and instructed Codex to continue afterward. This WI may implement the general review gate, create its GitHub label, run a separate clean-context agent review, publish and merge the WI after that review passes, and then reassess the next goal-critical work. Existing exclusions remain: provider-policy bypass, dogfood continuation before its gate is satisfied, retired-runner recreation, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, and self-review presented as independent evidence.
+Approval envelope: the user instructed Codex to continue the next goal-critical work. This WI may verify the configured official ChatGPT-login Codex CLI through the existing managed worker, add deterministic confinement for that worker, register every discovered KI, and prepare a supervised PR after the live proof passes. A repository-backed dogfood retry remains separately blocked until the user explicitly approves transmission of the local-only dogfood repository contents to the external model service after being informed of that risk.
 
 ## Scope
 
-Make independent blind adversarial review an executable merge gate for every non-trivial R1/R2/R3 WI, anchor evidence to the current PR head, and invalidate stale review evidence after any head change.
+Prove that the managed ephemeral worker can reconstruct and validate the separate Layer 2 dogfood target, return a final result within a finite deadline, and leave no residual process, while preventing nested agent fan-out.
 
 ## Triage
 
 - PSC: P1
-- WTC: VAL
+- WTC: AUTO
 - Risk: R2
 - ESC: E1+E2+E3+E5+E6
-- Primary evaluator stance: attempt to falsify independence, current-head binding, blocking-finding handling, and merge-label ordering.
-- Validator stance: require executable stale-head, inherited-context, blocking-finding, and missing-label rejection plus live GitHub review evidence before merge.
+- Primary evaluator stance: attempt to falsify provider trust, clean-context reconstruction, final-result delivery, worker confinement, process cleanup, and target handoff truthfulness.
+- Validator stance: require deterministic invocation confinement, repository CI, a completed live dogfood result, zero residual processes, and a separate current-head independent review before merge.
 
 ## Verification Plan
 
-- Add a machine-readable independent-review evidence contract.
-- Add a live GitHub review audit with deterministic self-tests.
-- Add a required `independent-review` GitHub status and branch protection gate.
-- Bind the required status to GitHub Actions app id `15368` and reject changed/out-of-order review generations before success publication.
-- Keep write-capable `pull_request` publication out of the merged workflow; PR #58 uses one supervised rerun of fixed Actions run `29104125595` after an exact-head PASS.
-- Require separate clean-context review and adversarial findings for all non-trivial R1/R2/R3 WIs.
-- Forbid `pr:approved-merge` until the current PR head passes the independent review audit.
-- Run repository CI, working and PR control-plane audits, and a separate `fork_context: false` reviewer on this WI.
-- Treat every code or policy change after review as invalidating evidence and repeat review when needed.
+- Confirm the local Codex CLI uses the configured ChatGPT login without a custom model provider.
+- Run a minimal managed read-only public-repository model preflight.
+- Run the managed worker against the separate dogfood target without supplying WI or debt identifiers.
+- Disable nested `multi_agent` collaboration in the managed worker invocation and enforce it with a deterministic test.
+- Preserve timeout cleanup as a failure result rather than accepting partial validation output.
+- Register every Layer 1 KI in GitHub and keep Layer 2 findings qualified.
+- Run repository CI and then the required separate blind adversarial review on the final PR head.
 
-## Completion Evidence
+## Evidence So Far
 
-- Context pack `ctx-wi-cx0063-feat-20260710143115`; timestamp `2026-07-10T14:31:15.585Z`; 19 metadata-only ledger entries; no chunk bodies.
-- `scripts/audit-independent-review.mjs --self-test` rejects stale head, inherited context, blocking findings, and missing labels while accepting a valid review.
-- `scripts/publish-independent-review-status.mjs --self-test` rejects a newer failure, changed review id, changed head, and initial failure.
-- Decision `docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md` defines the merge boundary.
-- Specification `docs/specifications/independent-review-evidence.md` defines clean reviewer input and live GitHub evidence.
-- Validation record `docs/records/validation-wi-cx0063-feat.md` records repository evidence and the required external review sequence.
+- Context pack `ctx-wi-cx0060-test-20260710173249`; timestamp `2026-07-10T17:32:49.743Z`; 27 metadata-only ledger entries; no chunk bodies.
+- `codex login status` reported `Logged in using ChatGPT`; no custom `model_provider` is configured.
+- Managed public-repository preflight completed with marker `FDP_CODEX_PROVIDER_TRUST_SMOKE_OK`, thread `019f4d15-e5c5-7d83-a3a0-6bf86d775334`, verified observation, and no cleanup requirement.
+- The first dogfood attempt independently reconstructed target head `a2702ab4fd370f37af1e804cb6b7e4977ea98f6a` and both target validators passed.
+- That attempt found the target handoff still instructed the controller to commit although the worktree was clean and the commit already existed. KI-CX-DOGFOOD-002 / Issue #62 records the false-green target handoff.
+- The worker then entered an unsupported collaboration wait, timed out at 180 seconds, and emitted no final JSON. Cleanup removed every matched process and verified zero residuals. KI-CX-WORKER-003 / Issue #61 records this failure.
+- The runner now adds `--disable multi_agent`; `npm.cmd run worker:test` passes invocation confinement plus normal, timeout, interruption, temporal-identity, and residual cleanup cases.
+- The post-fix dogfood retry was rejected before execution pending current explicit user approval of local target content transmission. No workaround was attempted.
 
 ## Open Known Issues
 
-- KI-CX-PROVIDER-001 / Issue #55 remains open and blocks the existing managed CLI worker proof, dogfood continuation on that surface, and runner reactivation.
-- KI-CX-REVIEW-001 / Issue #59 remains open because the execution surface does not provide signed reviewer provenance. Supervised current-head review may continue with an actual clean agent and live tool receipt, but unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission remain blocked.
-- KI-CX-STATUS-001 / Issue #60 remains open because GitHub Free can bind a status to the shared Actions app but not to one trusted workflow identity. The status remains defense in depth; supervised merge also requires fixed-run evidence, exact-head review, live audit, and active user approval.
+- KI-CX-PROVIDER-001 / Issue #55 remains open until a repository-backed dogfood run is permitted and completes.
+- KI-CX-WORKER-003 / Issue #61 remains open until the post-fix live run completes with a final result and verified zero residuals.
+- KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
+- KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.
 
 ## Boundary
 
-The retired hourly runner remains absent. The Layer 2 target was not touched. No provider-policy workaround, release publication, deployment, package publication, OSS program submission, production dependency addition, public API or external contract change, A2/A3 authority expansion, or self-issued independent review occurred.
+The retired hourly runner remains absent. The dogfood target was read only. No target branch, target edit, remote, push, PR, release, deployment, package publication, OSS submission, production dependency, public API or external contract change, A2/A3 authority expansion, destructive operation, or provider-policy workaround occurred.

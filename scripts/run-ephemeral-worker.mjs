@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { resolveCodexInvocation } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
 import { runManagedProcess } from './lib/managed-process.mjs';
 
 const MAX_PROMPT_BYTES = 1024 * 1024;
@@ -81,16 +81,11 @@ async function main() {
   try {
     const result = await runManagedProcess({
       command: invocation.command,
-      args: [
-        ...invocation.argsPrefix,
-        'exec',
-        '--ephemeral',
-        '--json',
-        '--color', 'never',
-        '--sandbox', args.sandbox,
-        '-C', args.cwd,
-        '-',
-      ],
+      args: buildEphemeralWorkerArgs({
+        argsPrefix: invocation.argsPrefix,
+        sandbox: args.sandbox,
+        cwd: args.cwd,
+      }),
       cwd: args.cwd,
       stdinText: prompt,
       timeoutMs: args.timeoutMs,

@@ -18,3 +18,17 @@ export function resolveCodexInvocation() {
   }
   return { command: 'codex', argsPrefix: [] };
 }
+
+export function buildEphemeralWorkerArgs({ argsPrefix = [], sandbox, cwd }) {
+  return [
+    ...argsPrefix,
+    'exec',
+    '--ephemeral',
+    '--json',
+    '--color', 'never',
+    '--disable', 'multi_agent',
+    '--sandbox', sandbox,
+    '-C', cwd,
+    '-',
+  ];
+}

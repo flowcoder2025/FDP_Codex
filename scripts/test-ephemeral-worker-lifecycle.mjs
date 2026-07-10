@@ -1,9 +1,29 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+
+function runInvocationConfinementCase() {
+  const args = buildEphemeralWorkerArgs({
+    argsPrefix: ['codex.js'],
+    sandbox: 'read-only',
+    cwd: 'C:\\repo',
+  });
+  assert.deepEqual(args.slice(0, 8), [
+    'codex.js',
+    'exec',
+    '--ephemeral',
+    '--json',
+    '--color', 'never',
+    '--disable', 'multi_agent',
+  ]);
+  assert.deepEqual(args.slice(8), ['--sandbox', 'read-only', '-C', 'C:\\repo', '-']);
+  assert.equal(args.filter((arg) => arg === 'multi_agent').length, 1);
+  return { multi_agent_disabled: true };
+}
 
 function runTemporalIdentityCase() {
   const rootPid = 50000;
@@ -127,6 +147,7 @@ async function runResidualCase() {
   return result;
 }
 
+const invocationConfinement = runInvocationConfinementCase();
 const temporalIdentity = runTemporalIdentityCase();
 const normal = await runNormalCase();
 const timeout = await runTimeoutCase();
@@ -136,6 +157,7 @@ const residual = await runResidualCase();
 console.log(JSON.stringify({
   ok: true,
   cases: {
+    invocation_confinement: invocationConfinement,
     temporal_identity: temporalIdentity,
     normal: {
       status: normal.status,

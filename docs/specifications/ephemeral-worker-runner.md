@@ -15,7 +15,7 @@ npm run worker:run -- --cwd <path> [--timeout-ms <ms>] [--sandbox read-only|work
 The prompt is required on stdin. `danger-full-access` is not accepted. The wrapper invokes:
 
 ```text
-codex exec --ephemeral --json --color never --sandbox <mode> -C <path> -
+codex exec --ephemeral --json --color never --disable multi_agent --sandbox <mode> -C <path> -
 ```
 
 The final `-` makes Codex read the prompt from stdin. The wrapper does not write a prompt file or include the prompt in argv.
@@ -27,6 +27,12 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 - `--sandbox` defaults to `workspace-write` and accepts only `read-only` or `workspace-write`.
 - stdin must contain a non-empty UTF-8 prompt no larger than 1 MiB.
 - `CODEX_CLI_PATH` may identify an explicit Codex executable. On Windows, the npm-installed `codex.js` shim target is preferred when present.
+
+## Agent Confinement
+
+The managed worker disables the Codex `multi_agent` feature at invocation. A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. This is enforced by the CLI argument builder rather than relying on prompt wording.
+
+The controller remains responsible for any separate independent reviewer required by repository policy. Disabling nested agents inside an implementation or validation worker does not weaken the independent-review gate.
 
 ## Event Stream
 

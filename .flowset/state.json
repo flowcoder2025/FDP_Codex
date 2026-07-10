@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T14:35:00Z",
+  "updated_at": "2026-07-10T17:40:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -28,19 +28,19 @@
     "docs/records/validation-wi-cx0063-feat.md"
   ],
   "current_wi": {
-    "id": "WI-CX0063-feat",
-    "category": "feat",
-    "title": "Independent Blind Adversarial Review Gate",
-    "status": "validated",
-    "branch": "wi/cx0063-feat-independent-blind-adversarial-review-gate",
-    "validation_record": "docs/records/validation-wi-cx0063-feat.md"
+    "id": "WI-CX0060-test",
+    "category": "test",
+    "title": "Trusted Ephemeral Worker End-to-End Proof",
+    "status": "validation-blocked",
+    "branch": "wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof",
+    "validation_record": "docs/records/validation-wi-cx0060-test.md"
   },
   "current_priority": {
     "kind": "wi",
     "wi_id": "WI-CX0060-test",
     "item": "Trusted Ephemeral Worker End-to-End Proof",
-    "state": "blocked-external",
-    "owner_gate": "H1",
+    "state": "blocked-user-approval",
+    "owner_gate": "USER",
     "lock_blocker": "yes",
     "strategy": {
       "PSC": "P1",
@@ -131,7 +131,7 @@
       "worker_ownership": ["reconstruct", "edit", "validate"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "runtime_status": "managed-guard-temporal-identity-validated-provider-smoke-policy-blocked",
+      "runtime_status": "managed-guard-confined-public-preflight-passed-dogfood-approval-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
         "observed_process_ids": [61312, 40280, 60288],
@@ -139,13 +139,20 @@
         "repayment_wi": "WI-CX0059-fix"
       },
       "managed_guard": {
-        "status": "validated-temporal-identity-provider-smoke-policy-blocked",
+        "status": "confined-public-preflight-passed-dogfood-approval-blocked",
         "supervisor": "scripts/run-ephemeral-worker.mjs",
         "specification": "docs/specifications/ephemeral-worker-runner.md",
         "default_timeout_ms": 120000,
         "allowed_sandboxes": ["read-only", "workspace-write"],
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
+        "nested_agent_confinement": {
+          "status": "implemented-local-live-proof-pending",
+          "cli_flag": "--disable multi_agent",
+          "deterministic_test": "passed",
+          "known_issue": "KI-CX-WORKER-003",
+          "github_issue_number": 61
+        },
         "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
         "deterministic_cases": {
           "temporal_stale_parent_pid_exclusion": "passed-repeated-5",
@@ -168,8 +175,27 @@
           "observed_descendant_count": 0
         },
         "live_model_smoke": {
-          "result": "policy-rejected-after-user-approval",
-          "blocker": "execution policy denies private workspace disclosure because the external model destination is not established as trusted"
+          "public_repository_preflight": {
+            "result": "passed",
+            "thread_id": "019f4d15-e5c5-7d83-a3a0-6bf86d775334",
+            "marker": "FDP_CODEX_PROVIDER_TRUST_SMOKE_OK",
+            "observation_verified": true,
+            "cleanup_required": false
+          },
+          "layer2_dogfood_first_attempt": {
+            "result": "timed-out-after-target-validation",
+            "thread_id": "019f4d18-0d31-7d03-9962-817fb2c11e44",
+            "target_head": "a2702ab4fd370f37af1e804cb6b7e4977ea98f6a",
+            "target_validations": ["validate:passed", "validate:wi-fcd0002:passed"],
+            "final_result_emitted": false,
+            "failure": "unsupported nested collaboration wait",
+            "cleanup_verified": true,
+            "alive_after_cleanup": []
+          },
+          "post_fix_retry": {
+            "result": "policy-rejected-pending-current-user-approval",
+            "blocker": "explicit approval is required for local-only dogfood repository transmission"
+          }
         }
       }
     }
@@ -309,13 +335,37 @@
       "id": "KI-CX-PROVIDER-001",
       "severity": "Medium",
       "owner": "H1",
-      "trigger": "repository-backed managed model smoke was policy-rejected before execution and again after explicit user approval",
-      "defer_reason": "process lifecycle is locally repaid without bypassing the external disclosure boundary",
-      "repayment_condition": "execution environment establishes the configured model service as trusted and permits a repository-backed managed smoke",
-      "hard_stop": "before dogfood continuation, generalized unattended model worker use, or runner reactivation",
+      "trigger": "the public-repository managed preflight passed, but the post-fix local dogfood retry was policy-rejected pending current explicit user approval",
+      "defer_reason": "process lifecycle and public command-path trust are proven without bypassing the local target disclosure boundary",
+      "repayment_condition": "the user explicitly approves the disclosed local target transmission risk and the managed dogfood proof completes",
+      "hard_stop": "before completing WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation",
       "status": "open",
       "github_issue_number": 55,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/55"
+    },
+    {
+      "id": "KI-CX-WORKER-003",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "the first dogfood run completed target reconstruction and validation, then entered an unsupported collaboration wait and timed out before final output",
+      "defer_reason": "none; verified timeout cleanup does not prove end-to-end completion",
+      "repayment_condition": "disable multi_agent in the managed invocation, pass deterministic confinement, and complete a live dogfood run with final output and zero residuals",
+      "hard_stop": "before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement",
+      "status": "open",
+      "github_issue_number": 61,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/61"
+    },
+    {
+      "id": "KI-CX-DOGFOOD-002",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "the clean committed target still instructed the controller to review and commit while both target validators passed",
+      "defer_reason": "the finding was discovered read-only and Layer 1 must not silently rewrite Layer 2 state",
+      "repayment_condition": "make generated target post-commit state truthful, reject the stale pattern, add qualified target fix evidence, and confirm it with a clean worker",
+      "hard_stop": "before claiming target operating state is current, starting another target WI, or generalizing target handoff correctness",
+      "status": "open",
+      "github_issue_number": 62,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/62"
     },
     {
       "id": "KI-CX-CONTROL-001",
@@ -395,6 +445,13 @@
     "scaffold_status": "fresh-context-validated-local",
     "current_wi": "WI-FCD0002-test",
     "next_wi": null,
+    "observed_inconsistency": {
+      "id": "target:FCD:stale-post-commit-handoff",
+      "layer1_ki": "KI-CX-DOGFOOD-002",
+      "github_issue_number": 62,
+      "target_head": "a2702ab4fd370f37af1e804cb6b7e4977ea98f6a",
+      "status": "open-read-only-finding"
+    },
     "verification_debt": "VD-FCD0001",
     "verification_debt_status": "repaid",
     "verification_debt_evidence": "target:FCD:docs/records/validation-wi-fcd0002-test.md",
