@@ -49,12 +49,14 @@ Prove that the managed ephemeral worker can reconstruct and validate the separat
 - The worker then entered an unsupported collaboration wait, timed out at 180 seconds, and emitted no final JSON. Cleanup removed every matched process and verified zero residuals. KI-CX-WORKER-003 / Issue #61 records this failure.
 - The runner now adds `--disable multi_agent`; `npm.cmd run worker:test` passes invocation confinement plus normal, timeout, interruption, temporal-identity, and residual cleanup cases.
 - The user explicitly approved the disclosed local target transmission. The exact post-fix retry was still rejected before execution because the configured external model destination is not established as trusted and approval cannot override that rule. No workaround was attempted.
+- Two separate `fork_context: false` read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. Neither result was treated as PASS. KI-CX-REVIEW-002 / Issue #63 records reviewer-surface availability.
 
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.
 - KI-CX-WORKER-003 / Issue #61 remains open until the post-fix live run completes with a final result and verified zero residuals.
 - KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
+- KI-CX-REVIEW-002 / Issue #63 remains open and blocks validation, PR readiness, and merge until a bounded clean-context reviewer returns a current-head verdict.
 - KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.
 
 ## Boundary

@@ -120,7 +120,20 @@
       "bootstrap_status_source_head": "c7ee6b6ff4f44496088892e10d69c01b08e6defe",
       "bootstrap_status_mode": "one-time-rerun-after-final-pass",
       "provenance_mode": "controller-attested",
-      "provenance_issue": 59
+      "provenance_issue": 59,
+      "availability_issue": 63,
+      "last_local_review_attempts": [
+        {
+          "agent_id": "019f4d43-2090-7711-ae34-05aaa264bf22",
+          "fork_context": false,
+          "result": "no-verdict-stopped-after-bounded-waits"
+        },
+        {
+          "agent_id": "019f4d4f-0a95-73b3-a77e-96d1c181c6fd",
+          "fork_context": false,
+          "result": "no-verdict-stopped-after-bounded-wait"
+        }
+      ]
     },
     "worker_topology": {
       "mode": "single-visible-controller-ephemeral-workers",
@@ -367,6 +380,18 @@
       "status": "open",
       "github_issue_number": 62,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/62"
+    },
+    {
+      "id": "KI-CX-REVIEW-002",
+      "severity": "High",
+      "owner": "H1 / execution platform",
+      "trigger": "two separate fork_context false read-only reviewers remained running without a verdict and were stopped after bounded waits",
+      "defer_reason": "WI-CX0060 is already externally blocked and neither incomplete review was presented as PASS",
+      "repayment_condition": "a clean-context reviewer returns structured PASS or FAIL within a bounded period and the result is anchored to the final PR head",
+      "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",
+      "status": "open",
+      "github_issue_number": 63,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/63"
     },
     {
       "id": "KI-CX-CONTROL-001",

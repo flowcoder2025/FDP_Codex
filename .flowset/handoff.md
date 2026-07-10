@@ -12,6 +12,8 @@ The official ChatGPT-login managed preflight passed. The first dogfood run recon
 
 KI-CX-WORKER-003 / Issue #61 tracks the missing final-result failure. KI-CX-DOGFOOD-002 / Issue #62 tracks the stale target handoff that both target validators accepted. KI-CX-PROVIDER-001 / Issue #55 remains open until the approved post-fix dogfood proof completes.
 
+Two clean-context read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. KI-CX-REVIEW-002 / Issue #63 blocks treating this branch as independently reviewed.
+
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
@@ -181,6 +183,7 @@ Wait until the execution platform establishes a trusted model destination that p
 - KI-CX-PROVIDER-001 blocks the post-fix dogfood proof until the execution platform establishes the configured model destination as trusted; current explicit user approval was not sufficient.
 - KI-CX-WORKER-003 blocks completion of WI-CX0060 until the post-fix run returns a final result before timeout with verified zero residuals.
 - KI-CX-DOGFOOD-002 blocks further target progression and target-handoff correctness claims until a qualified target fix and validator regression exist.
+- KI-CX-REVIEW-002 blocks validation, PR readiness, and merge until a bounded clean-context reviewer returns a current-head verdict.
 - KI-CX-REVIEW-001 blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until reviewer provenance is machine-verifiable.
 - The historical WI-CX0035 runner trigger is canceled because the task-spawning hourly automation is retired.
 - Release publication is not approved.

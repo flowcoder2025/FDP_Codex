@@ -3819,6 +3819,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const temporalKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-002');
   const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
   const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
+  const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
   const topology = state.control_plane?.worker_topology ?? {};
   const guard = topology.managed_guard ?? {};
   const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
@@ -4093,7 +4094,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('FDP_CODEX_PROVIDER_TRUST_SMOKE_OK')
     && proofRecord.includes('019f4d18-0d31-7d03-9962-817fb2c11e44')
     && proofRecord.includes('alive_after_cleanup: []')
-    && proofRecord.includes('even with explicit user approval');
+    && proofRecord.includes('even with explicit user approval')
+    && proofRecord.includes('019f4d43-2090-7711-ae34-05aaa264bf22')
+    && proofRecord.includes('019f4d4f-0a95-73b3-a77e-96d1c181c6fd')
+    && proofRecord.includes('Neither incomplete attempt was treated as PASS');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4125,7 +4129,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && dogfoodKi?.github_issue_number === 62
     && dogfoodKi?.hard_stop.includes('before claiming target operating state is current')
     && state.layer2_target?.observed_inconsistency?.layer1_ki === 'KI-CX-DOGFOOD-002'
-    && state.layer2_target?.observed_inconsistency?.github_issue_number === 62;
+    && state.layer2_target?.observed_inconsistency?.github_issue_number === 62
+    && reviewAvailabilityKi?.severity === 'High'
+    && reviewAvailabilityKi?.owner.includes('execution platform')
+    && reviewAvailabilityKi?.status === 'open'
+    && reviewAvailabilityKi?.github_issue_number === 63
+    && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
+    && state.control_plane?.independent_review?.availability_issue === 63
+    && state.control_plane?.independent_review?.last_local_review_attempts?.length === 2;
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false

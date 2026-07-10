@@ -62,6 +62,14 @@ The user explicitly approved transmission of the local-only dogfood repository c
 
 This WI is blocked externally until the execution platform establishes a trusted model destination and permits that managed repository-backed proof. Codex did not retry through another model surface, indirect command, or workaround. Repository CI passes locally, but current-head independent review and publication remain deferred until the live evidence is complete.
 
+## Independent Review Attempts
+
+- Reviewer `019f4d43-2090-7711-ae34-05aaa264bf22` started with `fork_context: false`, read-only scope, base `0621049268e4633d260f64d555e35959c8c7dcba`, and local head `9ecea1e`. It returned no verdict after two six-minute waits and was stopped.
+- A narrower reviewer, `019f4d4f-0a95-73b3-a77e-96d1c181c6fd`, also started with `fork_context: false`, read-only scope, and the same candidate head. It returned no verdict after a focused five-minute wait and was stopped.
+- Neither incomplete attempt was treated as PASS or independent-review evidence.
+- KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
+- A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.
