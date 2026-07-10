@@ -68,6 +68,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`
 - `docs/decisions/2026-07-10-context-selection-breadth-guard.md`
 - `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`
+- `docs/decisions/2026-07-10-control-plane-operational-integrity.md`
 
 ## Runbooks
 
@@ -142,6 +143,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0058-fix.md`
 - `docs/records/validation-wi-cx0059-fix.md`
 - `docs/records/validation-wi-cx0061-fix.md`
+- `docs/records/validation-wi-cx0062-fix.md`
 
 ## Tooling
 
@@ -158,6 +160,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/smoke-ephemeral-worker-cli.mjs`
 - `scripts/test-ephemeral-worker-lifecycle.mjs`
 - `scripts/fixtures/managed-worker-tree.mjs`
+- `scripts/audit-control-plane.mjs`
 
 ## GitHub Templates
 

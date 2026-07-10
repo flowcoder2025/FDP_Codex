@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0061-fix
+WI id: WI-CX0062-fix
 
 Category: fix
 
-Title: Worker Descendant Temporal Identity Guard
+Title: Control-Plane Integrity Reconciliation
 
 Layer: Layer 1
 
@@ -12,13 +12,13 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0061-fix-worker-descendant-temporal-identity
+Branch: wi/cx0062-fix-control-plane-integrity-reconciliation
 
-Approval envelope: the user instructed Codex to repair the workflow and continue through validated publication under the active supervised A2 envelope. Required post-merge validation of WI-CX0059 exposed a Windows false-descendant defect, so this focused Layer 1 hotfix may implement, validate, publish, and merge before any dogfood progression. Existing exclusions remain: target remote creation, target push or PR, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, automation prompt or schedule change, runner reactivation, authority expansion, A3 publication behavior, S2 execution, separate reviewer creation, and destructive operations.
+Approval envelope: the user approved the recommended full control-plane integrity reset. This WI may backfill truthful GitHub Issue and PR metadata, archive runner tasks, retire the hourly worktree automation, remove exact verified stale worktrees/directories and merged branches, implement the live audit, publish and merge the reconciliation PR, and close KI-CX-CONTROL-001 only after post-merge audit evidence. Existing exclusions remain: dogfood continuation, provider-policy workaround, target remote or publication, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, S2 execution, and separate reviewer creation.
 
 ## Scope
 
-Prevent stale Windows parent-pid metadata from being accepted as a live worker descendant by requiring candidate descendants to start no earlier than their observed parent or POSIX process-group root.
+Restore the live WI/KI/PR/branch/worktree/task lifecycle to the original single-controller FDP_Codex goal and install an executable audit that prevents file-only false-green completion.
 
 ## Triage
 
@@ -26,30 +26,32 @@ Prevent stale Windows parent-pid metadata from being accepted as a live worker d
 - WTC: AUTO
 - Risk: R2
 - ESC: E1+E3+E5+E6
-- Primary evaluator stance: reproduce the post-merge false-descendant path, prove temporal filtering with deterministic synthetic identities, and repeat the full process-tree suite.
-- Validator stance: require temporal identity evidence in executable tests and state while preserving the existing cleanup, provider, runner, target, publication, authority, dependency, API, and destructive-operation boundaries.
+- Primary evaluator stance: trust live GitHub, Git, Codex task, automation, and worktree evidence over narrative completion claims.
+- Validator stance: require linked Issue state, PR metadata, exact branch/worktree retention, retired automation, truthful backfill disclosure, and post-merge closeout while preserving provider, dogfood, release, authority, dependency, API, and external-contract boundaries.
 
 ## Verification Plan
 
-- Reject a candidate descendant when its recorded start time predates the observed parent or process-group root.
-- Preserve fallback behavior when a platform cannot provide parseable start times.
-- Add a deterministic synthetic process-table case for a stale parent-pid row, a valid child, and a valid grandchild.
-- Repeat normal, timeout, interruption, and observed-residual cleanup paths five times locally.
-- Run repository, type, diff, no-residual process, and GitHub Actions checks before publication.
+- Backfill all historical KI Issues with explicit non-contemporaneous disclosure and close only evidence-proven repayments.
+- Backfill PR #33 through #45 labels with explicit historical comments.
+- Archive all retired runner tasks, delete the hourly automation, and remove only verified clean/empty worktree state.
+- Delete local and remote merged branches only after exact PR-head verification and prune stale refs.
+- Add `npm run audit:control-plane` with working, PR, and post-merge phases.
+- Run repository, type, diff, live GitHub, branch, worktree, Issue, PR-label, and post-merge checks before completion.
 
 ## Completion Evidence
 
-- Context pack `ctx-wi-cx0061-fix-20260710105206`; timestamp `2026-07-10T10:52:06.771Z`; 17 metadata-only ledger entries; no chunk bodies.
-- PR #44 merged WI-CX0059 at `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`; the required post-merge `npm.cmd run ci:check` then exposed the intermittent Windows false-descendant path.
-- `mergeObservedTree` now applies process start-time ordering to observed-parent and POSIX process-group candidates.
-- The synthetic stale-parent-pid case excludes the stale row and retains the valid child and grandchild.
-- Five consecutive full lifecycle runs passed normal, timeout, interruption, residual cleanup, and temporal identity checks.
-- KI-CX-WORKER-002 is repaid by this hotfix and validator-backed evidence.
+- Context pack `ctx-wi-cx0062-fix-20260710131943`; timestamp `2026-07-10T13:19:43.723Z`; 16 metadata-only ledger entries; no chunk bodies.
+- Historical KI Issues #46 through #55 exist; #46 through #54 are closed with repayment evidence and #55 remains open.
+- KI-CX-CONTROL-001 is open as Issue #56 and is repaid on merge only after the post-merge audit passes.
+- PR #33 through #45 carry reconstructed workflow labels plus comments that disclose the metadata was absent at merge time.
+- Thirty-two retired runner tasks were archived, the hourly automation was deleted, residual Codex worktree directories are zero, and local/remote branches contain only the active lifecycle set.
+- Accepted decision `docs/decisions/2026-07-10-control-plane-operational-integrity.md` and validation record `docs/records/validation-wi-cx0062-fix.md` define the repair and evidence.
 
 ## Open Known Issues
 
-- KI-CX-PROVIDER-001: repository-backed model execution is policy-blocked in the current environment even after explicit user approval; it blocks dogfood continuation, generalized unattended model workers, and runner reactivation.
+- KI-CX-PROVIDER-001 / Issue #55 remains open and blocks WI-CX0060-test, dogfood continuation, unattended model workers, and runner reactivation.
+- KI-CX-CONTROL-001 / Issue #56 remains open until this WI merges, branch/task closeout completes, and the post-merge audit evidence is attached.
 
 ## Boundary
 
-The A2 runner remains paused. The Layer 2 target was not touched. No release publication, deployment, package publication, OSS program submission, production dependency addition, public API or external contract change, automation schedule or prompt change, automation reactivation, A3 publication behavior, A2/A3 authority expansion, S2 execution, or separate reviewer creation occurred. No destructive filesystem or git operation occurred.
+The legacy hourly A2 runner is retired. The Layer 2 target was not touched. No release publication, deployment, package publication, OSS program submission, production dependency addition, public API or external contract change, automation reactivation, replacement automation creation, A3 publication behavior, A2/A3 authority expansion, S2 execution, or separate reviewer creation occurred. Destructive cleanup was limited to the user-approved, pre-verified retired tasks, empty worktree shells, and exact merged branch heads recorded in Issue #56.

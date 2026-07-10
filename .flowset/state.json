@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T10:55:16Z",
+  "updated_at": "2026-07-10T13:21:17Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -20,15 +20,17 @@
     "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
     "docs/specifications/ephemeral-worker-runner.md",
     "docs/records/validation-wi-cx0059-fix.md",
-    "docs/records/validation-wi-cx0061-fix.md"
+    "docs/records/validation-wi-cx0061-fix.md",
+    "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
+    "docs/records/validation-wi-cx0062-fix.md"
   ],
   "current_wi": {
-    "id": "WI-CX0061-fix",
+    "id": "WI-CX0062-fix",
     "category": "fix",
-    "title": "Worker Descendant Temporal Identity Guard",
+    "title": "Control-Plane Integrity Reconciliation",
     "status": "validated",
-    "branch": "wi/cx0061-fix-worker-descendant-temporal-identity",
-    "validation_record": "docs/records/validation-wi-cx0061-fix.md"
+    "branch": "wi/cx0062-fix-control-plane-integrity-reconciliation",
+    "validation_record": "docs/records/validation-wi-cx0062-fix.md"
   },
   "current_priority": {
     "kind": "wi",
@@ -66,7 +68,24 @@
     },
     "automation": {
       "id": "fdp-codex-a2-worktree-wi-runner",
-      "status": "PAUSED"
+      "status": "RETIRED",
+      "retired_at": "2026-07-10T13:12:00Z",
+      "evidence_issue": 56
+    },
+    "operational_integrity": {
+      "status": "repaid-on-merge",
+      "decision": "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
+      "validation_record": "docs/records/validation-wi-cx0062-fix.md",
+      "audit_command": "npm run audit:control-plane",
+      "github_pr_label_baseline_from": 33,
+      "control_issue": 56,
+      "historical_ki_issue_range": [46, 55],
+      "runner_tasks_archived": 32,
+      "retired_runner_visible_tasks": 0,
+      "residual_worktree_directories": 0,
+      "registered_worktree_count": 1,
+      "live_remote_branch_policy": "main plus current WI branch before merge; main only after closeout",
+      "merge_status_source": "live GitHub PR state"
     },
     "worker_topology": {
       "mode": "single-visible-controller-ephemeral-workers",
@@ -120,15 +139,78 @@
       }
     }
   },
-  "triggered_work": [
-    {
-      "wi_id": "WI-CX0035-test",
-      "title": "Automation Runner First Fresh-Run Output Review",
-      "status": "blocked-until-trigger",
-      "trigger": "new FDP_Codex runner thread, branch, PR, or recorded output for fdp-codex-a2-worktree-wi-runner"
-    }
-  ],
+  "triggered_work": [],
   "known_issues": [
+    {
+      "id": "KI-CX-AUTO-001",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "fresh-session boundary was assumed without parent and runner control-plane proof",
+      "defer_reason": "required Codex app control-plane evidence mapping",
+      "repayment_condition": "WI-CX0048-test records parent, goal, automation, runner, and receiver evidence",
+      "hard_stop": "before fresh-session, handoff-receiver, or authority-expansion claims",
+      "status": "repaid",
+      "repaid_by": "WI-CX0048-test",
+      "evidence": "docs/records/validation-wi-cx0048-test.md",
+      "github_issue_number": 46,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/46"
+    },
+    {
+      "id": "KI-CX-AUTO-002",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "runner duplicate-stops did not prove effective handoff reception",
+      "defer_reason": "required a receiver contract and proven isolated receiver",
+      "repayment_condition": "WI-CX0049-docs defines receiver states and WI-CX0052-test proves the receiver",
+      "hard_stop": "before A2/A3 authority expansion or handoff-success claims",
+      "status": "repaid",
+      "repaid_by": "WI-CX0052-test",
+      "evidence": "docs/records/validation-wi-cx0052-test.md",
+      "github_issue_number": 47,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/47"
+    },
+    {
+      "id": "KI-CX-AUTO-003",
+      "severity": "Medium",
+      "owner": "CODEX",
+      "trigger": "runner discovery queries were too narrow",
+      "defer_reason": "High automation KIs already blocked authority expansion",
+      "repayment_condition": "WI-CX0048-test records broad runner discovery evidence",
+      "hard_stop": "before relying on runner discovery for duplicate or cleanup decisions",
+      "status": "repaid",
+      "repaid_by": "WI-CX0048-test",
+      "evidence": "docs/records/validation-wi-cx0048-test.md",
+      "github_issue_number": 48,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/48"
+    },
+    {
+      "id": "KI-CX-AUTO-004",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "A2 runner worktree isolation was not proven",
+      "defer_reason": "required runtime snapshot, repair gate, and live worktree evidence",
+      "repayment_condition": "WI-CX0050 records the block, WI-CX0051 defines the gate, and WI-CX0052 proves repair",
+      "hard_stop": "before Layer 2 progression or generalized runner confidence",
+      "status": "repaid",
+      "repaid_by": "WI-CX0052-test",
+      "evidence": "docs/records/validation-wi-cx0052-test.md",
+      "github_issue_number": 49,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/49"
+    },
+    {
+      "id": "KI-CX-AUTO-005",
+      "severity": "Medium",
+      "owner": "CODEX",
+      "trigger": "external automation memory was not linked to repository evidence",
+      "defer_reason": "High control-plane KIs blocked authority expansion",
+      "repayment_condition": "WI-CX0048 adds runtime evidence and WI-CX0054 reconciles current state",
+      "hard_stop": "before using external automation memory as current SSOT",
+      "status": "repaid",
+      "repaid_by": "WI-CX0054-fix",
+      "evidence": "docs/records/validation-wi-cx0054-fix.md",
+      "github_issue_number": 50,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/50"
+    },
     {
       "id": "KI-CX-DOGFOOD-001",
       "severity": "Medium",
@@ -140,7 +222,9 @@
       "status": "repaid",
       "repaid_by": "WI-CX0057-docs",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "evidence": "docs/records/validation-wi-cx0057-docs.md"
+      "evidence": "docs/records/validation-wi-cx0057-docs.md",
+      "github_issue_number": 51,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/51"
     },
     {
       "id": "KI-CX-CONTEXT-001",
@@ -153,7 +237,9 @@
       "status": "repaid",
       "repaid_by": "WI-CX0058-fix",
       "decision_ref": "docs/decisions/2026-07-10-context-selection-breadth-guard.md",
-      "evidence": "docs/records/validation-wi-cx0058-fix.md"
+      "evidence": "docs/records/validation-wi-cx0058-fix.md",
+      "github_issue_number": 52,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/52"
     },
     {
       "id": "KI-CX-WORKER-001",
@@ -166,7 +252,9 @@
       "status": "repaid",
       "repaid_by": "WI-CX0059-fix",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
-      "evidence": "docs/records/validation-wi-cx0059-fix.md"
+      "evidence": "docs/records/validation-wi-cx0059-fix.md",
+      "github_issue_number": 53,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/53"
     },
     {
       "id": "KI-CX-WORKER-002",
@@ -178,7 +266,9 @@
       "hard_stop": "before dogfood continuation, generalized unattended worker use, or runner reactivation",
       "status": "repaid",
       "repaid_by": "WI-CX0061-fix",
-      "evidence": "docs/records/validation-wi-cx0061-fix.md"
+      "evidence": "docs/records/validation-wi-cx0061-fix.md",
+      "github_issue_number": 54,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/54"
     },
     {
       "id": "KI-CX-PROVIDER-001",
@@ -188,7 +278,24 @@
       "defer_reason": "process lifecycle is locally repaid without bypassing the external disclosure boundary",
       "repayment_condition": "execution environment establishes the configured model service as trusted and permits a repository-backed managed smoke",
       "hard_stop": "before dogfood continuation, generalized unattended model worker use, or runner reactivation",
-      "status": "open"
+      "status": "open",
+      "github_issue_number": 55,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/55"
+    },
+    {
+      "id": "KI-CX-CONTROL-001",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "live Issues, PR labels, branches, worktrees, tasks, automation, and handoff state did not close as one lifecycle",
+      "defer_reason": "none; the user approved immediate reconciliation",
+      "repayment_condition": "WI-CX0062-fix merges and the post-merge control-plane audit passes",
+      "hard_stop": "before WI-CX0060-test, dogfood, runner replacement, release readiness, or workflow-success claims",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0062-fix",
+      "decision_ref": "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
+      "evidence": "docs/records/validation-wi-cx0062-fix.md",
+      "github_issue_number": 56,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/56"
     }
   ],
   "context_selection": {

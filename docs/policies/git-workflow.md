@@ -53,6 +53,24 @@ The current bootstrap exception is recorded because local scaffold files were cr
 16. Delete the branch after merge.
 17. Record the merge, branch deletion, or pending branch state in handoff.
 
+## Post-Merge Closeout
+
+GitHub owns live PR and Issue state after the validation commit is created. Repository handoff files must not claim that a validated WI still needs publication without first querying the live PR.
+
+After merge, the controller must:
+
+1. verify the PR is merged and required labels are present;
+2. verify every related KI Issue has truthful open or closed state and repayment evidence;
+3. delete the merged remote and local WI branch;
+4. remove or archive the WI worktree and user-visible worker task, then re-query the Codex app task surface for zero retired runner tasks;
+5. prune stale remote-tracking refs;
+6. return the canonical checkout to clean `main` equal to `origin/main`;
+7. run `npm run audit:control-plane -- --phase post-merge --pr <number>`;
+8. attach the audit result to the control-plane Issue or PR before closing the WI repayment Issue;
+9. close the repayment Issue with that evidence and rerun the audit with `--expect-control-closed`.
+
+The closeout evidence is operational GitHub evidence. A new repository commit solely to say that the preceding PR merged is not required.
+
 ## PR Readiness
 
 A PR is not ready for merge until:
@@ -112,6 +130,8 @@ Each completed WI should leave evidence in at least one of:
 - commit history,
 - `.flowset/handoff.md`,
 - linked GitHub issues for KI repayment.
+
+For public FDP_Codex KI work, linked GitHub Issue evidence is mandatory rather than optional.
 
 `fix_plan.md` remains a compact live backlog. It must not become the completed-history store.
 

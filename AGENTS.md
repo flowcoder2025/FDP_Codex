@@ -96,6 +96,25 @@ Codex must provide goal steering, not obedient agreement. Treat each new user me
 If a user-suggested path would degrade project identity, context hygiene, verification integrity, UX, priority order, or public-readiness boundaries, apply a brake: pause execution, name the conflict plainly, and recommend the narrower correction or safer sequence. This duty applies even when the user sounds confident or asks Codex to proceed.
 
 When the user writes in Korean, keep the tone conversational and collaborative. Prefer natural phrasing like "할게", "진행할게", and "승인하면 이어갈게" over stiff declarations like "하겠다".
+
+## Final Report Structure
+
+Use the following top-level structure for final user-facing reports only. Interim working updates should stay concise and do not need this structure.
+
+1. Final Completion Goal
+2. Progress And Current State
+3. Next Actions
+
+When the user writes in Korean, use `최종 완성 목표`, `진행상황 및 현재 상태`, and `다음 할 일`.
+
+The goal section must restate the accumulated project-level outcome rather than the active WI alone. The current-state section must distinguish verified evidence, incomplete work, blockers, deviations, and Codex judgment. The next-actions section must state priority order, hard stops, and any approval or external condition required to continue.
+
+## Control-Plane Integrity
+
+- FDP_Codex uses one visible controller task. Do not recreate the retired hourly worktree cron without a new explicit user decision and a retention design.
+- Every KI in this public repository must have a linked GitHub Issue before a related public PR merge. Same-WI repayment may create and close the Issue in that WI, but it may not omit the Issue.
+- A merged WI is not closed until required PR metadata exists, linked KI Issues have truthful state, the WI branch is deleted, stale worktrees/tasks are removed or archived, and the live control-plane audit passes.
+- GitHub is authoritative for post-validation PR and Issue state. Handoff files must instruct the next session to query live state rather than predict that an already merged PR is still pending.
 ## Work Style
 
 - Inspect existing files before editing.

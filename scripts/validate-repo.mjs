@@ -73,6 +73,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md',
   'docs/decisions/2026-07-10-context-selection-breadth-guard.md',
   'docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md',
+  'docs/decisions/2026-07-10-control-plane-operational-integrity.md',
   'docs/specifications/ephemeral-worker-runner.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
@@ -102,12 +103,14 @@ const requiredFiles = [
   'scripts/smoke-ephemeral-worker-cli.mjs',
   'scripts/test-ephemeral-worker-lifecycle.mjs',
   'scripts/fixtures/managed-worker-tree.mjs',
+  'scripts/audit-control-plane.mjs',
   'docs/records/validation-wi-cx0055-feat.md',
   'docs/records/validation-wi-cx0056-test.md',
   'docs/records/validation-wi-cx0057-docs.md',
   'docs/records/validation-wi-cx0058-fix.md',
   'docs/records/validation-wi-cx0059-fix.md',
   'docs/records/validation-wi-cx0061-fix.md',
+  'docs/records/validation-wi-cx0062-fix.md',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -175,6 +178,9 @@ const requiredChunkIds = [
   'decision.portfolio-guardrail-validator-baseline',
   'decision.autonomous-work-exhaustion-stop-gate',
   'decision.a2-worktree-isolation-repair-gate',
+  'decision.control-plane-operational-integrity',
+  'tool.audit-control-plane',
+  'record.validation-wi-cx0062-fix',
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
   'spec.runtime-snapshot',
@@ -705,9 +711,12 @@ function validateFlowState() {
   checks.flow_state_snapshot_priority = snapshotPriorityMatchesUserDecision
     || snapshotPriorityMatchesWi
     || snapshotPriorityMatchesExternalBlockedWi;
+  const snapshotHasRetiredRunner = snapshotTriggeredWork.length === 0
+    && stateSnapshot.control_plane?.automation?.status === 'RETIRED'
+    && fixPlanText.includes('The hourly worktree runner is retired')
+    && handoffText.includes('The hourly worktree runner is retired');
   checks.flow_state_snapshot_triggered_work = snapshotHasTriggeredA2
-    && fixPlanText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
-    && handoffText.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked');
+    || snapshotHasRetiredRunner;
   checks.flow_state_snapshot_hard_stops = requiredHardStops.every((item) => snapshotHardStops.includes(item));
   checks.flow_state_snapshot_hygiene = stateSnapshot.hygiene?.body_storage === 'forbidden'
     && stateSnapshot.hygiene?.context_bodies_carried === false
@@ -746,7 +755,7 @@ function validateFlowState() {
     error('flow.state_snapshot_priority_mismatch', '.flowset/state.json current_priority must match the fix_plan and handoff current priority.', snapshotPriority);
   }
   if (!checks.flow_state_snapshot_triggered_work) {
-    error('flow.state_snapshot_triggered_work_missing', '.flowset/state.json must preserve the blocked WI-CX0035 A2 runner output trigger.');
+    error('flow.state_snapshot_triggered_work_missing', '.flowset/state.json must preserve a valid live trigger or the explicit retired-runner replacement state.');
   }
   if (!checks.flow_state_snapshot_hard_stops) {
     error('flow.state_snapshot_hard_stops_missing', '.flowset/state.json must preserve the active hard stops.', snapshotHardStops);
@@ -1250,22 +1259,27 @@ function validateAutonomousWorkExhaustionStopGate() {
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('separate reviewer creation')
     && record.includes('destructive filesystem or git operation occurred');
+  const retiredRunnerFlow = state.control_plane?.automation?.status === 'RETIRED'
+    && Array.isArray(state.triggered_work)
+    && state.triggered_work.length === 0
+    && fixPlan.includes('The hourly worktree runner is retired');
   checks.autonomous_exhaustion_flow = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && Array.isArray(state.triggered_work)
-    && state.triggered_work.some((item) => item.wi_id === 'WI-CX0035-test' && item.status === 'blocked-until-trigger')
+    && (state.triggered_work.some((item) => item.wi_id === 'WI-CX0035-test' && item.status === 'blocked-until-trigger')
+      || retiredRunnerFlow)
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
       || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
       || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')))
-    && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
   checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
     && handoff.includes('No further independent autonomous WI should start unless')
-    && handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
+    && (handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
+      || handoff.includes('The hourly worktree runner is retired'))
     && handoff.includes('Generalized A2/A3 expansion is blocked')
     && handoff.includes('Long-lived post-bootstrap automation cadence and authority is blocked');
   checks.autonomous_exhaustion_manifest = manifest.includes('id: decision.autonomous-work-exhaustion-stop-gate')
@@ -1953,17 +1967,20 @@ function validateAutomationRunnerFreshRunEvidenceGate() {
     && record.includes('returned `[]`')
     && record.includes('git ls-remote --heads origin wi/cx0033-test-automation-runner-fresh-run-evidence-gate');
   checks.automation_fresh_run_gate_trigger = fixPlan.includes('## Triggered Work')
-    && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
-    && fixPlan.includes('Trigger only when a new FDP_Codex runner thread, branch, PR, or recorded output exists')
-    && fixPlan.includes(automationId)
-    && handoff.includes('Actual first fresh-run output review remains triggered by future standalone A2 runner output');
+    && ((fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
+      && fixPlan.includes('Trigger only when a new FDP_Codex runner thread, branch, PR, or recorded output exists')
+      && fixPlan.includes(automationId)
+      && handoff.includes('Actual first fresh-run output review remains triggered by future standalone A2 runner output'))
+      || (fixPlan.includes('The hourly worktree runner is retired')
+        && handoff.includes('The hourly worktree runner is retired')));
   checks.automation_fresh_run_gate_manifest = manifest.includes('record.validation-wi-cx0033-test')
     && manifest.includes('docs/records/validation-wi-cx0033-test.md');
   checks.automation_fresh_run_gate_indexes = docsIndex.includes('docs/records/validation-wi-cx0033-test.md')
     && recordsReadme.includes('docs/records/validation-wi-cx0033-test.md');
   checks.automation_fresh_run_gate_flow = !/^- \[ \] WI-CX0033-test\b/m.test(fixPlan)
     && handoff.includes('WI-CX0033-test: Automation Runner Fresh-Run Evidence Gate')
-    && handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked');
+    && (handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
+      || handoff.includes('The hourly worktree runner is retired'));
   checks.automation_fresh_run_gate_boundary = record.includes('No automation authority expansion occurred')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
@@ -2393,7 +2410,7 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && state.layer2_target?.scope_code_status === 'accepted'
     && state.layer2_target?.scope_code_decision_ref === decisionPath
     && state.layer2_target?.wi_pattern === 'WI-FCDNNNN-category'
-    && state.control_plane?.automation?.status === 'PAUSED';
+    && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status);
   checks.layer2_scope_accepted_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
@@ -2694,7 +2711,7 @@ function validateRuntimeSnapshotValidator() {
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === repairRecordPath
     && state.control_plane?.automation?.id === 'fdp-codex-a2-worktree-wi-runner'
-    && state.control_plane?.automation?.status === 'PAUSED'
+    && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && reconciliationDecision.includes('Runtime snapshots are point-in-time evidence')
     && reconciliationDecision.includes('`.flowset/state.json` owns the current control-plane status')
     && reconciliationRecord.includes('WI: WI-CX0054-fix')
@@ -3204,7 +3221,7 @@ function validateLayer2ScaffoldGenerator() {
     && record.includes('WTC: FND')
     && record.includes('Risk: R2')
     && record.includes('ESC: E1+E3+E5+E6');
-  checks.layer2_generator_boundary = state.control_plane?.automation?.status === 'PAUSED'
+  checks.layer2_generator_boundary = ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && record.includes('No target remote, target push, target PR')
     && record.includes('production dependency addition')
     && record.includes('public API or external contract change')
@@ -3313,7 +3330,7 @@ function validateLayer2FreshContextContinuation() {
     && contextKi.evidence === 'docs/records/validation-wi-cx0058-fix.md'
     && !fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
     && !fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
-    && fixPlan.includes('KI-CX-PROVIDER-001 Repository-backed model worker trust boundary')
+    && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55 Repository-backed model worker trust boundary')
     && record.includes('## Known Issues')
     && record.includes('Hard stop: before reactivating the runner')
     && record.includes('Hard stop: before generalized automated WI cadence');
@@ -3322,7 +3339,7 @@ function validateLayer2FreshContextContinuation() {
     && record.includes('not target SSOT bodies or prompt bodies')
     && state.hygiene?.body_storage === 'forbidden'
     && state.hygiene?.context_bodies_carried === false;
-  checks.layer2_fresh_context_boundary = state.control_plane?.automation?.status === 'PAUSED'
+  checks.layer2_fresh_context_boundary = ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && target.remote_configured === false
     && record.includes('No target remote, target push, or target PR occurred')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
@@ -3437,7 +3454,7 @@ function validateEphemeralWorkerControllerBoundary() {
     && autonomy.includes('The worker owns repository reconstruction, worktree edits, and validation')
     && autonomy.includes('must not create user-owned Codex app tasks')
     && autonomy.includes('must not use `danger-full-access` solely to write Git metadata')
-    && autonomy.includes('A2 runner remains paused');
+    && (autonomy.includes('A2 runner remains paused') || autonomy.includes('A2 runner was paused'))
   checks.ephemeral_worker_git_policy = gitPolicy.includes('## Controller-Owned Git Boundary For Ephemeral Workers')
     && gitPolicy.includes('controller owns branch creation, staged review, commit, push, PR, and merge')
     && gitPolicy.includes('worker owns repository reconstruction, worktree edits, and validation')
@@ -3491,7 +3508,7 @@ function validateEphemeralWorkerControllerBoundary() {
     && contextKi.repayment_condition.includes('WI-CX0058-fix')
     && contextKi.trigger.includes('123 metadata chunks')
     && contextKi.trigger.includes('120');
-  checks.ephemeral_worker_boundary = state.control_plane?.automation?.status === 'PAUSED'
+  checks.ephemeral_worker_boundary = ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
     && decision.includes('does not reactivate it, change its prompt or schedule')
     && record.includes('No target remote, target push, or target PR occurred')
@@ -3667,7 +3684,7 @@ function validateContextSelectionBreadthGuard() {
     && record.includes('ESC: E1+E3+E5+E6');
   checks.context_breadth_flow = fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && !fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
-    && fixPlan.includes('KI-CX-PROVIDER-001 Repository-backed model worker trust boundary')
+    && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55 Repository-backed model worker trust boundary')
     && handoff.includes('- WI-CX0058-fix: Context Pack Selection Breadth Guard')
     && state.context_selection?.policy === 'exact-specialized-intent-tags-v1';
   checks.context_breadth_known_issues = contextKi?.status === 'repaid'
@@ -3682,7 +3699,7 @@ function validateContextSelectionBreadthGuard() {
   checks.context_breadth_worker_evidence = JSON.stringify(topology.last_attempt?.observed_process_ids) === JSON.stringify([61312, 40280, 60288])
     && topology.last_attempt?.process_ids_confirmed_terminated === true
     && topology.last_attempt?.repayment_wi === 'WI-CX0059-fix';
-  checks.context_breadth_boundary = state.control_plane?.automation?.status === 'PAUSED'
+  checks.context_breadth_boundary = ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
     && state.hygiene?.context_bodies_carried === false
     && record.includes('No release publication, deployment, package publication, OSS program submission')
@@ -3897,7 +3914,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('KI-CX-WORKER-001 is repaid by this WI')
     && record.includes('KI-CX-PROVIDER-001 now owns the separate external-provider trust boundary');
   checks.worker_lifecycle_flow = currentWi.includes('Status: validated')
-    && (currentWi.includes('WI id: WI-CX0059-fix') || currentWi.includes('WI id: WI-CX0061-fix'))
+    && /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
     && fixPlan.includes('WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
     && state.current_wi?.status === 'validated'
@@ -3926,12 +3943,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('intermittently reported `residual_processes`')
     && temporalRecord.includes('Five consecutive full lifecycle runs passed')
     && temporalRecord.includes('KI-CX-WORKER-002 Windows stale parent-pid descendant false positive');
-  checks.worker_temporal_identity_flow = currentWi.includes('WI id: WI-CX0061-fix')
+  checks.worker_temporal_identity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0061-fix-worker-descendant-temporal-identity')
-    && handoff.includes('Current WI: WI-CX0061-fix Worker Descendant Temporal Identity Guard')
-    && state.current_wi?.id === 'WI-CX0061-fix'
-    && state.current_wi?.validation_record === temporalRecordPath
+    && handoff.includes('WI-CX0061 rejects candidates that started before their observed parent')
+    && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.wi_id === 'WI-CX0060-test'
     && state.current_priority?.state === 'blocked-external';
   checks.worker_temporal_identity_state = topology.runtime_status === 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'
@@ -3964,7 +3979,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalKi.hard_stop.includes('before dogfood continuation')
     && temporalKi.evidence === temporalRecordPath;
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
-    && state.control_plane?.automation?.status === 'PAUSED'
+    && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
     && state.hygiene?.context_bodies_carried === false
     && record.includes('The Layer 2 target was not touched')
@@ -3973,7 +3988,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('No destructive filesystem or git operation occurred');
   checks.worker_lifecycle_live_runner_status = liveRunnerStatus;
   checks.worker_temporal_identity_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
-    && state.control_plane?.automation?.status === 'PAUSED'
+    && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
     && temporalRecord.includes('The Layer 2 target was not touched')
     && temporalRecord.includes('No live model smoke or provider-policy workaround was attempted')
@@ -4002,6 +4017,161 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_temporal_identity_state) error('worker_temporal_identity.state_missing', 'Machine state must expose the repeated temporal identity result and post-merge trigger commit.');
   if (!checks.worker_temporal_identity_known_issue) error('worker_temporal_identity.known_issue_missing', 'KI-CX-WORKER-002 must record severity, ownership, repayment, evidence, and hard stop.');
   if (!checks.worker_temporal_identity_boundary) error('worker_temporal_identity.boundary_missing', 'WI-CX0061 must preserve runner, target, provider, publication, and destructive-operation boundaries.', liveRunnerStatus);
+}
+
+function validateControlPlaneOperationalIntegrity() {
+  const decisionPath = 'docs/decisions/2026-07-10-control-plane-operational-integrity.md';
+  const recordPath = 'docs/records/validation-wi-cx0062-fix.md';
+  const auditPath = 'scripts/audit-control-plane.mjs';
+  const decision = read(decisionPath);
+  const record = read(recordPath);
+  const audit = read(auditPath);
+  const agents = read('AGENTS.md');
+  const autonomy = read('docs/policies/autonomy-and-approval.md');
+  const gitPolicy = read('docs/policies/git-workflow.md');
+  const issuePolicy = read('docs/policies/github-issue-governance.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+  const pkg = readJson('package.json');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsIndex = read('docs/decisions/README.md');
+  const recordsIndex = read('docs/records/README.md');
+  const ledgerEntries = read('.flowset/context-ledger.jsonl')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const wiLedger = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0062-fix'
+    && entry.timestamp === '2026-07-10T13:19:43.723Z');
+  const issues = Array.isArray(state.known_issues) ? state.known_issues : [];
+  const issueNumbers = issues.map((item) => item.github_issue_number).sort((a, b) => a - b);
+  const expectedIssueNumbers = Array.from({ length: 11 }, (_, index) => index + 46);
+  const control = issues.find((item) => item.id === 'KI-CX-CONTROL-001');
+  const provider = issues.find((item) => item.id === 'KI-CX-PROVIDER-001');
+  const integrity = state.control_plane?.operational_integrity ?? {};
+
+  checks.control_integrity_registration = manifest.includes('id: decision.control-plane-operational-integrity')
+    && manifest.includes(decisionPath)
+    && manifest.includes('id: tool.audit-control-plane')
+    && manifest.includes(auditPath)
+    && manifest.includes('id: record.validation-wi-cx0062-fix')
+    && manifest.includes(recordPath)
+    && docsIndex.includes(decisionPath)
+    && docsIndex.includes(recordPath)
+    && docsIndex.includes(auditPath)
+    && decisionsIndex.includes(decisionPath)
+    && recordsIndex.includes(recordPath);
+  checks.control_integrity_final_report_contract = agents.includes('for final user-facing reports only')
+    && agents.includes('Interim working updates should stay concise')
+    && agents.includes('`최종 완성 목표`')
+    && agents.includes('`진행상황 및 현재 상태`')
+    && agents.includes('`다음 할 일`')
+    && agents.includes('accumulated project-level outcome');
+  checks.control_integrity_policy = agents.includes('## Control-Plane Integrity')
+    && agents.includes('one visible controller task')
+    && agents.includes('Every KI in this public repository must have a linked GitHub Issue')
+    && issuePolicy.includes('every new KI must have a GitHub Issue before a related public PR merges')
+    && issuePolicy.includes('Historical backfill must say explicitly')
+    && gitPolicy.includes('## Post-Merge Closeout')
+    && gitPolicy.includes('re-query the Codex app task surface')
+    && gitPolicy.includes('--expect-control-closed')
+    && autonomy.includes('## Retired Worktree Cron Boundary')
+    && autonomy.includes('Do not recreate or reactivate a task-spawning worktree cron');
+  checks.control_integrity_decision = decision.includes('Status: accepted-v0')
+    && decision.includes('live control-plane state as a first-class verification surface')
+    && decision.includes('Historical backfill is explicitly marked as backfill')
+    && decision.includes('one visible controller plus bounded workers')
+    && decision.includes('repository script has no app-task API')
+    && decision.includes('--expect-control-closed')
+    && decision.includes('KI-CX-PROVIDER-001 remains open as Issue #55');
+  checks.control_integrity_ledger = wiLedger.length === 16
+    && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
+    && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
+    && wiLedger.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry));
+  checks.control_integrity_issue_state = JSON.stringify(issueNumbers) === JSON.stringify(expectedIssueNumbers)
+    && issues.every((item) => item.id
+      && item.severity
+      && item.owner
+      && item.trigger
+      && item.repayment_condition
+      && item.hard_stop
+      && item.github_issue_number
+      && item.github_issue === `https://github.com/flowcoder2025/FDP_Codex/issues/${item.github_issue_number}`)
+    && issues.filter((item) => item.github_issue_number >= 46 && item.github_issue_number <= 54)
+      .every((item) => item.status === 'repaid')
+    && provider?.github_issue_number === 55
+    && provider?.status === 'open'
+    && control?.github_issue_number === 56
+    && control?.status === 'repaid-on-merge'
+    && control?.repayment_condition.includes('post-merge control-plane audit passes');
+  checks.control_integrity_state = state.current_wi?.id === 'WI-CX0062-fix'
+    && state.current_wi?.branch === 'wi/cx0062-fix-control-plane-integrity-reconciliation'
+    && state.current_wi?.validation_record === recordPath
+    && state.control_plane?.automation?.status === 'RETIRED'
+    && integrity.status === 'repaid-on-merge'
+    && integrity.control_issue === 56
+    && JSON.stringify(integrity.historical_ki_issue_range) === JSON.stringify([46, 55])
+    && integrity.runner_tasks_archived === 32
+    && integrity.retired_runner_visible_tasks === 0
+    && integrity.residual_worktree_directories === 0
+    && integrity.registered_worktree_count === 1
+    && Array.isArray(state.triggered_work)
+    && state.triggered_work.length === 0;
+  checks.control_integrity_flow = currentWi.includes('WI id: WI-CX0062-fix')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Issue #56')
+    && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55')
+    && fixPlan.includes('The hourly worktree runner is retired')
+    && !fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
+    && handoff.includes('Current WI: WI-CX0062-fix Control-Plane Integrity Reconciliation')
+    && handoff.includes('Query live GitHub state')
+    && handoff.includes('Issue #56')
+    && handoff.includes('Issue #55');
+  checks.control_integrity_audit = pkg.scripts?.['audit:control-plane'] === 'node scripts/audit-control-plane.mjs'
+    && audit.includes("new Set(['working', 'pr', 'post-merge'])")
+    && audit.includes("['ls-remote', '--heads', 'origin']")
+    && audit.includes("['issue', 'list'")
+    && audit.includes("['pr', 'list'")
+    && audit.includes("args.includes('--expect-control-closed')")
+    && audit.includes("'codex.recorded_runner_task_closeout'")
+    && audit.includes("'fdp:approved-work'")
+    && audit.includes("label.startsWith('track:')")
+    && audit.includes("'worktrees'")
+    && audit.includes("'fdp-codex-a2-worktree-wi-runner', 'automation.toml'")
+    && audit.includes("kind: 'fdp-codex-control-plane-audit'");
+  checks.control_integrity_record = record.includes('Status: validated')
+    && record.includes('Repository KIs identified: 10. GitHub Issues: 0.')
+    && record.includes('PR #33 through #45 were merged with no workflow labels')
+    && record.includes('32 `FDP_Codex A2 Worktree WI Runner` tasks')
+    && record.includes('Created historical KI Issues #46 through #55')
+    && record.includes('Left KI-CX-PROVIDER-001 open as Issue #55')
+    && record.includes('Opened KI-CX-CONTROL-001 as Issue #56')
+    && record.includes('Archived all 32 exact-title runner tasks')
+    && record.includes('cannot query Codex app task visibility directly')
+    && record.includes('--expect-control-closed')
+    && record.includes('Destructive operations were limited to the user-approved');
+  checks.control_integrity_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
+    && state.current_priority?.state === 'blocked-external'
+    && state.current_priority?.owner_gate === 'H1'
+    && state.layer2_target?.remote_configured === false
+    && state.hygiene?.context_bodies_carried === false
+    && decision.includes('does not resume dogfood')
+    && record.includes('The retired hourly runner was not replaced or reactivated')
+    && record.includes('No release publication, deployment, package publication, OSS program submission');
+
+  if (!checks.control_integrity_registration) error('control_integrity.registration_missing', 'Control-plane decision, audit tool, and validation record must be registered in the manifest and indexes.');
+  if (!checks.control_integrity_final_report_contract) error('control_integrity.final_report_contract_missing', 'Final-only reporting structure and accumulated-goal framing must be explicit in AGENTS.md.');
+  if (!checks.control_integrity_policy) error('control_integrity.policy_missing', 'Issue, post-merge, retired-runner, and one-controller policies must define the operational lifecycle.');
+  if (!checks.control_integrity_decision) error('control_integrity.decision_missing', 'Decision must define live control-plane verification, truthful backfill, topology, closeout, and provider boundary.');
+  if (!checks.control_integrity_ledger) error('control_integrity.ledger_missing', 'WI-CX0062 must retain exactly 16 metadata-only fresh-context entries.');
+  if (!checks.control_integrity_issue_state) error('control_integrity.issue_state_missing', 'Every machine-state KI must link truthful GitHub Issue #46 through #56 metadata.');
+  if (!checks.control_integrity_state) error('control_integrity.state_missing', 'Machine state must expose WI-CX0062, retired automation, reconciliation counts, and empty triggered work.');
+  if (!checks.control_integrity_flow) error('control_integrity.flow_missing', 'Current WI, fix plan, and handoff must expose reconciliation, live GitHub lookup, and the remaining provider gate.');
+  if (!checks.control_integrity_audit) error('control_integrity.audit_missing', 'Audit command must inspect live Git, GitHub, worktree, automation, PR, and KI state across closeout phases.');
+  if (!checks.control_integrity_record) error('control_integrity.record_missing', 'Validation record must capture pre-state, truthful backfill, cleanup, two-pass closeout, and destructive scope.');
+  if (!checks.control_integrity_boundary) error('control_integrity.boundary_missing', 'Reconciliation must preserve provider, dogfood, Layer 2 remote, release, dependency, API, and authority hard stops.');
 }
 
 function validatePackage() {
@@ -4075,6 +4245,7 @@ validateLayer2FreshContextContinuation();
 validateEphemeralWorkerControllerBoundary();
 validateContextSelectionBreadthGuard();
 validateEphemeralWorkerProcessLifecycleGuard();
+validateControlPlaneOperationalIntegrity();
 validatePackage();
 
 const result = {
