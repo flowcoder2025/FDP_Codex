@@ -143,6 +143,12 @@
           "fork_context": false,
           "reviewed_head": "b63bbca2552d6fe071812c279143a046683d0ac1",
           "result": "fail-two-p2-findings-remediated-before-final-review"
+        },
+        {
+          "agent_id": "019f4d78-ea57-73d1-9843-dd2d473cea12",
+          "fork_context": false,
+          "reviewed_head": "7696fbb",
+          "result": "fail-two-p2-github-drift-findings-plus-one-p3-remediated"
         }
       ]
     },
@@ -373,8 +379,8 @@
       "severity": "High",
       "owner": "CODEX",
       "trigger": "the first dogfood run completed target reconstruction and validation, then entered an unsupported collaboration wait and timed out before final output",
-      "defer_reason": "none; verified timeout cleanup does not prove end-to-end completion",
-      "repayment_condition": "disable multi_agent in the managed invocation, pass deterministic confinement, and complete a live dogfood run with final output and zero residuals",
+      "defer_reason": "deterministic confinement and verified timeout cleanup pass, but the post-fix live final-result proof was rejected before execution by provider Issue #55",
+      "repayment_condition": "with multi_agent disabled, complete a repository-backed read-only dogfood run with final output and verified zero residuals",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement",
       "status": "open",
       "github_issue_number": 61,
@@ -396,9 +402,9 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "two separate fork_context false read-only reviewers remained running without a verdict and were stopped after bounded waits",
-      "defer_reason": "WI-CX0060 is already externally blocked and neither incomplete review was presented as PASS",
-      "repayment_condition": "a clean-context reviewer returns structured PASS or FAIL within a bounded period and the result is anchored to the final PR head",
+      "trigger": "reviewer availability was intermittent, and later bounded reviews of b63bbca and 7696fbb both returned FAIL with P2 findings",
+      "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
+      "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",
       "status": "open",
       "github_issue_number": 63,

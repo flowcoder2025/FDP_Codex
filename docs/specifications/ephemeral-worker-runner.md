@@ -87,7 +87,7 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` runs `codex exec --help` through the same supervisor without sending a repository prompt to a model provider.
+`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 

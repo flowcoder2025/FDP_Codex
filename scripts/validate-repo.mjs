@@ -3926,7 +3926,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && codexInvocation.includes("'--disable', 'multi_agent'")
     && codexInvocation.includes("'--sandbox'")
     && codexInvocation.includes("'-'")
-    && localSmoke.includes("'exec', '--help'");
+    && localSmoke.includes('buildEphemeralWorkerArgs')
+    && localSmoke.includes('workerArgs.slice(0, -1)')
+    && localSmoke.includes("'--help'")
+    && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true
@@ -3975,6 +3978,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('130 for interruption')
     && spec.includes('npm run worker:test')
     && spec.includes('npm run worker:smoke-local')
+    && spec.includes('builds the real ephemeral worker argument list')
     && spec.includes('## Agent Confinement')
     && spec.includes('must not spawn nested agents or enter collaboration wait states')
     && spec.includes('rather than relying on prompt wording');
@@ -4105,7 +4109,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('019f4d4f-0a95-73b3-a77e-96d1c181c6fd')
     && proofRecord.includes('Neither incomplete attempt was treated as PASS')
     && proofRecord.includes('019f4d6b-f84f-7c30-b759-038b6183cf70')
-    && proofRecord.includes('returned FAIL with two P2 findings');
+    && proofRecord.includes('returned FAIL with two P2 findings')
+    && proofRecord.includes('019f4d78-ea57-73d1-9843-dd2d473cea12')
+    && proofRecord.includes('two P2 live-GitHub drift findings plus one P3 CLI-smoke gap')
+    && proofRecord.includes('Issue #61 and Issue #63 titles and bodies were updated')
+    && proofRecord.includes('real builder argument path with `--disable multi_agent`');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4132,6 +4140,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && confinementKi?.status === 'open'
     && confinementKi?.github_issue_number === 61
     && confinementKi?.hard_stop.includes('before completing WI-CX0060-test')
+    && confinementKi?.defer_reason.includes('provider Issue #55')
+    && confinementKi?.repayment_condition.includes('repository-backed read-only dogfood run')
     && dogfoodKi?.severity === 'High'
     && dogfoodKi?.owner === 'CODEX'
     && dogfoodKi?.status === 'open'
@@ -4144,9 +4154,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAvailabilityKi?.status === 'open'
     && reviewAvailabilityKi?.github_issue_number === 63
     && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
+    && reviewAvailabilityKi?.trigger.includes('7696fbb')
+    && reviewAvailabilityKi?.defer_reason.includes('each remediated head requires a fresh review generation')
+    && reviewAvailabilityKi?.repayment_condition.includes('PASS with no unresolved P0, P1, or P2 finding')
     && state.control_plane?.independent_review?.availability_issue === 63
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
-    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'));
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d78-ea57-73d1-9843-dd2d473cea12' && attempt.reviewed_head === '7696fbb' && attempt.result.includes('github-drift'));
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false

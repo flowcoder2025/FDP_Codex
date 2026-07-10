@@ -51,6 +51,7 @@ Prove that the managed ephemeral worker can reconstruct and validate the separat
 - The user explicitly approved the disclosed local target transmission. The exact post-fix retry was still rejected before execution because the configured external model destination is not established as trusted and approval cannot override that rule. No workaround was attempted.
 - Two separate `fork_context: false` read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. Neither result was treated as PASS. KI-CX-REVIEW-002 / Issue #63 records reviewer-surface availability.
 - A later clean-context reviewer returned FAIL on head `b63bbca2552d6fe071812c279143a046683d0ac1` with two P2 findings: overstated live-proof state and a false-positive provider-workaround boundary check. Both findings were remediated, but the changed head still requires a fresh review.
+- Reviewer `019f4d78-ea57-73d1-9843-dd2d473cea12` then returned FAIL on head `7696fbb` with two P2 GitHub drift findings and one P3 CLI-smoke gap. Issues #61 and #63 were synchronized, the actual builder arguments now pass the no-model CLI smoke, and the changed head still requires a fresh review.
 
 ## Open Known Issues
 

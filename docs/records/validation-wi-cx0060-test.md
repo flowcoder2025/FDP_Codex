@@ -54,6 +54,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - `scripts/test-ephemeral-worker-lifecycle.mjs` asserts the confinement flag exactly once.
 - `docs/specifications/ephemeral-worker-runner.md` defines agent confinement independently of prompt wording.
 - `npm.cmd run worker:test`: passed invocation confinement, temporal stale-row exclusion, normal completion, timeout cleanup, interruption cleanup, and residual cleanup.
+- `npm.cmd run worker:smoke-local`: passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
 - KI-CX-DOGFOOD-002 / Issue #62 records the generated target handoff false green without mixing target state into Layer 1.
 
 ## Final External Gate
@@ -71,6 +72,9 @@ This WI is blocked externally until the execution platform establishes a trusted
 - Reviewer `019f4d6b-f84f-7c30-b759-038b6183cf70` then reviewed local head `b63bbca2552d6fe071812c279143a046683d0ac1` with `fork_context: false` and returned FAIL with two P2 findings.
 - The P2 findings identified an overstated `live-proof` status and a false-positive provider-workaround boundary check. Both were remediated before the next review generation.
 - The FAIL is not PASS evidence, and any later head still requires a fresh blind review.
+- Reviewer `019f4d78-ea57-73d1-9843-dd2d473cea12` reviewed head `7696fbb` and returned FAIL with two P2 live-GitHub drift findings plus one P3 CLI-smoke gap.
+- Issue #61 and Issue #63 titles and bodies were updated to the current deterministic-fix, provider-block, intermittent-review, and final-head-review facts.
+- The CLI smoke was strengthened to build the real worker arguments and replace only the stdin prompt marker with `--help`; the changed head remains unreviewed.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 
