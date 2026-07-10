@@ -77,8 +77,8 @@ add('AGENTS.md', lines([
   '- Use a dedicated branch for every non-trivial WI after bootstrap.',
   '- Keep Layer 1 provenance qualified with `layer1:<chunk_id>` references.',
   '- Record verification debt with risk, owner, repayment WI, hard stop, and defer reason.',
-  '- Do not claim completion without running `npm run validate` and the WI-specific checks.',
-  '- Managed workers require `.codex/rules/fdp-managed-worker.rules`; direct runtimes and nested Codex execution are forbidden.',
+  '- Do not claim completion until the visible controller runs `npm run validate` and the WI-specific checks after worker exit.',
+  '- Managed workers require `.codex/rules/fdp-managed-worker.rules`; direct runtimes, package managers, and nested Codex execution are forbidden. The visible controller runs repository validation after the worker exits.',
   '- Push, merge, release, deployment, publication, dependencies, and destructive operations require explicit approval.',
 ]));
 
@@ -91,8 +91,8 @@ add('README.md', lines([
   '',
   '1. Read `AGENTS.md` and `docs/manifest.yaml`.',
   '2. Read `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.',
-  '3. Keep `.codex/rules/fdp-managed-worker.rules` active for managed worker sessions.',
-  '4. Run `npm run validate`.',
+  '3. Keep `.codex/rules/fdp-managed-worker.rules` active for managed worker sessions; workers must not run repository scripts.',
+  '4. After the worker exits, run `npm run validate` from the visible controller.',
   '',
   'The next target WI is the fresh-context handoff continuation proof recorded in the fix plan.',
 ]));

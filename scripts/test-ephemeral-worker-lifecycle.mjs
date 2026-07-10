@@ -37,6 +37,8 @@ function runExecPolicyContractCase() {
     '"cmd.exe"',
     '"python.exe"',
     '"bash.exe"',
+    '"yarn.cmd"',
+    '"corepack"',
   ]) {
     assert(policy.includes(token), `managed worker exec-policy is missing ${token}`);
   }

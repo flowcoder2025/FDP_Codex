@@ -133,15 +133,17 @@ FDP_Codex default:
 
 The default clean-context UX is one visible control task plus ephemeral CLI workers started with `codex exec --ephemeral`. The control task keeps the accumulated goal, user decisions, approval envelope, and final reporting. Workers reconstruct only the active WI from repository SSOT and must not create user-owned Codex app tasks.
 
-The controller owns branch creation and commit. It also owns staging, push, PR, merge, and any user-facing approval request. The worker owns repository reconstruction, worktree edits, and validation. A worker may inspect and recover an interrupted partial diff, but it must not broaden its own authority, configure remotes, publish changes, or claim the complete WI Git lifecycle.
+The controller owns repository-supplied script execution and canonical validation in addition to branch creation, staging, commit, push, PR, merge, and any user-facing approval request. The worker owns repository reconstruction and worktree edits. A worker may inspect and recover an interrupted partial diff, but it must not broaden its own authority, configure remotes, publish changes, or claim the complete WI Git lifecycle.
 
-The default ephemeral worker sandbox is `workspace-write`. FDP_Codex must not use `danger-full-access` solely to write Git metadata. When that sandbox cannot write `.git`, the controller pre-creates the dedicated WI branch, independently reviews the worker diff and validation evidence, reruns the relevant validation, and creates the commit.
+The default ephemeral worker sandbox is `workspace-write`. FDP_Codex must not use `danger-full-access` solely to write Git metadata. When that sandbox cannot write `.git`, the controller pre-creates the dedicated WI branch, independently reviews the worker diff, runs the relevant repository validation after worker exit, and creates the commit.
 
 This split supersedes the retired Codex app worktree cron as the supported direction. The A2 runner was paused when the controller boundary was accepted and is now retired; reactivation or replacement requires a new explicit decision, retention design, and control-plane proof.
 
 ### Ephemeral Worker Process Lifecycle
 
 Supervised local ephemeral workers must run through `scripts/run-ephemeral-worker.mjs`. Direct unmanaged `codex exec --ephemeral` use is not allowed for unattended WI execution.
+
+Managed workers must not execute repository-supplied scripts or package managers. The visible controller runs canonical validation after worker exit. No package-script exception is allowed because a workspace-write worker can rewrite that script before execution.
 
 The managed wrapper must use a finite timeout, stream JSONL stdout and stderr observably, track the root and descendant process identities, terminate matched descendants before parents on timeout or interruption, and verify that no matched process remains before controller fallback. An observation or cleanup result that cannot be verified is a failure.
 

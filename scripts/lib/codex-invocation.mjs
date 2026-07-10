@@ -10,8 +10,14 @@ const forbiddenReentryCases = [
   [process.execPath, 'C:\\path\\to\\codex.js', 'exec'],
   ['npx', 'codex'],
   ['npm.cmd', 'exec', 'codex'],
+  ['npm.cmd', 'run', 'validate'],
+  ['npm.cmd', 'run', 'worker:run'],
   ['pnpm', 'dlx', 'codex'],
+  ['pnpm', 'run', 'validate'],
   ['bunx', '@openai/codex'],
+  ['bun', 'run', 'validate'],
+  ['yarn', 'run', 'validate'],
+  ['corepack', 'npm', 'run', 'validate'],
   ['powershell.exe', '-Command', 'codex exec'],
   ['cmd.exe', '/c', 'codex exec'],
   ['python.exe', '-c', "import subprocess; subprocess.run(['codex', 'exec'])"],
@@ -81,14 +87,10 @@ export function verifyManagedWorkerExecPolicy({ invocation, cwd }) {
     }
   }
 
-  const allowedControl = checkExecPolicy(invocation, rulePath, cwd, ['npm.cmd', 'run', 'validate']);
-  if (allowedControl.decision === 'forbidden') {
-    throw new Error('managed worker exec-policy forbids the declared package-script path');
-  }
-
   return {
     rule_path: rulePath,
     forbidden_case_count: forbiddenReentryCases.length,
-    package_script_control: 'not-forbidden',
+    package_script_control: 'forbidden-inside-worker',
+    validation_owner: 'visible-controller',
   };
 }

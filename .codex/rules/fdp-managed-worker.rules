@@ -20,24 +20,24 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = [["npm", "npm.cmd"], ["exec", "x"]],
+    pattern = [["npm", "npm.cmd"]],
     decision = "forbidden",
-    justification = "Ad-hoc npm package execution is forbidden inside a managed worker. Use npm run with declared scripts instead.",
-    match = [["npm", "exec", "codex"], ["npm.cmd", "x", "@openai/codex"]],
+    justification = "All npm execution is forbidden inside a managed worker. Return repository validation to the visible controller.",
+    match = [["npm", "exec", "codex"], ["npm.cmd", "run", "validate"], ["npm.cmd", "run", "worker:run"]],
 )
 
 prefix_rule(
-    pattern = [["pnpm", "pnpm.cmd"], ["dlx", "exec"]],
+    pattern = [["pnpm", "pnpm.cmd"]],
     decision = "forbidden",
-    justification = "Ad-hoc pnpm package execution is forbidden inside a managed worker. Use declared package scripts instead.",
-    match = [["pnpm", "dlx", "codex"], ["pnpm.cmd", "exec", "@openai/codex"]],
+    justification = "All pnpm execution is forbidden inside a managed worker. Return repository validation to the visible controller.",
+    match = [["pnpm", "dlx", "codex"], ["pnpm.cmd", "run", "validate"]],
 )
 
 prefix_rule(
     pattern = [["bun", "bun.exe", "bunx", "bunx.exe"]],
     decision = "forbidden",
-    justification = "Ad-hoc Bun execution is forbidden inside a managed worker. Use declared package scripts instead.",
-    match = [["bun", "x", "codex"], ["bunx", "@openai/codex"]],
+    justification = "All Bun execution is forbidden inside a managed worker. Return repository validation to the visible controller.",
+    match = [["bun", "x", "codex"], ["bun", "run", "validate"], ["bunx", "@openai/codex"]],
 )
 
 prefix_rule(
@@ -59,4 +59,11 @@ prefix_rule(
     decision = "forbidden",
     justification = "Nested Unix shell interpreters are forbidden inside a managed worker. Invoke supported commands directly.",
     match = [["bash", "-c", "codex exec"], ["wsl.exe", "sh", "-c", "codex exec"]],
+)
+
+prefix_rule(
+    pattern = [["yarn", "yarn.cmd", "corepack", "corepack.exe"]],
+    decision = "forbidden",
+    justification = "Package-manager launchers are forbidden inside a managed worker. Return repository validation to the visible controller.",
+    match = [["yarn", "run", "validate"], ["corepack", "npm", "run", "validate"]],
 )

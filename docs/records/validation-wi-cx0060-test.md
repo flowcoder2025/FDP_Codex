@@ -15,7 +15,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - Risk: R2
 - ESC: E1+E2+E3+E5+E6
 - Primary evaluator stance: falsify provider trust, clean-context reconstruction, final-result delivery, nested-agent confinement, process cleanup, and target handoff truthfulness.
-- Validator stance: require built-in fan-out disabling plus supported exec-policy re-entry checks, a completed live dogfood result, verified zero residual processes, repository CI, and a separate blind adversarial review before merge.
+- Validator stance: require built-in fan-out disabling, package-manager prohibition, controller-owned validation, a completed live dogfood result, verified zero residual processes, repository CI, and a separate blind adversarial review before merge.
 
 ## Context Evidence
 
@@ -61,7 +61,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 
 The user explicitly approved transmission of the local-only dogfood repository contents to the configured external model service for one managed read-only proof. The exact post-fix command was still rejected before execution. The execution-policy result stated that the external destination is not established as trusted and that the data-exfiltration rule forbids the transfer even with explicit user approval.
 
-This WI is blocked externally until the execution platform establishes a trusted model destination and permits that managed repository-backed proof. Codex did not retry through another model surface, indirect command, or workaround. Repository CI passes locally, but current-head independent review and publication remain deferred until the live evidence is complete.
+The end-to-end live-proof claim remains blocked externally until the execution platform establishes a trusted model destination and permits that managed repository-backed proof. Codex did not retry through another model surface, indirect command, or workaround. The truthful blocked-outcome candidate may still receive current-head independent review and land through the normal supervised PR lifecycle, after which Strategy A continues local v0.1 self-hosting work without claiming the missing live proof.
 
 ## Independent Review Attempts
 
@@ -73,7 +73,7 @@ This WI is blocked externally until the execution platform establishes a trusted
 - The P2 findings identified an overstated `live-proof` status and a false-positive provider-workaround boundary check. Both were remediated before the next review generation.
 - The FAIL is not PASS evidence, and any later head still requires a fresh blind review.
 - Reviewer `019f4d78-ea57-73d1-9843-dd2d473cea12` reviewed head `7696fbb` and returned FAIL with two P2 live-GitHub drift findings plus one P3 CLI-smoke gap.
-- Issue #61 and Issue #63 titles and bodies were updated to the current deterministic-fix, provider-block, intermittent-review, and final-head-review facts.
+- Issue #61 and Issue #63 titles and bodies were updated to the current supported-command, provider-block, intermittent-review, and final-head-review facts.
 - The CLI smoke was strengthened to build the real worker arguments and replace only the stdin prompt marker with `--help`; the changed head remains unreviewed.
 - Reviewer `019f4d85-063e-7a10-a5a2-8584e247de8c` reviewed head `c86b9f036e823986d78d825c97408b70dcd444b1` and returned FAIL with one P1 supported-command shell-reentry bypass and one P2 Issue #55 live-body drift finding.
 - Issue #55 was synchronized. The remediation adds a fail-before-prompt exec-policy preflight, blocks the tested direct and wrapper forms, generates the rule into new Layer 2 scaffolds, and removes the overstated universal deterministic-confinement claim.
@@ -81,6 +81,9 @@ This WI is blocked externally until the execution platform establishes a trusted
 - KI-CX-WORKER-004 / Issue #64 records the defect. `mergeObservedTree` now requires the live parent row to match the observed parent PID and start time before adding a descendant; deterministic reused-parent coverage and five consecutive full host lifecycle runs passed.
 - A missing target exec-policy was rejected with `worker.wrapper_error` before stdin was read or a model process started.
 - Post-remediation `npm.cmd run worker:smoke-local`, `npm.cmd run worker:test` repeated five times, `npm.cmd run ci:check`, and `git diff --check` passed in the host process environment.
+- Reviewer `019f4db0-018f-7db1-b8e4-81c8e1aa92fc` reviewed head `71576c01ca9a1db1fb59031c01a398bb13e9cba8` and returned FAIL with two P1 and two P2 findings.
+- The P1 package-script bypass is remediated by forbidding all npm, pnpm, Bun, Yarn, and Corepack execution inside the worker; repository-supplied validation now belongs to the visible controller after worker exit.
+- Issue #64 was reopened and labeled `fdp:ki`, `fdp:debt`, and `ki:high`; its state is `repaid-on-merge` until PR validation, merge, and post-merge audit complete. Issue #63 and Strategy A publication wording were repaired.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 

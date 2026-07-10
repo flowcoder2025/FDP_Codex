@@ -117,6 +117,9 @@ if (missingFiles.length === 0) {
     && managedWorkerPolicy.includes('"node.exe"')
     && managedWorkerPolicy.includes('"npx.cmd"')
     && managedWorkerPolicy.includes('"npm.cmd"')
+    && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
+    && managedWorkerPolicy.includes('"yarn.cmd"')
+    && managedWorkerPolicy.includes('visible controller')
     && managedWorkerPolicy.includes('Nested Codex execution is forbidden');
   checks.manifest_always_on = manifest.includes('id: root.agents')
     && manifest.includes('id: registry.manifest');

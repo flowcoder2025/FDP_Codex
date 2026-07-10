@@ -155,6 +155,12 @@
           "fork_context": false,
           "reviewed_head": "c86b9f036e823986d78d825c97408b70dcd444b1",
           "result": "fail-one-p1-shell-reentry-and-one-p2-issue55-drift-remediated"
+        },
+        {
+          "agent_id": "019f4db0-018f-7db1-b8e4-81c8e1aa92fc",
+          "fork_context": false,
+          "reviewed_head": "71576c01ca9a1db1fb59031c01a398bb13e9cba8",
+          "result": "fail-two-p1-package-script-and-ki-closeout-plus-two-p2-remediated"
         }
       ]
     },
@@ -164,7 +170,8 @@
       "worker_surface": "codex-cli-ephemeral",
       "worker_sandbox": "workspace-write",
       "controller_git_ownership": ["branch", "stage", "commit", "push", "pr", "merge"],
-      "worker_ownership": ["reconstruct", "edit", "validate"],
+      "controller_validation_ownership": ["repository-supplied-scripts", "canonical-validation"],
+      "worker_ownership": ["reconstruct", "edit"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
       "runtime_status": "managed-guard-confined-public-preflight-passed-dogfood-policy-blocked",
@@ -189,8 +196,10 @@
           "exec_policy": {
             "rule": ".codex/rules/fdp-managed-worker.rules",
             "preflight": "passed-local-no-model-request",
-            "forbidden_case_count": 12,
-            "scope": "supported-direct-runtime-package-executor-and-shell-reentry-prefixes",
+            "forbidden_case_count": 18,
+            "scope": "supported-direct-runtime-all-package-manager-and-shell-reentry-prefixes",
+            "package_script_control": "forbidden-inside-worker",
+            "validation_owner": "visible-controller",
             "universal_os_process_isolation": false,
             "target_migration_issue": 62
           },
@@ -382,10 +391,10 @@
       "severity": "High",
       "owner": "CODEX",
       "trigger": "repeated host lifecycle tests intermittently classified the no-child normal fixture as residual_processes after a Windows parent PID was reused",
-      "defer_reason": "none; false descendant discovery could target an unrelated process and was repaid before PR readiness",
-      "repayment_condition": "descendant discovery requires the currently live parent row to match the observed parent identity, deterministic reused-parent coverage passes, and five consecutive lifecycle runs pass",
+      "defer_reason": "the implementation and repeated local verification are complete, but policy keeps the Issue open through PR validation, merge, and post-merge audit",
+      "repayment_condition": "the identity fix and repeated coverage pass, the related PR merges, post-merge control-plane audit passes, and Issue #64 closes with that evidence",
       "hard_stop": "before WI-CX0060 PR readiness, merge, dogfood continuation, or generalized managed-worker use",
-      "status": "repaid",
+      "status": "repaid-on-merge",
       "repaid_by": "WI-CX0060-test",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
       "github_issue_number": 64,
@@ -431,7 +440,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, and the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, and the 71576c0 review returned FAIL with two P1 and two P2 findings",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

@@ -3513,22 +3513,28 @@ function validateEphemeralWorkerControllerBoundary() {
   checks.ephemeral_worker_policy = autonomy.includes('### Controller And Ephemeral Worker Split')
     && autonomy.includes('one visible control task')
     && autonomy.includes('codex exec --ephemeral')
-    && autonomy.includes('The controller owns branch creation and commit')
-    && autonomy.includes('The worker owns repository reconstruction, worktree edits, and validation')
+    && autonomy.includes('The controller owns repository-supplied script execution and canonical validation')
+    && autonomy.includes('The worker owns repository reconstruction and worktree edits')
+    && autonomy.includes('Managed workers must not execute repository-supplied scripts or package managers')
+    && autonomy.includes('visible controller runs canonical validation after worker exit')
     && autonomy.includes('must not create user-owned Codex app tasks')
     && autonomy.includes('must not use `danger-full-access` solely to write Git metadata')
     && (autonomy.includes('A2 runner remains paused') || autonomy.includes('A2 runner was paused'))
   checks.ephemeral_worker_git_policy = gitPolicy.includes('## Controller-Owned Git Boundary For Ephemeral Workers')
-    && gitPolicy.includes('controller owns branch creation, staged review, commit, push, PR, and merge')
-    && gitPolicy.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && gitPolicy.includes('The controller owns repository validation, branch creation, staged review, commit, push, PR, and merge')
+    && gitPolicy.includes('worker owns repository reconstruction and worktree edits')
+    && gitPolicy.includes('must not execute repository-supplied scripts or package managers')
+    && gitPolicy.includes('controller owns repository validation')
     && gitPolicy.includes('Do not grant `danger-full-access` solely')
     && gitPolicy.includes('not an exception that permits implementation on `main`');
   checks.ephemeral_worker_decision = decision.includes('Status: accepted-v0')
     && decision.includes('one visible control task plus ephemeral CLI workers')
     && decision.includes('codex exec --ephemeral')
     && decision.includes('without creating a user-owned Codex app task')
-    && decision.includes('controller owns branch creation and commit')
-    && decision.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && decision.includes('The controller owns repository-supplied script execution and canonical validation')
+    && decision.includes('worker owns repository reconstruction and worktree edits')
+    && decision.includes('controller owns repository-supplied script execution and canonical validation')
+    && decision.includes('workspace-write worker could rewrite any allowed validation script')
     && decision.includes('must not use `danger-full-access` solely to write Git metadata')
     && decision.includes('without persistent app task fan-out')
     && decision.includes('repays KI-CX-DOGFOOD-001');
@@ -3559,7 +3565,8 @@ function validateEphemeralWorkerControllerBoundary() {
     && topology.worker_surface === 'codex-cli-ephemeral'
     && topology.worker_sandbox === 'workspace-write'
     && JSON.stringify(topology.controller_git_ownership) === JSON.stringify(['branch', 'stage', 'commit', 'push', 'pr', 'merge'])
-    && JSON.stringify(topology.worker_ownership) === JSON.stringify(['reconstruct', 'edit', 'validate'])
+    && JSON.stringify(topology.controller_validation_ownership) === JSON.stringify(['repository-supplied-scripts', 'canonical-validation'])
+    && JSON.stringify(topology.worker_ownership) === JSON.stringify(['reconstruct', 'edit'])
     && topology.app_task_fanout === 'forbidden'
     && topology.decision_ref === decisionPath;
   checks.ephemeral_worker_known_issues = dogfoodKi?.status === 'repaid'
@@ -3945,6 +3952,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && codexInvocation.includes("'execpolicy'")
     && codexInvocation.includes("decision !== 'forbidden'")
     && managedWorkerPolicy.includes('Nested shell interpreters are forbidden')
+    && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
+    && managedWorkerPolicy.includes('"yarn.cmd"')
+    && managedWorkerPolicy.includes('visible controller')
+    && codexInvocation.includes("'npm.cmd', 'run', 'validate'")
+    && codexInvocation.includes("'npm.cmd', 'run', 'worker:run'")
+    && codexInvocation.includes("package_script_control: 'forbidden-inside-worker'")
+    && codexInvocation.includes("validation_owner: 'visible-controller'")
     && runner.includes('verifyManagedWorkerExecPolicy')
     && runner.includes('worker.exec_policy_verified')
     && codexInvocation.includes("'--sandbox'")
@@ -4009,7 +4023,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('must not spawn nested agents or enter collaboration wait states')
     && spec.includes('rather than relying on prompt wording')
     && spec.includes('codex execpolicy check')
-    && spec.includes('not a claim of universal operating-system process isolation');
+    && spec.includes('not a claim of universal operating-system process isolation')
+    && spec.includes('must not execute repository-supplied scripts or package managers')
+    && spec.includes('visible controller runs canonical validation only after the worker exits');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
     && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
@@ -4105,13 +4121,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalKi.repayment_condition.includes('temporal descendant filtering')
     && temporalKi.hard_stop.includes('before dogfood continuation')
     && temporalKi.evidence === temporalRecordPath;
-  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'repaid'
+  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'repaid-on-merge'
     && reusedParentKi.severity === 'High'
     && reusedParentKi.owner === 'CODEX'
     && reusedParentKi.repaid_by === 'WI-CX0060-test'
     && reusedParentKi.github_issue_number === 64
     && reusedParentKi.trigger.includes('parent PID was reused')
-    && reusedParentKi.repayment_condition.includes('five consecutive lifecycle runs')
+    && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.evidence === proofRecordPath;
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
@@ -4135,6 +4151,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('runExecPolicyContractCase')
     && codexInvocation.includes('forbiddenReentryCases')
     && managedWorkerPolicy.includes('Nested shell interpreters are forbidden')
+    && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
+    && managedWorkerPolicy.includes('"yarn.cmd"')
+    && managedWorkerPolicy.includes('visible controller')
     && testResult?.cases?.exec_policy_contract?.supported_reentry_families_forbidden === true
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
   checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
@@ -4154,7 +4173,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('019f4d78-ea57-73d1-9843-dd2d473cea12')
     && proofRecord.includes('two P2 live-GitHub drift findings plus one P3 CLI-smoke gap')
     && proofRecord.includes('Issue #61 and Issue #63 titles and bodies were updated')
-    && proofRecord.includes('real builder argument path with `--disable multi_agent`');
+    && proofRecord.includes('real builder argument path with `--disable multi_agent`')
+    && proofRecord.includes('019f4db0-018f-7db1-b8e4-81c8e1aa92fc')
+    && proofRecord.includes('two P1 and two P2 findings')
+    && proofRecord.includes('forbidding all npm, pnpm, Bun, Yarn, and Corepack execution')
+    && proofRecord.includes('repaid-on-merge');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4172,7 +4195,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.nested_agent_confinement?.deterministic_test === 'supported-contract-passed'
     && guard.nested_agent_confinement?.exec_policy?.rule === '.codex/rules/fdp-managed-worker.rules'
     && guard.nested_agent_confinement?.exec_policy?.preflight === 'passed-local-no-model-request'
-    && guard.nested_agent_confinement?.exec_policy?.forbidden_case_count === 12
+    && guard.nested_agent_confinement?.exec_policy?.forbidden_case_count === 18
+    && guard.nested_agent_confinement?.exec_policy?.package_script_control === 'forbidden-inside-worker'
+    && guard.nested_agent_confinement?.exec_policy?.validation_owner === 'visible-controller'
     && guard.nested_agent_confinement?.exec_policy?.universal_os_process_isolation === false
     && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
@@ -4201,13 +4226,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
     && reviewAvailabilityKi?.trigger.includes('7696fbb')
     && reviewAvailabilityKi?.trigger.includes('c86b9f0')
+    && reviewAvailabilityKi?.trigger.includes('71576c0')
     && reviewAvailabilityKi?.defer_reason.includes('each remediated head requires a fresh review generation')
     && reviewAvailabilityKi?.repayment_condition.includes('PASS with no unresolved P0, P1, or P2 finding')
     && state.control_plane?.independent_review?.availability_issue === 63
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'))
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d78-ea57-73d1-9843-dd2d473cea12' && attempt.reviewed_head === '7696fbb' && attempt.result.includes('github-drift'))
-    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d85-063e-7a10-a5a2-8584e247de8c' && attempt.reviewed_head === 'c86b9f036e823986d78d825c97408b70dcd444b1' && attempt.result.includes('shell-reentry'));
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d85-063e-7a10-a5a2-8584e247de8c' && attempt.reviewed_head === 'c86b9f036e823986d78d825c97408b70dcd444b1' && attempt.result.includes('shell-reentry'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4db0-018f-7db1-b8e4-81c8e1aa92fc' && attempt.reviewed_head === '71576c01ca9a1db1fb59031c01a398bb13e9cba8' && attempt.result.includes('package-script'));
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false

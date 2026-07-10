@@ -33,9 +33,11 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 
 The managed worker disables the Codex `multi_agent` feature at invocation. Before reading the prompt or making a model request, the wrapper also runs `codex execpolicy check` against the target's `.codex/rules/fdp-managed-worker.rules`. The preflight must verify that supported direct Codex, runtime, package-executor, and nested-shell re-entry forms resolve to `forbidden`; an absent rule or non-forbidden result fails closed.
 
-A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. The CLI flag and exec-policy preflight enforce the supported command contract rather than relying on prompt wording. This is not a claim of universal operating-system process isolation: arbitrary renamed binaries or undeclared launchers remain outside this rule language's prefix-matching guarantee and therefore block unattended or generalized worker authority.
+A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. It may reconstruct and edit the target, but it must not execute repository-supplied scripts or package managers. The visible controller runs canonical validation only after the worker exits. This prevents a workspace-write worker from rewriting an allowed validation script into a nested Codex launcher.
 
-The controller remains responsible for any separate independent reviewer required by repository policy. Disabling nested agents inside an implementation or validation worker does not weaken the independent-review gate.
+The CLI flag and exec-policy preflight enforce the supported command contract rather than relying on prompt wording. This is not a claim of universal operating-system process isolation: arbitrary renamed binaries or undeclared launchers remain outside this rule language's prefix-matching guarantee and therefore block unattended or generalized worker authority.
+
+The controller remains responsible for repository validation and any separate independent reviewer required by repository policy. Disabling nested agents inside an implementation worker does not weaken the independent-review gate.
 
 ## Event Stream
 
@@ -91,7 +93,7 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates the policy contract, normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` first executes the real `execpolicy check` preflight for direct and nested-shell re-entry cases, then builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
+`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates the policy contract, normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` first executes the real `execpolicy check` preflight for direct, package-manager, and nested-shell re-entry cases, then builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 
