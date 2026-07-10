@@ -184,8 +184,8 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
   if (pullRequest.number >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
     const independentReview = inspectIndependentReview(pullRequest.number, { allowMerged: true });
     addCheck(`pr.${pullRequest.number}.independent_review`, independentReview.ok === true, independentReview);
-    const status = JSON.parse(run('gh', ['api', `repos/${repo}/commits/${pullRequest.headRefOid}/status`]));
-    const independentStatus = latestStatusForContext(status.statuses || [], 'independent-review');
+    const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${pullRequest.headRefOid}`]));
+    const independentStatus = latestStatusForContext(statuses, 'independent-review');
     addCheck(`pr.${pullRequest.number}.independent_review_status`, independentStatus?.state === 'success'
       && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
   }
@@ -214,8 +214,8 @@ if (prNumber) {
   if (currentPr && prNumber >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
     const independentReview = inspectIndependentReview(prNumber, { allowMerged: phase === 'post-merge' });
     addCheck('pr.current_independent_review', independentReview.ok === true, independentReview);
-    const status = JSON.parse(run('gh', ['api', `repos/${repo}/commits/${currentPr.headRefOid}/status`]));
-    const independentStatus = latestStatusForContext(status.statuses || [], 'independent-review');
+    const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${currentPr.headRefOid}`]));
+    const independentStatus = latestStatusForContext(statuses, 'independent-review');
     addCheck('pr.current_independent_review_status', independentStatus?.state === 'success'
       && independentStatus?.creator?.login === 'github-actions[bot]', independentStatus || null);
   }
