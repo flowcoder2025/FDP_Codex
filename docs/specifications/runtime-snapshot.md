@@ -5,9 +5,11 @@ Layer: Layer 1.
 
 ## Purpose
 
-The runtime snapshot records Codex app control-plane evidence that cannot be proven by repository documents alone.
+The runtime snapshot records point-in-time Codex app control-plane evidence that cannot be proven by repository documents alone.
 
-It is a metadata-only operating snapshot. It must not store conversation bodies, chunk bodies, prompt dumps, secrets, or long substituted SSOT text.
+It is metadata-only evidence. It must not store conversation bodies, chunk bodies, prompt dumps, secrets, or long substituted SSOT text.
+
+The snapshot does not silently become current forever. When later repo-visible evidence changes a captured status, the snapshot must be marked `historical-superseded`, name the superseding WI and record, and preserve its original observations. `.flowset/state.json` owns the current operating status.
 
 ## File
 
@@ -34,9 +36,15 @@ A valid Layer 1 runtime snapshot must include:
 - `worktree_isolation.status`, `reason`, and `repayment_wi`.
 - `hard_stops_preserved`.
 
+A superseded snapshot must also include:
+
+- `snapshot_status: historical-superseded`.
+- `superseded_by.wi_id`, `superseded_by.record`, and `superseded_by.result`.
+- Original captured observations unchanged as historical evidence.
+
 ## Validation Rules
 
-`npm run validate` must fail when the snapshot is missing, malformed, or inconsistent with the current control-plane debt state.
+`npm run validate` must fail when the snapshot is missing, malformed, or presented as current after later evidence supersedes it.
 
 The validator must check at least:
 
@@ -48,8 +56,10 @@ The validator must check at least:
 - The latest runner thread is recorded and at least one runner result is `duplicate-stop`.
 - No runner result claims effective handoff receiver success while `handoff_receiver_assessment.status` is `not_proven`.
 - Receiver result labels follow `docs/specifications/a2-handoff-receiver-contract.md`.
-- Worktree isolation remains `not_proven` until WI-CX0050-test repays it.
-- Generalized A2/A3 expansion and first Layer 2 target-project scaffold confidence remain blocked while receiver and isolation statuses are not proven.
+- The WI-CX0048 capture preserves its original `not_proven` receiver and isolation observations.
+- Later proof must mark that capture `historical-superseded`, keep the original observations intact, and place the current status plus evidence reference in `.flowset/state.json`.
+- Generalized A2/A3 expansion remains blocked by its own review and approval debt even after worktree isolation is proven.
+- First Layer 2 target-project scaffold generation remains blocked until its separate scope-code and generation gates are repaid.
 
 ## Boundary
 
