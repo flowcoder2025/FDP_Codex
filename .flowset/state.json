@@ -105,7 +105,11 @@
       "multi_agent_fork_context": false,
       "head_change_invalidates_review": true,
       "blocking_findings": ["P0", "P1", "P2"],
-      "pass_label": "pr:independent-review-passed"
+      "pass_label": "pr:independent-review-passed",
+      "required_check": "independent-review",
+      "branch_protection": "required-before-pr58-merge",
+      "provenance_mode": "controller-attested",
+      "provenance_issue": 59
     },
     "worker_topology": {
       "mode": "single-visible-controller-ephemeral-workers",
@@ -316,6 +320,18 @@
       "evidence": "docs/records/validation-wi-cx0062-fix.md",
       "github_issue_number": 56,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/56"
+    },
+    {
+      "id": "KI-CX-REVIEW-001",
+      "severity": "High",
+      "owner": "H1 / execution platform",
+      "trigger": "the repository can validate controller-attested review metadata but the execution surface does not expose signed multi-agent reviewer provenance",
+      "defer_reason": "the current supervised WI uses an actual clean-context independent agent, live controller inspection, current-head GitHub evidence, and active user approval without claiming cryptographic identity proof",
+      "repayment_condition": "the execution surface supplies a signed orchestrator attestation or a distinct independently authenticated reviewer identity that the repository can verify",
+      "hard_stop": "before unattended or generalized automated merge, A2/A3 authority expansion, release candidate, public release, or OSS submission",
+      "status": "open",
+      "github_issue_number": 59,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/59"
     }
   ],
   "context_selection": {

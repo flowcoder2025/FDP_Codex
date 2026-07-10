@@ -18,7 +18,9 @@
 - [ ] Adversarial review completed when required.
 - [ ] Independent reviewer used a clean context and did not receive implementation narrative or self-grade.
 - [ ] GitHub review `commit_id` and review payload `reviewed_head` match the current PR head.
+- [ ] Review payload includes a controller-verified orchestrator receipt, and any KI-CX-REVIEW-001 boundary is respected.
 - [ ] `npm run audit:independent-review -- --pr <number>` passes.
+- [ ] Required `independent-review` status succeeds on the current PR head.
 - [ ] No implementation or policy change occurred after the passing review.
 
 ## Policy Checks

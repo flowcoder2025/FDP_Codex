@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const marker = '<!-- fdp-independent-review:v1 -->';
+const allowMergeApproved = args.includes('--allow-merge-approved');
+const allowMerged = args.includes('--allow-merged');
 const requiredLabels = [
   'needs:blind-review',
   'needs:adversarial-review',
@@ -24,10 +26,16 @@ function run(command, commandArgs) {
 }
 
 function parseReviewPayload(body) {
-  const markerIndex = String(body || '').indexOf(marker);
-  if (markerIndex === -1) return null;
-  const match = /```json\s*([\s\S]*?)```/i.exec(String(body).slice(markerIndex + marker.length));
-  if (!match) return null;
+  const source = String(body || '');
+  const markerCount = source.split(marker).length - 1;
+  if (markerCount !== 1) return null;
+  const markerIndex = source.indexOf(marker);
+  const suffix = source.slice(markerIndex + marker.length);
+  const matches = [...suffix.matchAll(/```json\s*([\s\S]*?)```/gi)];
+  if (matches.length !== 1) return null;
+  const match = matches[0];
+  if (suffix.slice(0, match.index).trim() !== '') return null;
+  if (suffix.slice((match.index || 0) + match[0].length).trim() !== '') return null;
   try {
     return JSON.parse(match[1]);
   } catch {
@@ -38,8 +46,8 @@ function parseReviewPayload(body) {
 function evaluate({ pullRequest, reviews }) {
   const labels = pullRequest.labels.map((label) => typeof label === 'string' ? label : label.name);
   const markedReviews = reviews
+    .filter((review) => String(review.body || '').includes(marker))
     .map((review) => ({ review, payload: parseReviewPayload(review.body) }))
-    .filter((item) => item.payload)
     .sort((left, right) => Number(left.review.id) - Number(right.review.id));
   const latest = markedReviews.at(-1) || null;
   const payload = latest?.payload || null;
@@ -48,12 +56,13 @@ function evaluate({ pullRequest, reviews }) {
   const blockingFindings = ['P0', 'P1', 'P2']
     .flatMap((severity) => Array.isArray(findings[severity]) ? findings[severity] : []);
   const p3Findings = Array.isArray(findings.P3) ? findings.P3 : [];
+  const receipt = payload?.orchestrator_receipt || {};
   const allowedSurfaces = new Set(['multi_agent_v1', 'separate_codex_thread', 'human_reviewer']);
 
   const checks = {
-    'pr.open': pullRequest.state === 'OPEN',
+    'pr.state_allowed': pullRequest.state === 'OPEN' || (allowMerged && pullRequest.state === 'MERGED'),
     'pr.required_labels': requiredLabels.every((label) => labels.includes(label)),
-    'pr.merge_approval_absent': !labels.includes('pr:approved-merge'),
+    'pr.merge_approval_absent': allowMergeApproved || !labels.includes('pr:approved-merge'),
     'review.latest_marker_present': Boolean(latest),
     'review.github_head_anchor': Boolean(review)
       && review.commit_id === pullRequest.headRefOid
@@ -70,6 +79,13 @@ function evaluate({ pullRequest, reviews }) {
       && payload.fork_context === false
       && payload.implementation_context_received === false
       && allowedSurfaces.has(payload.execution_surface),
+    'review.orchestrator_receipt_attested': Boolean(payload)
+      && receipt.provider === payload.execution_surface
+      && receipt.agent_id === payload.reviewer_agent_id
+      && receipt.fork_context === false
+      && receipt.controller_verified === true
+      && typeof receipt.verification_reference === 'string'
+      && receipt.verification_reference.trim().length > 0,
     'review.evidence_shape': Boolean(payload)
       && Array.isArray(payload.reviewed_files)
       && payload.reviewed_files.length > 0
@@ -124,6 +140,13 @@ function selfTest() {
     commands: ['npm.cmd run ci:check'],
     attacks_attempted: ['stale-head replay'],
     residual_risks: [],
+    orchestrator_receipt: {
+      provider: 'multi_agent_v1',
+      agent_id: 'agent-12345678',
+      fork_context: false,
+      controller_verified: true,
+      verification_reference: 'tool-call:test',
+    },
   };
   const pullRequest = {
     state: 'OPEN',
@@ -148,6 +171,16 @@ function selfTest() {
       body: `${marker}\n\n\`\`\`json\n${JSON.stringify({ ...payload, fork_context: true })}\n\`\`\``,
     }],
   });
+  const missingReceipt = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${marker}\n\n\`\`\`json\n${JSON.stringify({
+        ...payload,
+        orchestrator_receipt: undefined,
+      })}\n\`\`\``,
+    }],
+  });
   const finding = evaluate({
     pullRequest,
     reviews: [{
@@ -168,6 +201,36 @@ function selfTest() {
       })}\n\`\`\``,
     }],
   });
+  const ambiguousBody = evaluate({
+    pullRequest,
+    reviews: [{
+      ...review,
+      body: `${review.body}\n\n\`\`\`json\n${JSON.stringify({ ...payload, verdict: 'FAIL' })}\n\`\`\``,
+    }],
+  });
+  const laterFailPayload = {
+    ...payload,
+    verdict: 'FAIL',
+    findings: { ...payload.findings, P1: [{ title: 'latest failure' }] },
+  };
+  const paginatedLatestFailure = evaluate({
+    pullRequest,
+    reviews: [
+      review,
+      ...Array.from({ length: 99 }, (_, index) => ({
+        id: index + 2,
+        state: 'COMMENTED',
+        commit_id: head,
+        body: 'ordinary review',
+      })),
+      {
+        id: 101,
+        state: 'COMMENTED',
+        commit_id: head,
+        body: `${marker}\n\n\`\`\`json\n${JSON.stringify(laterFailPayload)}\n\`\`\``,
+      },
+    ],
+  });
   const missingLabel = evaluate({
     pullRequest: { ...pullRequest, labels: pullRequest.labels.slice(1) },
     reviews: [review],
@@ -182,16 +245,23 @@ function selfTest() {
     ok: valid.errors.length === 0
       && stale.errors.some((item) => item.id === 'review.github_head_anchor')
       && inherited.errors.some((item) => item.id === 'review.independent_clean_context')
+      && missingReceipt.errors.some((item) => item.id === 'review.orchestrator_receipt_attested')
       && finding.errors.some((item) => item.id === 'review.no_blocking_findings')
       && p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions')
+      && ambiguousBody.errors.some((item) => item.id === 'review.latest_marker_present'
+        || item.id === 'review.evidence_shape')
+      && paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass')
       && missingLabel.errors.some((item) => item.id === 'pr.required_labels')
       && prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),
     cases: {
       valid_passes: valid.errors.length === 0,
       stale_head_rejected: stale.errors.some((item) => item.id === 'review.github_head_anchor'),
       inherited_context_rejected: inherited.errors.some((item) => item.id === 'review.independent_clean_context'),
+      missing_orchestrator_receipt_rejected: missingReceipt.errors.some((item) => item.id === 'review.orchestrator_receipt_attested'),
       blocking_finding_rejected: finding.errors.some((item) => item.id === 'review.no_blocking_findings'),
       p3_without_disposition_rejected: p3WithoutDisposition.errors.some((item) => item.id === 'review.p3_dispositions'),
+      ambiguous_multiple_payload_rejected: ambiguousBody.errors.length > 0,
+      review_101_latest_failure_wins: paginatedLatestFailure.errors.some((item) => item.id === 'review.verdict_pass'),
       missing_label_rejected: missingLabel.errors.some((item) => item.id === 'pr.required_labels'),
       premature_merge_approval_rejected: prematureApproval.errors.some((item) => item.id === 'pr.merge_approval_absent'),
     },
@@ -210,11 +280,12 @@ if (args.includes('--self-test')) {
     'pr', 'view', String(prNumber),
     '--json', 'number,state,headRefOid,headRefName,labels,url',
   ]));
-  const reviews = JSON.parse(run('gh', [
-    'api', '--method', 'GET',
+  const reviewPages = JSON.parse(run('gh', [
+    'api', '--method', 'GET', '--paginate', '--slurp',
     `repos/${repo}/pulls/${prNumber}/reviews`,
     '-f', 'per_page=100',
   ]));
+  const reviews = reviewPages.flat();
   const evaluation = evaluate({ pullRequest, reviews });
   const report = {
     schema_version: 1,
@@ -223,6 +294,8 @@ if (args.includes('--self-test')) {
     pr_number: prNumber,
     pr_url: pullRequest.url,
     head: pullRequest.headRefOid,
+    allow_merge_approved: allowMergeApproved,
+    allow_merged: allowMerged,
     ...evaluation,
   };
   console.log(JSON.stringify(report, null, 2));

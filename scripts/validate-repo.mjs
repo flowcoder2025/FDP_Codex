@@ -88,6 +88,7 @@ const requiredFiles = [
   '.github/ISSUE_TEMPLATE/config.yml',
   '.github/labels.yml',
   '.github/workflows/validate.yml',
+  '.github/workflows/independent-review.yml',
   'package-lock.json',
   'tsconfig.json',
   'docs/runbooks/github-label-setup.md',
@@ -185,6 +186,7 @@ const requiredChunkIds = [
   'decision.control-plane-operational-integrity',
   'tool.audit-control-plane',
   'record.validation-wi-cx0062-fix',
+  'github.workflow.independent-review',
   'decision.independent-blind-adversarial-review-gate',
   'spec.independent-review-evidence',
   'tool.audit-independent-review',
@@ -2054,7 +2056,7 @@ function validateAutomationRunnerS2ReviewPacket() {
     && record.includes('S2 status: not executed in this WI');
   checks.automation_s2_packet_manifest = manifest.includes('id: record.automation-runner-s2-review-packet')
     && manifest.includes(packetPath)
-    && manifest.includes('status: review-needed')
+    && manifest.includes('status: historical-obsolete')
     && manifest.includes('id: record.validation-wi-cx0041-docs')
     && manifest.includes('docs/records/validation-wi-cx0041-docs.md');
   checks.automation_s2_packet_indexes = docsIndex.includes(packetPath)
@@ -2138,7 +2140,7 @@ function validatePostBootstrapAutomationCadenceHandback() {
     && record.includes('WI-CX0035 remains triggered work because no standalone runner output exists yet');
   checks.automation_cadence_handback_manifest = manifest.includes('id: record.post-bootstrap-automation-cadence-decision-handback')
     && manifest.includes(handbackPath)
-    && manifest.includes('status: user-decision-needed')
+    && manifest.includes('status: historical-obsolete')
     && manifest.includes('id: record.validation-wi-cx0043-docs')
     && manifest.includes(recordPath);
   checks.automation_cadence_handback_indexes = docsIndex.includes(handbackPath)
@@ -4070,7 +4072,7 @@ function validateControlPlaneOperationalIntegrity() {
     && entry.timestamp === '2026-07-10T13:19:43.723Z');
   const issues = Array.isArray(state.known_issues) ? state.known_issues : [];
   const issueNumbers = issues.map((item) => item.github_issue_number).sort((a, b) => a - b);
-  const expectedIssueNumbers = Array.from({ length: 11 }, (_, index) => index + 46);
+  const expectedHistoricalIssueNumbers = Array.from({ length: 11 }, (_, index) => index + 46);
   const control = issues.find((item) => item.id === 'KI-CX-CONTROL-001');
   const provider = issues.find((item) => item.id === 'KI-CX-PROVIDER-001');
   const integrity = state.control_plane?.operational_integrity ?? {};
@@ -4113,7 +4115,8 @@ function validateControlPlaneOperationalIntegrity() {
     && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
     && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
     && wiLedger.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry));
-  checks.control_integrity_issue_state = JSON.stringify(issueNumbers) === JSON.stringify(expectedIssueNumbers)
+  checks.control_integrity_issue_state = new Set(issueNumbers).size === issueNumbers.length
+    && expectedHistoricalIssueNumbers.every((number) => issueNumbers.includes(number))
     && issues.every((item) => item.id
       && item.severity
       && item.owner
@@ -4187,7 +4190,7 @@ function validateControlPlaneOperationalIntegrity() {
   if (!checks.control_integrity_policy) error('control_integrity.policy_missing', 'Issue, post-merge, retired-runner, and one-controller policies must define the operational lifecycle.');
   if (!checks.control_integrity_decision) error('control_integrity.decision_missing', 'Decision must define live control-plane verification, truthful backfill, topology, closeout, and provider boundary.');
   if (!checks.control_integrity_ledger) error('control_integrity.ledger_missing', 'WI-CX0062 must retain exactly 16 metadata-only fresh-context entries.');
-  if (!checks.control_integrity_issue_state) error('control_integrity.issue_state_missing', 'Every machine-state KI must link truthful GitHub Issue #46 through #56 metadata.');
+  if (!checks.control_integrity_issue_state) error('control_integrity.issue_state_missing', 'Every machine-state KI must link truthful GitHub Issue metadata and preserve historical Issue #46 through #56 coverage.');
   if (!checks.control_integrity_state) error('control_integrity.state_missing', 'Machine state must expose WI-CX0062, retired automation, reconciliation counts, and empty triggered work.');
   if (!checks.control_integrity_flow) error('control_integrity.flow_missing', 'Current WI, fix plan, and handoff must expose reconciliation, live GitHub lookup, and the remaining provider gate.');
   if (!checks.control_integrity_audit) error('control_integrity.audit_missing', 'Audit command must inspect live Git, GitHub, worktree, automation, PR, and KI state across closeout phases.');
@@ -4199,6 +4202,7 @@ function validateIndependentBlindAdversarialReviewGate() {
   const decisionPath = 'docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md';
   const specPath = 'docs/specifications/independent-review-evidence.md';
   const auditPath = 'scripts/audit-independent-review.mjs';
+  const workflowPath = '.github/workflows/independent-review.yml';
   const recordPath = 'docs/records/validation-wi-cx0063-feat.md';
   const decision = read(decisionPath);
   const spec = read(specPath);
@@ -4219,6 +4223,8 @@ function validateIndependentBlindAdversarialReviewGate() {
   const decisionsIndex = read('docs/decisions/README.md');
   const recordsIndex = read('docs/records/README.md');
   const controlAudit = read('scripts/audit-control-plane.mjs');
+  const workflow = read(workflowPath);
+  const manifestChunks = parseManifestChunks(manifest);
   const ledgerEntries = read('.flowset/context-ledger.jsonl')
     .split('\n')
     .filter(Boolean)
@@ -4238,6 +4244,9 @@ function validateIndependentBlindAdversarialReviewGate() {
     selfTestError = caught?.stderr?.toString?.() || caught?.message || String(caught);
   }
   const reviewState = state.control_plane?.independent_review ?? {};
+  const reviewIssue = state.known_issues?.find((item) => item.id === 'KI-CX-REVIEW-001');
+  const oldRunnerReview = manifestChunks.find((item) => item.id === 'record.automation-runner-s2-review-packet');
+  const oldCadence = manifestChunks.find((item) => item.id === 'record.post-bootstrap-automation-cadence-decision-handback');
 
   checks.independent_review_registration = manifest.includes('id: decision.independent-blind-adversarial-review-gate')
     && manifest.includes(decisionPath)
@@ -4247,9 +4256,12 @@ function validateIndependentBlindAdversarialReviewGate() {
     && manifest.includes(auditPath)
     && manifest.includes('id: record.validation-wi-cx0063-feat')
     && manifest.includes(recordPath)
+    && manifest.includes('id: github.workflow.independent-review')
+    && manifest.includes(workflowPath)
     && docsIndex.includes(decisionPath)
     && docsIndex.includes(specPath)
     && docsIndex.includes(auditPath)
+    && docsIndex.includes(workflowPath)
     && docsIndex.includes(recordPath)
     && decisionsIndex.includes(decisionPath)
     && recordsIndex.includes(recordPath);
@@ -4264,16 +4276,21 @@ function validateIndependentBlindAdversarialReviewGate() {
     && gitPolicy.includes('## Independent Review Merge Gate')
     && gitPolicy.includes('open the PR without')
     && gitPolicy.includes('discard the prior result and repeat the separate review')
-    && gitPolicy.includes('only after that audit passes');
+    && gitPolicy.includes('only after the audit and required status pass');
   checks.independent_review_decision = decision.includes('Status: accepted-v0')
     && decision.includes('Every non-trivial R1, R2, or R3 WI requires E2 Blind Independent Review and E3 Adversarial Review before merge')
     && decision.includes('fork_context: false')
     && decision.includes('Any implementation or policy change after review invalidates the result')
-    && decision.includes('WI-CX0042 and its runner-specific S2 debt are closed as obsolete, not passed');
+    && decision.includes('WI-CX0042 and its runner-specific S2 debt are closed as obsolete, not passed')
+    && decision.includes('required `main` branch protection check')
+    && decision.includes('controller-attested `orchestrator_receipt`')
+    && decision.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_spec = spec.includes('Status: implemented-v1')
     && spec.includes('The controller must not provide implementation chat')
     && spec.includes('reviewer_agent_id')
     && spec.includes('implementation_context_received: false')
+    && spec.includes('orchestrator_receipt')
+    && spec.includes('not a signed execution-platform identity')
     && spec.includes('must both equal the live PR head')
     && spec.includes('Any change to the PR head invalidates the prior review');
   checks.independent_review_self_test = selfTestError === null
@@ -4281,8 +4298,11 @@ function validateIndependentBlindAdversarialReviewGate() {
     && selfTest?.cases?.valid_passes === true
     && selfTest?.cases?.stale_head_rejected === true
     && selfTest?.cases?.inherited_context_rejected === true
+    && selfTest?.cases?.missing_orchestrator_receipt_rejected === true
     && selfTest?.cases?.blocking_finding_rejected === true
     && selfTest?.cases?.p3_without_disposition_rejected === true
+    && selfTest?.cases?.ambiguous_multiple_payload_rejected === true
+    && selfTest?.cases?.review_101_latest_failure_wins === true
     && selfTest?.cases?.missing_label_rejected === true
     && selfTest?.cases?.premature_merge_approval_rejected === true;
   checks.independent_review_audit = audit.includes("const marker = '<!-- fdp-independent-review:v1 -->'")
@@ -4290,6 +4310,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && audit.includes("payload.context_mode === 'blind-clean'")
     && audit.includes('payload.fork_context === false')
     && audit.includes('payload.implementation_context_received === false')
+    && audit.includes("'review.orchestrator_receipt_attested'")
+    && audit.includes("'--paginate', '--slurp'")
     && audit.includes("['P0', 'P1', 'P2']")
     && audit.includes("payload?.verdict === 'PASS'")
     && audit.includes("'pr.merge_approval_absent'")
@@ -4302,7 +4324,14 @@ function validateIndependentBlindAdversarialReviewGate() {
     && prTemplate.includes('pr:approved-merge')
     && controlAudit.includes('independentReviewBaselinePr')
     && controlAudit.includes('requiredIndependentReviewLabels')
-    && controlAudit.includes("labels.includes('risk:R0')");
+    && controlAudit.includes('inspectIndependentReview')
+    && controlAudit.includes("'--allow-merged'")
+    && workflow.includes('pull_request_target:')
+    && workflow.includes('statuses: write')
+    && workflow.includes('Checkout trusted default branch')
+    && workflow.includes('context="independent-review"')
+    && workflow.includes('steps.audit.outcome')
+    && workflow.includes('Enforce audit result');
   checks.independent_review_state = state.current_wi?.id === 'WI-CX0063-feat'
     && state.current_wi?.branch === 'wi/cx0063-feat-independent-blind-adversarial-review-gate'
     && state.current_wi?.validation_record === recordPath
@@ -4312,7 +4341,14 @@ function validateIndependentBlindAdversarialReviewGate() {
     && JSON.stringify(reviewState.required_evaluators) === JSON.stringify(['E2', 'E3'])
     && reviewState.multi_agent_fork_context === false
     && reviewState.head_change_invalidates_review === true
-    && reviewState.pass_label === 'pr:independent-review-passed';
+    && reviewState.pass_label === 'pr:independent-review-passed'
+    && reviewState.required_check === 'independent-review'
+    && reviewState.branch_protection === 'required-before-pr58-merge'
+    && reviewState.provenance_mode === 'controller-attested'
+    && reviewState.provenance_issue === 59
+    && reviewIssue?.severity === 'High'
+    && reviewIssue?.status === 'open'
+    && reviewIssue?.github_issue_number === 59;
   checks.independent_review_ledger = wiLedger.length === 19
     && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
     && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
@@ -4323,22 +4359,31 @@ function validateIndependentBlindAdversarialReviewGate() {
     && !fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && !fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision')
     && !fixPlan.includes('S2 blind review repayment for the automation runner')
+    && oldRunnerReview?.status === 'historical-obsolete'
+    && oldCadence?.status === 'historical-obsolete'
     && handoff.includes('Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate')
     && handoff.includes('WI-CX0042 is obsolete rather than passed')
-    && handoff.includes('Issue #55');
+    && handoff.includes('Issue #55')
+    && handoff.includes('Issue #59');
   checks.independent_review_record = record.includes('Status: validated')
     && record.includes('ctx-wi-cx0063-feat-20260710143115')
     && record.includes('19 metadata-only ledger entries')
     && record.includes('stale-head replay rejected')
     && record.includes('inherited implementation context rejected')
+    && record.includes('missing controller-attested orchestrator receipt rejected')
     && record.includes('P2 blocking finding rejected')
+    && record.includes('ambiguous multiple-payload review rejected')
+    && record.includes('a 101st, newer failing review overrides an older passing review')
     && record.includes('premature pr:approved-merge rejected')
-    && record.includes('Any finding-driven edit changes the head and requires a new independent reviewer pass');
+    && record.includes('Any finding-driven edit changes the head and requires a new independent reviewer pass')
+    && record.includes('returned FAIL')
+    && record.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
     && state.current_priority?.state === 'blocked-external'
     && state.current_priority?.owner_gate === 'H1'
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
+    && reviewIssue?.hard_stop.includes('unattended or generalized automated merge')
     && decision.includes('does not authorize dogfood continuation')
     && record.includes('No dogfood continuation or provider-policy workaround occurred')
     && record.includes('No release publication, deployment, package publication, OSS program submission');

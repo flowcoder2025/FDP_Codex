@@ -82,6 +82,7 @@ A PR is not ready for merge until:
 - required blind or adversarial review is complete when policy requires it,
 - `needs:blind-review`, `needs:adversarial-review`, and `pr:independent-review-passed` are present for non-trivial R1/R2/R3 work,
 - `npm run audit:independent-review -- --pr <number>` passes against the current PR head,
+- the required `independent-review` commit status succeeds against the current PR head,
 - relevant KI issues are linked or explicitly deferred,
 - no Decision Needed item blocks the merge,
 - `pr:approved-merge` or an equivalent maintainer approval signal is present.
@@ -98,9 +99,12 @@ For every non-trivial R1, R2, or R3 WI:
 6. if the head changes, discard the prior result and repeat the separate review;
 7. apply `pr:independent-review-passed` only for PASS with no blocking finding;
 8. run `npm run audit:independent-review -- --pr <number>`;
-9. only after that audit passes, apply `pr:approved-merge`.
+9. require the protected `independent-review` commit status to succeed;
+10. only after the audit and required status pass, apply `pr:approved-merge`.
 
 The implementing controller may relay the independent agent's exact result to GitHub when the reviewer has no GitHub identity, but it must record the reviewer agent id and may not rewrite the verdict or findings. A relayed review is not independent evidence unless the result declares clean context and the GitHub review is anchored to the current head.
+
+The current orchestrator receipt is controller-attested rather than signed by the execution platform. KI-CX-REVIEW-001 blocks unattended or generalized automated merge, A2/A3 authority expansion, and release-boundary use until reviewer provenance is machine-verifiable.
 
 Public PR merge is a verification debt repayment boundary.
 

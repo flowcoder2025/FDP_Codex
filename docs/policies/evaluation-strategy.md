@@ -99,6 +99,7 @@ S2 Separate Blind Review:
 - Agent-based S2 must start from clean context. `multi_agent_v1` reviewers use `fork_context: false`.
 - The reviewer must actively perform E3 adversarial falsification, report P0-P3 findings first, and must not edit the implementation.
 - The result must be anchored to the current PR head through `docs/specifications/independent-review-evidence.md`.
+- The result must include a controller-attested orchestrator receipt. This is auditable metadata, not signed reviewer identity; KI-CX-REVIEW-001 governs the remaining provenance limit.
 - Any head change invalidates the review.
 - Required before release-candidate decisions, public release, OSS program submission, A2/A3 autonomy enablement, and disputed or ambiguous evidence.
 
@@ -115,6 +116,7 @@ Repository-wide non-trivial WI default:
 - Every R1, R2, or R3 WI requires E2 + E3 on S2 before merge.
 - R0 may use S0 or S1 only when it does not change policy, workflow, public behavior, validation, context, or external state.
 - PASS with no unresolved P0/P1/P2 finding is required before `pr:approved-merge`.
+- The required `independent-review` status and live audit must pass; labels alone do not satisfy S2.
 
 Foundation policy:
 

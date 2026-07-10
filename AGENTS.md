@@ -124,6 +124,8 @@ The goal section must restate the accumulated project-level outcome rather than 
 - The reviewer inspects evidence directly, attempts to falsify readiness, reports P0-P3 findings first, and does not edit the implementation.
 - Any PR head change invalidates the prior review. `pr:approved-merge` is forbidden until the current head passes `npm run audit:independent-review -- --pr <number>`.
 - PASS with no unresolved P0, P1, or P2 finding is required. Same-thread review, conditional pass, stale-head evidence, or inherited context does not satisfy the gate.
+- The `independent-review` status is a required branch-protection check and the control-plane audit must re-read the actual current-head review payload rather than trust labels alone.
+- A controller-attested orchestrator receipt is not signed reviewer identity. Until KI-CX-REVIEW-001 is repaid, it supports supervised work only and must not authorize unattended/generalized automated merge, A2/A3 expansion, or release-boundary work.
 ## Work Style
 
 - Inspect existing files before editing.

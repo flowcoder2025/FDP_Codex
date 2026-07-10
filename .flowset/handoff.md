@@ -6,7 +6,7 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate. Every non-trivial R1/R2/R3 WI now requires a separate clean-context E2+E3 review of the current PR head before merge. KI-CX-PROVIDER-001 / Issue #55 remains separately open.
+Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate. Every non-trivial R1/R2/R3 WI now requires a separate clean-context E2+E3 review of the current PR head before merge. KI-CX-PROVIDER-001 / Issue #55 and KI-CX-REVIEW-001 / Issue #59 remain separately open.
 
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
@@ -40,13 +40,17 @@ The control-plane integrity audit found ten historical KIs with zero GitHub Issu
 
 PR #57 merged WI-CX0062 at `48f2a88daba2bf307022901aa5d2d76beb56ac0d`. Its two-pass post-merge audit passed and Issue #56 is closed.
 
-WI-CX0063 adds a live GitHub review audit. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change.
+WI-CX0063 adds a live GitHub review audit, required `independent-review` status, and branch-protection gate. Separate-agent review uses clean context, binds both GitHub `commit_id` and payload `reviewed_head` to the current PR head, and is invalidated by any later head change. The control-plane audit reruns the actual review audit rather than trusting labels.
+
+The first independent reviewer, agent `019f4c80-ff2c-75a0-82a8-be3751794767`, returned FAIL on PR #58 head `028f5530b824fff8c76d0b408cddb57e0d4378de`. Its unchanged GitHub review `4672572326` found missing required-check enforcement, forgeable provenance, active obsolete manifest chunks, multiple-payload parsing, and review pagination gaps. Remediation retains the FAIL as evidence and requires a fresh reviewer on the new head.
+
+KI-CX-REVIEW-001 / Issue #59 records that the current execution surface provides no signed multi-agent identity receipt. Controller-attested receipts can support supervised work with actual clean-agent execution, live receipt inspection, current-head evidence, and active user approval, but they do not authorize unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, or OSS submission.
 
 The repository-backed read-only model smoke was rejected before execution and again after the user explicitly approved the stated transmission risk. Codex did not bypass the policy. KI-CX-PROVIDER-001 now owns that external-provider trust boundary and blocks dogfood continuation, generalized unattended model workers, and runner reactivation.
 
 The old automation runner S2 packet at `docs/records/automation-runner-s2-review-packet-2026-07-08.md` is historical. Its target cron is retired, so WI-CX0042 is obsolete rather than passed; any replacement must pass the general independent review gate.
 
-Post-bootstrap automation cadence handback is available at `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md`. It prepares a user decision and does not change automation settings or authority.
+Post-bootstrap automation cadence handback at `docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md` is historical-obsolete with its retired target and does not change automation settings or authority.
 
 Release publication, deployment, package publication, and OSS program submission were not performed.
 
@@ -115,6 +119,7 @@ Release publication, deployment, package publication, and OSS program submission
 - The hourly worktree runner is retired. Do not recreate it from its historical trigger or cadence handback; any replacement requires a new user decision, retention design, and control-plane proof.
 - KI-CX-CONTROL-001 / Issue #56 is repaid and closed after PR #57 closeout and two-pass post-merge audit evidence.
 - Independent E2+E3 review is a current-head merge gate for every non-trivial R1/R2/R3 WI.
+- KI-CX-REVIEW-001 / Issue #59 blocks unattended/generalized automated merge and release-boundary use until reviewer provenance is machine-verifiable.
 - Strict TypeScript source conversion remains DQ-DEBT; the strictness probe records debt only.
 - Release publication, deployment, package publication, and OSS submission remain hard stops.
 
@@ -156,11 +161,12 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Query live GitHub state for `wi/cx0063-feat-independent-blind-adversarial-review-gate`. If its PR is open, require a clean-context separate-agent PASS on the current head, run the independent review audit, then finish the approved merge path. After closeout, reassess WI-CX0060-test and the next goal-critical worker surface without bypassing KI-CX-PROVIDER-001 / Issue #55.
+Query live GitHub state for `wi/cx0063-feat-independent-blind-adversarial-review-gate`. If its PR is open, require a fresh clean-context separate-agent PASS on the current head, run the independent review audit, install the required branch-protection check, then finish the approved supervised merge path. After closeout, reassess WI-CX0060-test and the next goal-critical worker surface without bypassing KI-CX-PROVIDER-001 / Issue #55 or KI-CX-REVIEW-001 / Issue #59.
 
 ## Blocked Work
 
 - KI-CX-PROVIDER-001 blocks dogfood continuation, generalized unattended model worker use, and runner reactivation until the configured model destination is established as trusted by the execution environment.
+- KI-CX-REVIEW-001 blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until reviewer provenance is machine-verifiable.
 - The historical WI-CX0035 runner trigger is canceled because the task-spawning hourly automation is retired.
 - Release publication is not approved.
 - Deployment is not approved.

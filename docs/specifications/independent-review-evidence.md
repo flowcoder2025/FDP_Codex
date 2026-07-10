@@ -4,7 +4,7 @@ Status: implemented-v1.
 
 ## Purpose
 
-Define the live GitHub evidence required to prove that an independent agent reviewed the current PR head from a clean context and attempted to falsify readiness.
+Define the live GitHub evidence used to record and audit that an independent agent reviewed the current PR head from a clean context and attempted to falsify readiness.
 
 ## Reviewer Input
 
@@ -59,6 +59,12 @@ The JSON object must contain:
 - `commands`
 - `attacks_attempted`
 - `residual_risks`
+- `orchestrator_receipt`, containing:
+  - `provider`, equal to `execution_surface`;
+  - `agent_id`, equal to `reviewer_agent_id`;
+  - `fork_context: false`;
+  - `controller_verified: true`;
+  - non-empty `verification_reference` for the live execution-surface receipt inspected by the controller.
 
 Every P3 finding must include a non-empty disposition. The independent review audit runs before pr:approved-merge is applied and fails if that label is already present.
 
@@ -69,6 +75,10 @@ GitHub's review `commit_id` and `reviewed_head` must both equal the live PR head
 Any change to the PR head invalidates the prior review, including implementation, policy, test, flow-state, or evidence-file commits. The controller must request a new clean-context review for the new head.
 
 Comments without the marker, same-thread self-review, inherited implementation context, a stale commit, conditional verdict, or unresolved P0-P2 findings do not satisfy the gate.
+
+## Provenance Limitation
+
+`orchestrator_receipt` is controller-attested metadata, not a signed execution-platform identity. The repository audit can reject missing or inconsistent attestations, but cannot independently prove who created the payload. KI-CX-REVIEW-001 / Issue #59 blocks unattended or generalized automated merge and release-boundary use until the execution surface supplies machine-verifiable reviewer provenance or an independently authenticated reviewer identity.
 
 ## Verification
 

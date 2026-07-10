@@ -174,6 +174,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `.github/ISSUE_TEMPLATE/config.yml`
 - `.github/labels.yml`
 - `.github/workflows/validate.yml`
+- `.github/workflows/independent-review.yml`
 
 ## Flowset State
 

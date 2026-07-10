@@ -38,10 +38,18 @@ Required PR labels are:
 
 `pr:approved-merge` is applied only after the independent review audit passes.
 
+The `independent-review` commit status is a required `main` branch protection check. The trusted default-branch workflow audits the live review and publishes that status against the PR head; the control-plane audit independently reruns the same evidence check rather than trusting labels alone.
+
+## Provenance Boundary
+
+The current execution surface does not expose a repository-verifiable signed receipt for a `multi_agent_v1` worker. The review payload therefore includes a controller-attested `orchestrator_receipt`, but that receipt is not cryptographic proof that the controller did not self-issue it.
+
+KI-CX-REVIEW-001 / Issue #59 owns this limitation. Until it is repaid, supervised work may merge only when the controller actually started a clean-context independent reviewer, inspected the live tool receipt, relayed the unchanged current-head result, and retained active user approval. The limitation blocks unattended or generalized automated merge, A2/A3 authority expansion, release candidates, public release, and OSS submission.
+
 ## Historical Runner Debt
 
 WI-CX0042 and its runner-specific S2 debt are closed as obsolete, not passed. The reviewed worktree cron has been retired and deleted. Any future runner replacement is new work and must pass this general gate; the old review packet cannot authorize or validate it.
 
 ## Boundary
 
-This decision does not authorize dogfood continuation, provider-policy bypass, runner replacement, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, or S2 self-review.
+This decision does not authorize dogfood continuation, provider-policy bypass, runner replacement, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, unattended merge, or S2 self-review.

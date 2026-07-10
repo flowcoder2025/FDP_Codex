@@ -37,6 +37,32 @@ function sameValues(actual, expected) {
   return JSON.stringify(sorted(actual)) === JSON.stringify(sorted(expected));
 }
 
+function inspectIndependentReview(reviewPrNumber, { allowMerged = false } = {}) {
+  const commandArgs = [
+    'scripts/audit-independent-review.mjs',
+    '--pr', String(reviewPrNumber),
+    '--allow-merge-approved',
+  ];
+  if (allowMerged) commandArgs.push('--allow-merged');
+
+  try {
+    return JSON.parse(run(process.execPath, commandArgs));
+  } catch (caught) {
+    const stdout = caught?.stdout?.toString?.().trim() || '';
+    try {
+      return JSON.parse(stdout);
+    } catch {
+      return {
+        ok: false,
+        errors: [{
+          id: 'audit.execution_failed',
+          detail: caught?.stderr?.toString?.().trim() || caught?.message || String(caught),
+        }],
+      };
+    }
+  }
+}
+
 const checks = {};
 const errors = [];
 const addCheck = (id, ok, detail) => {
@@ -126,6 +152,10 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
       || labels.includes('risk:R0')
       || requiredIndependentReviewLabels.every((label) => labels.includes(label)))
     && requiredPrLabels.every((label) => labels.includes(label)), { state: pullRequest.state, labels });
+  if (pullRequest.number >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
+    const independentReview = inspectIndependentReview(pullRequest.number, { allowMerged: true });
+    addCheck(`pr.${pullRequest.number}.independent_review`, independentReview.ok === true, independentReview);
+  }
 }
 
 if (prNumber) {
@@ -148,6 +178,10 @@ if (prNumber) {
     expected_head: activeBranch,
     labels,
   });
+  if (currentPr && prNumber >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
+    const independentReview = inspectIndependentReview(prNumber, { allowMerged: phase === 'post-merge' });
+    addCheck('pr.current_independent_review', independentReview.ok === true, independentReview);
+  }
 }
 
 const report = {

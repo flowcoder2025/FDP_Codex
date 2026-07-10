@@ -33,6 +33,7 @@ Make independent blind adversarial review an executable merge gate for every non
 
 - Add a machine-readable independent-review evidence contract.
 - Add a live GitHub review audit with deterministic self-tests.
+- Add a required `independent-review` GitHub status and branch protection gate.
 - Require separate clean-context review and adversarial findings for all non-trivial R1/R2/R3 WIs.
 - Forbid `pr:approved-merge` until the current PR head passes the independent review audit.
 - Run repository CI, working and PR control-plane audits, and a separate `fork_context: false` reviewer on this WI.
@@ -49,6 +50,7 @@ Make independent blind adversarial review an executable merge gate for every non
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open and blocks the existing managed CLI worker proof, dogfood continuation on that surface, and runner reactivation.
+- KI-CX-REVIEW-001 / Issue #59 remains open because the execution surface does not provide signed reviewer provenance. Supervised current-head review may continue with an actual clean agent and live tool receipt, but unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission remain blocked.
 
 ## Boundary
 
