@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T07:45:00Z",
+  "updated_at": "2026-07-10T08:35:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -14,32 +14,34 @@
     "docs/records/validation-wi-cx0055-feat.md",
     "docs/records/validation-wi-cx0056-test.md",
     "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-    "docs/records/validation-wi-cx0057-docs.md"
+    "docs/records/validation-wi-cx0057-docs.md",
+    "docs/decisions/2026-07-10-context-selection-breadth-guard.md",
+    "docs/records/validation-wi-cx0058-fix.md"
   ],
   "current_wi": {
-    "id": "WI-CX0057-docs",
-    "category": "docs",
-    "title": "Ephemeral Worker Controller Boundary Contract",
+    "id": "WI-CX0058-fix",
+    "category": "fix",
+    "title": "Context Pack Selection Breadth Guard",
     "status": "validated",
-    "branch": "wi/cx0057-docs-ephemeral-worker-controller-boundary",
-    "validation_record": "docs/records/validation-wi-cx0057-docs.md"
+    "branch": "wi/cx0058-fix-context-pack-selection-breadth-guard",
+    "validation_record": "docs/records/validation-wi-cx0058-fix.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0058-fix",
-    "item": "Context Pack Selection Breadth Guard",
+    "wi_id": "WI-CX0059-fix",
+    "item": "Ephemeral Worker Process Lifecycle Guard",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "VAL",
+      "WTC": "AUTO",
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "generalized automated WI cadence claims",
-      "context-pack efficiency claims"
+      "generalized unattended ephemeral worker use",
+      "runner reactivation"
     ]
   },
   "control_plane": {
@@ -69,7 +71,14 @@
       "controller_git_ownership": ["branch", "stage", "commit", "push", "pr", "merge"],
       "worker_ownership": ["reconstruct", "edit", "validate"],
       "app_task_fanout": "forbidden",
-      "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md"
+      "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
+      "runtime_status": "degraded-process-lifecycle-open",
+      "last_attempt": {
+        "result": "no-visible-events-partial-edit-residual-processes-cleaned",
+        "observed_process_ids": [61312, 40280, 60288],
+        "process_ids_confirmed_terminated": true,
+        "repayment_wi": "WI-CX0059-fix"
+      }
     }
   },
   "triggered_work": [
@@ -98,13 +107,39 @@
       "id": "KI-CX-CONTEXT-001",
       "severity": "Medium",
       "owner": "CODEX",
-      "trigger": "WI-CX0056 selected 123 metadata chunks and WI-CX0057 selected 120 after a general handoff token matched historical metadata",
+      "trigger": "WI-CX0056 selected 123 metadata chunks, WI-CX0057 selected 120, and the initial WI-CX0058 build selected 76",
       "defer_reason": "no chunk bodies were stored or carried and only directly relevant selected sources were loaded",
-      "repayment_condition": "WI-CX0058-fix adds a deterministic breadth guard or more precise matching",
+      "repayment_condition": "WI-CX0058-fix adds exact matching and deterministic fail-before-append limits",
       "hard_stop": "before generalized automated WI cadence or efficiency claims",
+      "status": "repaid",
+      "repaid_by": "WI-CX0058-fix",
+      "decision_ref": "docs/decisions/2026-07-10-context-selection-breadth-guard.md",
+      "evidence": "docs/records/validation-wi-cx0058-fix.md"
+    },
+    {
+      "id": "KI-CX-WORKER-001",
+      "severity": "Medium",
+      "owner": "CODEX",
+      "trigger": "ephemeral worker attempts produced no visible events, left a partial edit, and left observed processes alive after wrapper termination",
+      "defer_reason": "controller terminated the exact observed processes, reviewed the partial diff, and continued without app task fanout",
+      "repayment_condition": "WI-CX0059-fix adds bounded timeout, event/error capture, and verified descendant cleanup",
+      "hard_stop": "before generalized unattended ephemeral worker use or runner reactivation",
       "status": "open"
     }
   ],
+  "context_selection": {
+    "policy": "exact-specialized-intent-tags-v1",
+    "decision_ref": "docs/decisions/2026-07-10-context-selection-breadth-guard.md",
+    "initial_wi_cx0058_pack": "ctx-wi-cx0058-fix-20260710081912",
+    "initial_wi_cx0058_count": 76,
+    "equivalent_wi_cx0058_count": 18,
+    "previous_wi_cx0057_count": 120,
+    "equivalent_wi_cx0057_count": 29,
+    "previous_wi_cx0056_count": 123,
+    "equivalent_wi_cx0056_result": "rejected-before-append",
+    "dynamic_limit": 24,
+    "total_limit": 40
+  },
   "hard_stops": [
     "release_publication",
     "deployment",

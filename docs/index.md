@@ -65,6 +65,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md`
 - `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`
+- `docs/decisions/2026-07-10-context-selection-breadth-guard.md`
 
 ## Runbooks
 
@@ -136,6 +137,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0055-feat.md`
 - `docs/records/validation-wi-cx0056-test.md`
 - `docs/records/validation-wi-cx0057-docs.md`
+- `docs/records/validation-wi-cx0058-fix.md`
 
 ## Tooling
 

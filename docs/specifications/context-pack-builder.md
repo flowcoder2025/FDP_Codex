@@ -1,6 +1,6 @@
 # Context Pack Builder Specification
 
-Status: implemented-v1.
+Status: implemented-v2.
 
 ## Purpose
 
@@ -48,6 +48,7 @@ Allowed output fields include:
 - `hash`
 - `load_reasons`
 - `selection_rules`
+- `breadth_guard`
 - `decision_ref`
 - `ledger_append`
 - `body_storage`
@@ -74,9 +75,20 @@ Static selection behavior must be represented by stable rule ids.
 | `intent.context-pack` | request tokens include `context`, `pack`, or `building` | knowledge system, context hygiene | `context pack request` |
 | `intent.github` | request tokens include `github`, `issue`, or `pr` | git workflow, GitHub issue governance | GitHub/issue request |
 | `intent.validation` | request tokens include `validation`, `validator`, or `ci` | validator | `validation request` |
-| `manifest.loads-for-token-match` | request tokens intersect a chunk `loads_for` list | matched chunk | `loads_for matched request tokens: ...` |
+| `manifest.explicit-reference-match` | changed path exactly matches a chunk source, or intent explicitly names a chunk id, source, or WI id | explicitly referenced chunk | exact-reference reason |
+| `manifest.loads-for-token-match` | an explicit multi-part `--intent` tag exactly matches a chunk `loads_for` tag | matched chunk | `loads_for exactly matched intent tags: ...` |
 
 The rule table is not a permission system. It only selects SSOT metadata for the active WI.
+
+## Breadth Guard
+
+Dynamic `loads_for` selection uses exact specialized intent tags. A specialized tag contains multiple parts joined by punctuation, such as `session-boundary` or `context-pack-building`. Generic single terms such as `validation`, `handoff`, `audit`, and `wi-start` do not trigger dynamic manifest selection.
+
+WI ids, current-WI titles, and tokenized changed paths do not feed dynamic `loads_for` matching. Changed paths instead select only the manifest chunk whose source path exactly matches. Explicit chunk ids, source paths, and WI ids in `--intent` also select their exact chunks.
+
+The dynamic `loads_for` contribution is limited to 24 chunks and the complete context pack is limited to 40 chunks. If either limit would be exceeded, the builder must return `context_selection_breadth_guard_rejected` and exit before ledger append. It must not silently truncate a pack.
+
+Successful output includes a `breadth_guard` object with the policy id, limits, dynamic count, explicit-reference count, total count, and `passed` status.
 
 ## Contract
 
