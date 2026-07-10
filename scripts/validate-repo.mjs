@@ -11,6 +11,9 @@ const checks = {};
 
 const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
 
+const hasSingleExactClaim = (text, exactClaim, mention) => text.includes(exactClaim)
+  && text.split(mention).length === 2;
+
 const allowedCategories = new Set([
   'feat',
   'fix',
@@ -3822,6 +3825,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
   const topology = state.control_plane?.worker_topology ?? {};
   const guard = topology.managed_guard ?? {};
+  const noProviderWorkaroundBoundary = '- No release, deployment, package publication, OSS submission, production dependency, public API or external contract change, A2/A3 authority expansion, destructive operation, or provider-policy workaround occurred.';
+  const providerWorkaroundMentions = proofRecord.match(/provider-policy workaround occurred/g) ?? [];
+  const reviewAttempts = state.control_plane?.independent_review?.last_local_review_attempts ?? [];
   const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
   let liveRunnerStatus = 'not-present';
   if (existsSync(runnerConfigPath)) {
@@ -4097,7 +4103,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('even with explicit user approval')
     && proofRecord.includes('019f4d43-2090-7711-ae34-05aaa264bf22')
     && proofRecord.includes('019f4d4f-0a95-73b3-a77e-96d1c181c6fd')
-    && proofRecord.includes('Neither incomplete attempt was treated as PASS');
+    && proofRecord.includes('Neither incomplete attempt was treated as PASS')
+    && proofRecord.includes('019f4d6b-f84f-7c30-b759-038b6183cf70')
+    && proofRecord.includes('returned FAIL with two P2 findings');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4110,6 +4118,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && state.current_priority?.owner_gate === 'H1';
   checks.worker_proof_state = topology.runtime_status === 'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked'
     && guard.status === 'confined-public-preflight-passed-dogfood-policy-blocked'
+    && guard.nested_agent_confinement?.status === 'deterministic-proof-passed-post-fix-live-proof-not-run-policy-blocked'
     && guard.nested_agent_confinement?.cli_flag === '--disable multi_agent'
     && guard.nested_agent_confinement?.deterministic_test === 'passed'
     && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
@@ -4136,14 +4145,24 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAvailabilityKi?.github_issue_number === 63
     && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
     && state.control_plane?.independent_review?.availability_issue === 63
-    && state.control_plane?.independent_review?.last_local_review_attempts?.length === 2;
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'));
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
     && proofRecord.includes('The dogfood target was not edited')
     && proofRecord.includes('No target branch, commit, remote, push, or PR was created')
     && proofRecord.includes('No release publication, deployment, package publication, OSS program submission')
-    && proofRecord.includes('provider-policy workaround occurred');
+    && hasSingleExactClaim(proofRecord, noProviderWorkaroundBoundary, 'provider-policy workaround occurred');
+  checks.worker_proof_boundary_false_positive_guard = !hasSingleExactClaim(
+    'A provider-policy workaround occurred.',
+    noProviderWorkaroundBoundary,
+    'provider-policy workaround occurred',
+  ) && !hasSingleExactClaim(
+    `${noProviderWorkaroundBoundary}\nA provider-policy workaround occurred.`,
+    noProviderWorkaroundBoundary,
+    'provider-policy workaround occurred',
+  ) && providerWorkaroundMentions.length === 1;
 
   if (!checks.worker_lifecycle_registration) error('worker_lifecycle.registration_missing', 'Manifest and indexes must register the WI-CX0059 decision, specification, tools, fixture, and record.');
   if (!checks.worker_lifecycle_ledger) error('worker_lifecycle.ledger_missing', 'WI-CX0059 must retain its 17-entry metadata-only fresh context evidence.');
@@ -4176,6 +4195,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
   if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');
   if (!checks.worker_proof_boundary) error('worker_proof.boundary_missing', 'WI-CX0060 must keep the target read-only and preserve runner, publication, authority, dependency, API, and destructive-operation boundaries.');
+  if (!checks.worker_proof_boundary_false_positive_guard) error('worker_proof.boundary_false_positive', 'Provider-workaround boundary evidence must reject positive or contradictory claims.');
 }
 
 function validateControlPlaneOperationalIntegrity() {

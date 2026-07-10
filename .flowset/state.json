@@ -132,6 +132,17 @@
           "agent_id": "019f4d4f-0a95-73b3-a77e-96d1c181c6fd",
           "fork_context": false,
           "result": "no-verdict-stopped-after-bounded-wait"
+        },
+        {
+          "agent_id": "019f4d6a-765a-7263-8bca-7ebede40f725",
+          "fork_context": false,
+          "result": "model-capacity-error-no-verdict"
+        },
+        {
+          "agent_id": "019f4d6b-f84f-7c30-b759-038b6183cf70",
+          "fork_context": false,
+          "reviewed_head": "b63bbca2552d6fe071812c279143a046683d0ac1",
+          "result": "fail-two-p2-findings-remediated-before-final-review"
         }
       ]
     },
@@ -160,7 +171,7 @@
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
         "nested_agent_confinement": {
-          "status": "implemented-local-live-proof-policy-blocked",
+          "status": "deterministic-proof-passed-post-fix-live-proof-not-run-policy-blocked",
           "cli_flag": "--disable multi_agent",
           "deterministic_test": "passed",
           "known_issue": "KI-CX-WORKER-003",

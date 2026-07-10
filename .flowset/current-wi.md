@@ -50,6 +50,7 @@ Prove that the managed ephemeral worker can reconstruct and validate the separat
 - The runner now adds `--disable multi_agent`; `npm.cmd run worker:test` passes invocation confinement plus normal, timeout, interruption, temporal-identity, and residual cleanup cases.
 - The user explicitly approved the disclosed local target transmission. The exact post-fix retry was still rejected before execution because the configured external model destination is not established as trusted and approval cannot override that rule. No workaround was attempted.
 - Two separate `fork_context: false` read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. Neither result was treated as PASS. KI-CX-REVIEW-002 / Issue #63 records reviewer-surface availability.
+- A later clean-context reviewer returned FAIL on head `b63bbca2552d6fe071812c279143a046683d0ac1` with two P2 findings: overstated live-proof state and a false-positive provider-workaround boundary check. Both findings were remediated, but the changed head still requires a fresh review.
 
 ## Open Known Issues
 

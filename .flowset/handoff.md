@@ -12,7 +12,7 @@ The official ChatGPT-login managed preflight passed. The first dogfood run recon
 
 KI-CX-WORKER-003 / Issue #61 tracks the missing final-result failure. KI-CX-DOGFOOD-002 / Issue #62 tracks the stale target handoff that both target validators accepted. KI-CX-PROVIDER-001 / Issue #55 remains open until the approved post-fix dogfood proof completes.
 
-Two clean-context read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. KI-CX-REVIEW-002 / Issue #63 blocks treating this branch as independently reviewed.
+Two clean-context read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. A later capacity-limited attempt produced no verdict, then reviewer `019f4d6b-f84f-7c30-b759-038b6183cf70` returned FAIL on head `b63bbca2552d6fe071812c279143a046683d0ac1` with two P2 findings. Both findings were remediated, but the changed head remains unreviewed. KI-CX-REVIEW-002 / Issue #63 still blocks treating this branch as independently passed.
 
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
