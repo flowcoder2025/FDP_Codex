@@ -112,6 +112,10 @@
       "status_publication": "pending-then-stable-double-read",
       "status_concurrency": "per-pr-cancel-in-progress",
       "branch_protection": "required-github-actions-app-bound",
+      "merged_candidate_trigger": false,
+      "bootstrap_status_run": 29104125595,
+      "bootstrap_status_source_head": "c7ee6b6ff4f44496088892e10d69c01b08e6defe",
+      "bootstrap_status_mode": "one-time-rerun-after-final-pass",
       "provenance_mode": "controller-attested",
       "provenance_issue": 59
     },

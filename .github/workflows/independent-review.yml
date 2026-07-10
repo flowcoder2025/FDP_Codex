@@ -1,11 +1,6 @@
 name: independent-review
 
 on:
-  pull_request:
-    types:
-      - synchronize
-      - labeled
-      - unlabeled
   pull_request_target:
     types:
       - opened
@@ -36,14 +31,13 @@ concurrency:
 
 jobs:
   status-publisher:
-    if: github.event_name != 'pull_request' || github.event.pull_request.number == 58
     name: trusted-independent-review-status-publisher
     runs-on: ubuntu-latest
     steps:
       - name: Checkout trusted default branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -58,10 +52,8 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "number=${{ inputs.pr }}" >> "$GITHUB_OUTPUT"
-            echo "head=$(gh pr view '${{ inputs.pr }}' --json headRefOid --jq .headRefOid)" >> "$GITHUB_OUTPUT"
           else
             echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Publish current-head independent review status

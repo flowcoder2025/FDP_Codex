@@ -4358,11 +4358,14 @@ function validateIndependentBlindAdversarialReviewGate() {
     && controlAudit.includes("check.app_id === 15368")
     && controlAudit.includes("creator?.login === 'github-actions[bot]'")
     && workflow.includes('pull_request_target:')
-    && workflow.includes('pull_request:')
+    && workflow.includes('pull_request_review:')
+    && workflow.includes('workflow_dispatch:')
+    && !workflow.includes('\n  pull_request:\n')
     && workflow.includes('statuses: write')
     && workflow.includes('cancel-in-progress: true')
     && workflow.includes('Checkout trusted default branch')
-    && workflow.includes('github.event.pull_request.number == 58')
+    && workflow.includes('github.event.repository.default_branch')
+    && !workflow.includes('github.event.pull_request.number == 58')
     && workflow.includes(publisherPath)
     && publisher.includes("const context = 'independent-review'")
     && publisher.includes("'pending'")
@@ -4385,6 +4388,10 @@ function validateIndependentBlindAdversarialReviewGate() {
     && reviewState.status_publication === 'pending-then-stable-double-read'
     && reviewState.status_concurrency === 'per-pr-cancel-in-progress'
     && reviewState.branch_protection === 'required-github-actions-app-bound'
+    && reviewState.merged_candidate_trigger === false
+    && reviewState.bootstrap_status_run === 29104125595
+    && reviewState.bootstrap_status_source_head === 'c7ee6b6ff4f44496088892e10d69c01b08e6defe'
+    && reviewState.bootstrap_status_mode === 'one-time-rerun-after-final-pass'
     && reviewState.provenance_mode === 'controller-attested'
     && reviewState.provenance_issue === 59
     && reviewIssue?.severity === 'High'
@@ -4420,6 +4427,9 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('Any finding-driven edit changes the head and requires a new independent reviewer pass')
     && record.includes('returned FAIL')
     && record.includes('4672749444')
+    && record.includes('4673022662')
+    && record.includes('final merged workflow contains no write-capable `pull_request` event')
+    && record.includes('29104125595')
     && record.includes('GitHub Actions app id `15368`')
     && record.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'

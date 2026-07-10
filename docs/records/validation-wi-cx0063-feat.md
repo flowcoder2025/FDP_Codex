@@ -67,9 +67,11 @@ It found two P1 and three P2 defects: no required GitHub check, no machine-verif
 
 Independent agent `019f4c97-a251-7282-9478-3606432ddb82` then reviewed head `04b78c0c7f3fa6fe77fedc6647d45901492ce27b` and returned FAIL in GitHub review `4672749444`. It found an out-of-order status overwrite race, an unbound required-status publisher, and acceptance of a contradictory pre-marker payload. That head was not marked passed. The next remediation adds PR concurrency cancellation, pending-before-audit publication, stable double-read generation checks, complete-body parsing, GitHub Actions app binding, and live control-plane checks for protection and status creator.
 
+Independent agent `019f4cb4-39df-72a2-9e16-934560004ab7` reviewed head `c7ee6b6ff4f44496088892e10d69c01b08e6defe` and returned FAIL in GitHub review `4673022662`. It found that retaining a write-capable `pull_request` bootstrap trigger in the merged workflow would let future same-repository candidate workflow code publish the protected context. That head was not marked passed. The final candidate removes `pull_request` entirely and keeps only default-branch-controlled `pull_request_target`, `pull_request_review`, and `workflow_dispatch` publication.
+
 ## Bootstrap Enforcement
 
-PR #58 introduces the trusted default-branch workflow, so a one-time `pull_request` bootstrap event runs the exact independently reviewed candidate workflow for PR #58 only. It publishes through the GitHub Actions app rather than a controller token. `main` protection binds Node 20, Node 24, and `independent-review` to GitHub Actions app id `15368`; after merge, `pull_request_target` and review events use the trusted default-branch workflow. This bootstrap path does not remove the KI-CX-REVIEW-001 reviewer-provenance boundary.
+PR #58 introduces the trusted default-branch workflow, so the final merged workflow contains no write-capable `pull_request` event. After an actual independent PASS on the exact final head, the controller may rerun the already fixed GitHub Actions run `29104125595` once. That immutable run resolves PR #58's live head and publishes the app-bound status, while its candidate trigger is absent from the final merged workflow. `main` protection binds Node 20, Node 24, and `independent-review` to GitHub Actions app id `15368`. Future publication uses only the trusted default-branch workflow. This supervised bootstrap does not remove the KI-CX-REVIEW-001 reviewer-provenance boundary.
 
 ## Historical Runner Review
 

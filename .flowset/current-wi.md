@@ -35,6 +35,7 @@ Make independent blind adversarial review an executable merge gate for every non
 - Add a live GitHub review audit with deterministic self-tests.
 - Add a required `independent-review` GitHub status and branch protection gate.
 - Bind the required status to GitHub Actions app id `15368` and reject changed/out-of-order review generations before success publication.
+- Keep write-capable `pull_request` publication out of the merged workflow; PR #58 uses one supervised rerun of fixed Actions run `29104125595` after an exact-head PASS.
 - Require separate clean-context review and adversarial findings for all non-trivial R1/R2/R3 WIs.
 - Forbid `pr:approved-merge` until the current PR head passes the independent review audit.
 - Run repository CI, working and PR control-plane audits, and a separate `fork_context: false` reviewer on this WI.

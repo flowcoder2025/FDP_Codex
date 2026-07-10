@@ -42,6 +42,8 @@ The `independent-review` commit status is a required `main` branch protection ch
 
 Status publication is fail-closed and monotonic within the supervised boundary. The workflow cancels superseded runs for the same PR. Its publisher sets `pending`, reads the live audit twice, and publishes success only when both reads identify the same passing head and review id. A changed or failing generation publishes failure.
 
+The merged workflow does not accept a write-capable `pull_request` event. Status publication is controlled by workflow code on the default branch through `pull_request_target`, `pull_request_review`, or `workflow_dispatch`.
+
 ## Provenance Boundary
 
 The current execution surface does not expose a repository-verifiable signed receipt for a `multi_agent_v1` worker. The review payload therefore includes a controller-attested `orchestrator_receipt`, but that receipt is not cryptographic proof that the controller did not self-issue it.

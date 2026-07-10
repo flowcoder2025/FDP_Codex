@@ -105,6 +105,8 @@ For every non-trivial R1, R2, or R3 WI:
 
 The status publisher uses per-PR concurrency with superseded-run cancellation, publishes `pending` before evaluation, reads live review evidence twice, and publishes success only when both reads identify the same passing head and review id. A status from an unbound publisher does not satisfy the gate.
 
+The merged publisher workflow must not use a write-capable `pull_request` trigger because candidate workflow code is not a trusted publisher. It runs from the default branch through `pull_request_target`, `pull_request_review`, or `workflow_dispatch`.
+
 The implementing controller may relay the independent agent's exact result to GitHub when the reviewer has no GitHub identity, but it must record the reviewer agent id and may not rewrite the verdict or findings. A relayed review is not independent evidence unless the result declares clean context and the GitHub review is anchored to the current head.
 
 The current orchestrator receipt is controller-attested rather than signed by the execution platform. KI-CX-REVIEW-001 blocks unattended or generalized automated merge, A2/A3 authority expansion, and release-boundary use until reviewer provenance is machine-verifiable.

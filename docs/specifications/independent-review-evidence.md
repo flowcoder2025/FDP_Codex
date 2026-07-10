@@ -88,6 +88,7 @@ The marker must be the first non-whitespace content in the complete review body.
 - The publisher runs the live audit twice and requires the same head, `latest_review_id`, `reviewed_head`, and PASS verdict in both reads.
 - A missing, changed, stale, malformed, or blocking generation publishes failure.
 - The control-plane audit verifies strict branch protection, admin enforcement, conversation resolution, force-push/deletion denial, required contexts, publisher app id, and the current-head status creator.
+- The merged workflow must not include a write-capable `pull_request` trigger; publication runs from default-branch-controlled `pull_request_target`, `pull_request_review`, or `workflow_dispatch` only.
 
 ## Provenance Limitation
 
