@@ -30,6 +30,7 @@ Current decisions:
 - `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`: accepted `FCD` scope code for the first Layer 2 dogfood target.
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`: accepted one visible control task, ephemeral CLI workers, and controller-owned Git operations.
 - `docs/decisions/2026-07-10-context-selection-breadth-guard.md`: accepted exact specialized intent-tag matching and fail-before-append selection limits.
+- `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`: accepted bounded worker timeout, observable events, exact process-tree cleanup, and fail-closed verification.
 
 Decision Needed:
 

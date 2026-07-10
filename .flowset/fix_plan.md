@@ -18,7 +18,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard: add bounded timeout, observable event/error capture, and verified descendant-process cleanup before controller fallback.
+- [ ] WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof: blocked on KI-CX-PROVIDER-001 until the execution environment establishes the configured model service as trusted; do not retry through a workaround.
 
 ## Triggered Work
 
@@ -33,7 +33,7 @@ Discipline:
 
 | Item | Severity | Owner | Trigger | Defer reason | Repayment condition | Hard stop | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| KI-CX-WORKER-001 Ephemeral worker process lifecycle. | Medium | CODEX | Two `codex exec --ephemeral` attempts produced no visible events before timeout, left an incomplete builder edit, and wrapper termination left observed PIDs 61312, 40280, and 60288 running until explicit cleanup. | The controller stopped the exact observed processes, inspected the partial diff, and continued in the one visible control task. | WI-CX0059-fix adds bounded timeout, event/error capture, and verified descendant cleanup before controller fallback. | Before generalized unattended ephemeral worker use or runner reactivation. | open |
+| KI-CX-PROVIDER-001 Repository-backed model worker trust boundary. | Medium | H1 | The managed read-only live model smoke was rejected before execution and again after the user explicitly approved the stated repository-content transmission risk. | WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard repaid the process defect with deterministic OS process tests and no-model Codex CLI smoke without bypassing external disclosure policy. | The execution environment establishes the configured model service as trusted and permits a repository-backed managed smoke. | Before WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation. | open |
 
 ## Decision Needed Queue
 

@@ -1,0 +1,58 @@
+# Ephemeral Worker Process Lifecycle Guard
+
+Status: accepted-v0.
+
+Date: 2026-07-10.
+
+WI: WI-CX0059-fix.
+
+## Context
+
+Two unmanaged `codex exec --ephemeral` attempts produced no visible events before the controller timeout. Stopping the surrounding wrapper did not stop every child process, and the controller later found a partial worktree edit plus live process ids that required exact manual cleanup.
+
+The accepted one-controller topology remains useful for clean context and sidebar UX, but it is not safe for unattended use unless process lifetime is owned by a bounded supervisor.
+
+## Decision
+
+FDP_Codex will start ephemeral Codex workers only through `scripts/run-ephemeral-worker.mjs` for supervised local WI execution.
+
+The wrapper uses the fixed `codex exec --ephemeral --json` surface, accepts only `read-only` or `workspace-write`, and sends the prompt through stdin. It does not place the prompt in the process argument list or persist it to a wrapper log.
+
+The wrapper emits JSONL lifecycle, stdout, stderr, timeout, interruption, observation-error, and final-result events as the worker runs. The default timeout is 120 seconds and every invocation must have a finite timeout.
+
+## Process Ownership
+
+The supervisor records the direct child pid and observes descendants by pid, parent pid, executable name, and process start time. Windows observation uses `Win32_Process`; POSIX uses a dedicated process group plus `ps` so already observed descendants remain discoverable after the root exits. Cleanup checks process identity before termination so a reused pid is not treated as the original worker.
+
+On timeout or interruption, descendants are terminated before their parents. The supervisor then re-observes the tracked identities until none remain or the verification deadline expires. A cleanup that cannot be observed or verified is a failure, not a successful fallback.
+
+If the root process exits while an observed descendant remains, the supervisor treats that as a lifecycle failure, cleans the residual process tree, and returns a non-success result.
+
+The controller must use the wrapper's internal timeout or an interrupt signal instead of force-killing the wrapper as its normal timeout mechanism. A forced wrapper termination cannot guarantee asynchronous cleanup execution.
+
+## UX And Recovery
+
+The controller remains the only persistent user-visible task. The worker produces observable events without creating a Codex app task. Controller fallback begins only after the managed result proves cleanup or reports an explicit cleanup failure.
+
+Interrupted work is still recovered from repository SSOT and the actual diff. Process cleanup does not authorize automatic acceptance of a partial edit.
+
+## Data Boundary
+
+The wrapper does not itself approve transmission of repository content to a model provider. A live model smoke or dogfood run must remain inside an approved data and network boundary. Local fixture tests and `codex exec --help` smoke do not transmit a repository prompt.
+
+## Known Issue Repayment
+
+The implementation, deterministic process-tree tests, no-residual process query, and installed Codex CLI local smoke repay KI-CX-WORKER-001. These checks exercise the process behavior that triggered the KI without coupling cleanup correctness to a model provider response.
+
+The execution environment rejected the repository-backed live model smoke even after the user explicitly approved the stated transmission risk. KI-CX-PROVIDER-001 records that separate provider trust boundary and blocks dogfood continuation, generalized unattended worker use, and runner reactivation. FDP_Codex must not bypass that boundary or ask the user to run the rejected command indirectly.
+
+## Hard Stops
+
+The A2 runner remains `PAUSED`. This decision does not reactivate it, change its prompt or schedule, create a target remote, push the target, create a target PR, expand A2 or A3 authority, execute S2 review, create a separate reviewer, add a production dependency, change a public API or external contract, publish a release, deploy, publish a package, submit to an OSS program, or authorize destructive operations.
+
+## Evidence
+
+- `docs/specifications/ephemeral-worker-runner.md`
+- `docs/records/validation-wi-cx0059-fix.md`
+- `scripts/run-ephemeral-worker.mjs`
+- `scripts/test-ephemeral-worker-lifecycle.mjs`
