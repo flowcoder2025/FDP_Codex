@@ -145,9 +145,9 @@ Supervised local ephemeral workers must run through `scripts/run-ephemeral-worke
 
 Managed workers must not execute repository-supplied scripts or package managers. The visible controller runs canonical validation after worker exit. No package-script exception is allowed because a workspace-write worker can rewrite that script before execution.
 
-The managed wrapper must use a finite timeout, stream JSONL stdout and stderr observably, track the root and descendant process identities, terminate matched descendants before parents on timeout or interruption, and verify that no matched process remains before controller fallback. An observation or cleanup result that cannot be verified is a failure.
+The managed wrapper must use a finite timeout, stream JSONL stdout and stderr observably, track the root and descendant process identities, contain Windows workers in a kill-on-close Job Object before resume, use a dedicated POSIX process group, terminate matched descendants before parents on timeout or interruption, and verify containment drain before controller fallback. An observation, containment, or cleanup result that cannot be verified is a failure.
 
-Controllers must use the wrapper's internal timeout or an interrupt signal as the normal stop path. Force-killing the wrapper cannot guarantee that its cleanup routine runs.
+Controllers must use the wrapper's internal timeout or an interrupt signal as the normal stop path. Windows Job Object close kills assigned processes after an external wrapper kill, but the killed wrapper cannot emit a verified final result.
 
 Worker prompts must be passed through stdin instead of argv or a wrapper-created prompt file. The wrapper must not create persistent Codex app tasks, persist an event log by default, accept `danger-full-access`, change the runner, or inherit controller-owned Git and publication authority.
 

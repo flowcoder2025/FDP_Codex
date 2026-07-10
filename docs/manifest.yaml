@@ -1797,6 +1797,18 @@ chunks:
       - validation
       - tooling
     body_carryover: forbidden
+  - id: tool.windows-job-runner
+    title: Windows Job Object Runner
+    source: scripts/windows-job-runner.ps1
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
   - id: tool.run-ephemeral-worker
     title: Ephemeral Worker Runner
     source: scripts/run-ephemeral-worker.mjs

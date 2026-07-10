@@ -22,13 +22,13 @@ The wrapper emits JSONL lifecycle, stdout, stderr, timeout, interruption, observ
 
 ## Process Ownership
 
-The supervisor records the direct child pid and observes descendants by pid, parent pid, executable name, and process start time. Windows observation uses `Win32_Process`; POSIX uses a dedicated process group plus `ps` so already observed descendants remain discoverable after the root exits. Cleanup checks process identity before termination so a reused pid is not treated as the original worker.
+On Windows, the supervisor creates the real worker suspended, assigns it to a kill-on-close Job Object, and resumes it only after assignment. Normal completion requires the Job Object to report zero active processes after termination, covering descendants whose parent exits before a metadata poll can observe them. POSIX uses a dedicated process group. The supervisor also records pids, parent pids, executable names, and start times as evidence; identity checks prevent a reused pid from being treated as the original worker.
 
 On timeout or interruption, descendants are terminated before their parents. The supervisor then re-observes the tracked identities until none remain or the verification deadline expires. A cleanup that cannot be observed or verified is a failure, not a successful fallback.
 
 If the root process exits while an observed descendant remains, the supervisor treats that as a lifecycle failure, cleans the residual process tree, and returns a non-success result.
 
-The controller must use the wrapper's internal timeout or an interrupt signal instead of force-killing the wrapper as its normal timeout mechanism. A forced wrapper termination cannot guarantee asynchronous cleanup execution.
+The controller must use the wrapper's internal timeout or an interrupt signal instead of force-killing the wrapper as its normal timeout mechanism. Windows Job Object close terminates assigned processes if the wrapper is killed, but the killed wrapper cannot emit a verified final result.
 
 ## UX And Recovery
 

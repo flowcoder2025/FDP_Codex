@@ -7,6 +7,15 @@ import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs'
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
 
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'EPERM');
+  }
+}
+
 function runInvocationConfinementCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
@@ -173,7 +182,8 @@ async function runInterruptionCase() {
   }
 }
 
-async function runResidualCase() {
+async function runOrphanContainmentCase() {
+  const events = [];
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'orphan-root'],
@@ -181,13 +191,47 @@ async function runResidualCase() {
     pollIntervalMs: 100,
     terminationGraceMs: 100,
     verificationTimeoutMs: 5000,
+    onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'residual_processes');
-  assert.equal(result.ok, false);
-  assert(result.observed_descendant_pids.length >= 2);
-  assert.equal(result.cleanup.reason, 'residual-processes-after-root-exit');
-  assert.equal(result.cleanup.verified, true);
-  assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+  if (process.platform === 'win32') {
+    assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, true);
+    assert.equal(result.containment.mode, 'windows-job-object');
+    assert.equal(result.containment.verified, true);
+    const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+      && event.payload?.fixture === 'orphan-root');
+    assert(fixtureEvent?.payload?.child_pid);
+    assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
+  } else {
+    assert.equal(result.status, 'residual_processes');
+    assert.equal(result.ok, false);
+    assert.equal(result.cleanup.reason, 'residual-processes-after-root-exit');
+    assert.equal(result.cleanup.verified, true);
+  }
+  return result;
+}
+
+async function runFastParentExitCase() {
+  if (process.platform !== 'win32') return { skipped: true };
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'fast-orphan-root'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    verificationTimeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.equal(result.containment.mode, 'windows-job-object');
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, true);
+  assert.equal(result.containment.verified, true);
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'fast-orphan-root');
+  assert(fixtureEvent?.payload?.child_pid);
+  assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
   return result;
 }
 
@@ -197,7 +241,8 @@ const temporalIdentity = runTemporalIdentityCase();
 const normal = await runNormalCase();
 const timeout = await runTimeoutCase();
 const interruption = await runInterruptionCase();
-const residual = await runResidualCase();
+const orphanContainment = await runOrphanContainmentCase();
+const fastParentExit = await runFastParentExitCase();
 
 console.log(JSON.stringify({
   ok: true,
@@ -220,10 +265,15 @@ console.log(JSON.stringify({
       observed_descendant_count: interruption.observed_descendant_pids.length,
       cleanup_verified: interruption.cleanup.verified,
     },
-    residual: {
-      status: residual.status,
-      observed_descendant_count: residual.observed_descendant_pids.length,
-      cleanup_verified: residual.cleanup.verified,
+    orphan_containment: {
+      status: orphanContainment.status,
+      containment_mode: orphanContainment.containment.mode,
+      containment_verified: orphanContainment.containment.verified,
+    },
+    fast_parent_exit: fastParentExit.skipped ? fastParentExit : {
+      status: fastParentExit.status,
+      containment_mode: fastParentExit.containment.mode,
+      containment_verified: fastParentExit.containment.verified,
     },
   },
 }, null, 2));

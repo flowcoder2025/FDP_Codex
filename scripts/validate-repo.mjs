@@ -108,6 +108,7 @@ const requiredFiles = [
   'scripts/validate-layer2-scaffold.mjs',
   'scripts/lib/codex-invocation.mjs',
   'scripts/lib/managed-process.mjs',
+  'scripts/windows-job-runner.ps1',
   'scripts/run-ephemeral-worker.mjs',
   'scripts/smoke-ephemeral-worker-cli.mjs',
   'scripts/test-ephemeral-worker-lifecycle.mjs',
@@ -3804,6 +3805,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const temporalRecord = read(temporalRecordPath);
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const managedProcess = read('scripts/lib/managed-process.mjs');
+  const windowsJobRunner = read('scripts/windows-job-runner.ps1');
   const codexInvocation = read('scripts/lib/codex-invocation.mjs');
   const managedWorkerPolicy = read('.codex/rules/fdp-managed-worker.rules');
   const runner = read('scripts/run-ephemeral-worker.mjs');
@@ -3875,6 +3877,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes('id: policy.managed-worker-exec')
     && manifest.includes('id: tool.codex-invocation')
     && manifest.includes('id: tool.managed-process')
+    && manifest.includes('id: tool.windows-job-runner')
+    && manifest.includes('scripts/windows-job-runner.ps1')
+    && docsIndex.includes('scripts/windows-job-runner.ps1')
     && manifest.includes('id: tool.run-ephemeral-worker')
     && manifest.includes('id: tool.smoke-ephemeral-worker-cli')
     && manifest.includes('id: tool.test-ephemeral-worker-lifecycle')
@@ -3924,7 +3929,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('alive_after_cleanup')
     && managedProcess.includes('shell: false')
     && managedProcess.includes('residual-processes-after-root-exit')
-    && managedProcess.includes('observationSucceeded && (!cleanup.required || cleanup.verified)');
+    && managedProcess.includes('const observationVerified = observationSucceeded')
+    && managedProcess.includes('containment.verified');
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
     && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid)')
@@ -3935,6 +3941,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
     && lifecycleTest.includes('assert.equal(observed.has(50003), true)')
     && managedProcess.includes('sameIdentity(parent, currentParent)')
+    && managedProcess.includes("containmentMode: 'windows-job-object'")
+    && managedProcess.includes('containment.drained')
+    && windowsJobRunner.includes('CREATE_SUSPENDED')
+    && windowsJobRunner.includes('AssignProcessToJobObject')
+    && windowsJobRunner.includes('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
     && runner.includes('buildEphemeralWorkerArgs')
@@ -3955,6 +3967,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
     && managedWorkerPolicy.includes('"yarn.cmd"')
     && managedWorkerPolicy.includes('visible controller')
+    && !managedWorkerPolicy.includes('Use declared package scripts instead')
     && codexInvocation.includes("'npm.cmd', 'run', 'validate'")
     && codexInvocation.includes("'npm.cmd', 'run', 'worker:run'")
     && codexInvocation.includes("package_script_control: 'forbidden-inside-worker'")
@@ -3984,11 +3997,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.interruption?.status === 'interrupted'
     && testResult?.cases?.interruption?.observed_descendant_count >= 2
     && testResult?.cases?.interruption?.cleanup_verified === true
-    && testResult?.cases?.residual?.status === 'residual_processes'
-    && testResult?.cases?.residual?.observed_descendant_count >= 2
-    && testResult?.cases?.residual?.cleanup_verified === true
-    && lifecycleTest.includes("fixturePath, 'root'")
-    && fixture.includes("mode === 'grandchild'");
+    && testResult?.cases?.orphan_containment?.containment_mode === (process.platform === 'win32' ? 'windows-job-object' : 'posix-process-group')
+    && testResult?.cases?.orphan_containment?.containment_verified === true
+    && (process.platform !== 'win32'
+      || (testResult?.cases?.fast_parent_exit?.status === 'completed'
+        && testResult?.cases?.fast_parent_exit?.containment_mode === 'windows-job-object'
+        && testResult?.cases?.fast_parent_exit?.containment_verified === true))
+    && lifecycleTest.includes("fixturePath, 'fast-orphan-root'")
+    && lifecycleTest.includes('containment.verified')
+    && fixture.includes("mode === 'grandchild'")
+    && fixture.includes("mode === 'fast-orphan-root'");
   checks.worker_lifecycle_package = pkg.scripts?.['worker:run'] === 'node scripts/run-ephemeral-worker.mjs'
     && pkg.scripts?.['worker:smoke-local'] === 'node scripts/smoke-ephemeral-worker-cli.mjs'
     && pkg.scripts?.['worker:test'] === 'node scripts/test-ephemeral-worker-lifecycle.mjs'
@@ -3996,14 +4014,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
     && autonomy.includes('must run through `scripts/run-ephemeral-worker.mjs`')
     && autonomy.includes('terminate matched descendants before parents')
-    && autonomy.includes('An observation or cleanup result that cannot be verified is a failure')
+    && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
+    && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
   checks.worker_lifecycle_decision = decision.includes('Status: accepted-v0')
     && decision.includes('codex exec --ephemeral --json')
     && decision.includes('default timeout is 120 seconds')
-    && decision.includes('pid, parent pid, executable name, and process start time')
+    && decision.includes('pids, parent pids, executable names, and start times')
+    && decision.includes('kill-on-close Job Object')
     && decision.includes('descendants are terminated before their parents')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
@@ -4023,7 +4043,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('must not spawn nested agents or enter collaboration wait states')
     && spec.includes('rather than relying on prompt wording')
     && spec.includes('codex execpolicy check')
-    && spec.includes('not a claim of universal operating-system process isolation')
+    && spec.includes('not a claim of universal command authorization')
+    && spec.includes('Windows Job Object')
+    && spec.includes('zero-active-process drain marker')
     && spec.includes('must not execute repository-supplied scripts or package managers')
     && spec.includes('visible controller runs canonical validation only after the worker exits');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
@@ -4065,8 +4087,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.timeout_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
+    && guard.containment?.windows === 'job-object-suspended-assignment-kill-on-close'
+    && guard.containment?.normal_completion_requires_verified_drain === true
+    && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
+    && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
+    && guard.local_cli_smoke?.containment_verified === true
     && (guard.live_model_smoke?.result === 'policy-rejected-after-user-approval'
       || guard.live_model_smoke?.public_repository_preflight?.result === 'passed');
   checks.worker_temporal_identity_record = temporalRecord.includes('Status: validated')
@@ -4126,8 +4153,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.owner === 'CODEX'
     && reusedParentKi.repaid_by === 'WI-CX0060-test'
     && reusedParentKi.github_issue_number === 64
-    && reusedParentKi.trigger.includes('parent PID was reused')
+    && reusedParentKi.trigger.includes('parent PID reuse')
+    && reusedParentKi.trigger.includes('detached child')
+    && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
+    && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
+    && !reusedParentKi.hard_stop.includes('PR readiness')
     && reusedParentKi.evidence === proofRecordPath;
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
@@ -4154,6 +4185,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
     && managedWorkerPolicy.includes('"yarn.cmd"')
     && managedWorkerPolicy.includes('visible controller')
+    && !managedWorkerPolicy.includes('Use declared package scripts instead')
     && testResult?.cases?.exec_policy_contract?.supported_reentry_families_forbidden === true
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
   checks.worker_proof_record = proofRecord.includes('Status: blocked-external')

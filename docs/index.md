@@ -161,6 +161,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `.codex/rules/fdp-managed-worker.rules`
 - `scripts/lib/codex-invocation.mjs`
 - `scripts/lib/managed-process.mjs`
+- `scripts/windows-job-runner.ps1`
 - `scripts/run-ephemeral-worker.mjs`
 - `scripts/smoke-ephemeral-worker-cli.mjs`
 - `scripts/test-ephemeral-worker-lifecycle.mjs`

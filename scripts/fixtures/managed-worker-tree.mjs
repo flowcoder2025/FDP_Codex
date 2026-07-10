@@ -24,8 +24,19 @@ if (mode === 'complete') {
     detached: true,
   });
   orphan.unref();
-  process.stdout.write(`${JSON.stringify({ fixture: 'orphan-root' })}\n`);
+  process.stdout.write(`${JSON.stringify({ fixture: 'orphan-root', child_pid: orphan.pid })}\n`);
   setTimeout(() => process.exit(0), 1500);
+} else if (mode === 'fast-orphan-root') {
+  const orphan = spawn(process.execPath, [fixturePath, 'linger-once'], {
+    stdio: 'ignore',
+    windowsHide: true,
+    detached: true,
+  });
+  orphan.unref();
+  process.stdout.write(`${JSON.stringify({ fixture: 'fast-orphan-root', child_pid: orphan.pid })}\n`);
+  process.exit(0);
+} else if (mode === 'linger-once') {
+  setTimeout(() => process.exit(0), 10000);
 } else if (mode === 'child') {
   const grandchild = spawn(process.execPath, [fixturePath, 'grandchild'], {
     stdio: ['ignore', 'inherit', 'inherit'],

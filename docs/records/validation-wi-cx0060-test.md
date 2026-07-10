@@ -52,9 +52,9 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - `scripts/lib/codex-invocation.mjs` now builds the fixed worker argument list with `--disable multi_agent` and verifies the target exec-policy before reading a prompt.
 - `scripts/run-ephemeral-worker.mjs` uses that centralized argument builder.
 - `scripts/test-ephemeral-worker-lifecycle.mjs` asserts the confinement flag exactly once and validates the supported exec-policy contract.
-- `.codex/rules/fdp-managed-worker.rules` forbids supported direct Codex, runtime, package-executor, and nested-shell re-entry prefixes. This is explicitly not universal OS process isolation.
+- `.codex/rules/fdp-managed-worker.rules` forbids supported direct Codex, runtime, package-executor, and nested-shell re-entry prefixes. This is explicitly not universal command authorization; Windows process lifetime is separately contained by a kill-on-close Job Object.
 - `npm.cmd run worker:test`: passed invocation confinement, temporal stale-row exclusion, normal completion, timeout cleanup, interruption cleanup, and residual cleanup.
-- `npm.cmd run worker:smoke-local`: passed 12 real CLI exec-policy checks, then passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
+- `npm.cmd run worker:smoke-local`: passed 18 real CLI exec-policy checks, then passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
 - KI-CX-DOGFOOD-002 / Issue #62 records the generated target handoff false green without mixing target state into Layer 1.
 
 ## Final External Gate
@@ -85,6 +85,12 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - The P1 package-script bypass is remediated by forbidding all npm, pnpm, Bun, Yarn, and Corepack execution inside the worker; repository-supplied validation now belongs to the visible controller after worker exit.
 - Issue #64 was reopened and labeled `fdp:ki`, `fdp:debt`, and `ki:high`; its state is `repaid-on-merge` until PR validation, merge, and post-merge audit complete. Issue #63 and Strategy A publication wording were repaired.
 - `npm.cmd run audit:control-plane -- --phase working` passed on the clean remediation head, including Issue #64 OPEN/expected-OPEN state and required KI severity labels.
+- Reviewer `019f4dc3-db87-7043-b699-b1d1c4145217` reviewed head `b46b0b745db4f9bde2dcd031e5e11d5d8b54d7cf` and returned FAIL with one P1, one P2, and one P3 finding.
+- The P1 proved polling alone could miss a detached child when its real parent exited before the next poll. The remediation starts the real Windows worker suspended, assigns it to a kill-on-close Job Object, resumes only after assignment, and requires a verified zero-active-process drain marker.
+- The deterministic `fast-orphan-root` regression starts a detached child and exits immediately. Five consecutive full lifecycle runs returned `completed`, `containment.mode: windows-job-object`, and `containment.verified: true`; each emitted child pid was no longer alive when its result returned.
+- The P2 is remediated by aligning KI-CX-WORKER-004 with `repaid-on-merge`: its hard stop is post-merge WI closeout or generalized managed-worker use, not PR readiness or merge itself.
+- The P3 is remediated by directing blocked Node, npx, and Python execution back to visible-controller script execution and validation rather than suggesting package scripts that the same policy forbids.
+- Post-remediation `npm.cmd run worker:test` passed five consecutive full runs, `npm.cmd run worker:smoke-local` passed all 18 exec-policy cases plus Job Object assignment/drain, `npm.cmd run ci:check` passed typecheck and all repository validators, and `git diff --check` passed.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 

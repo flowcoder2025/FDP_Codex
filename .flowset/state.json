@@ -161,6 +161,12 @@
           "fork_context": false,
           "reviewed_head": "71576c01ca9a1db1fb59031c01a398bb13e9cba8",
           "result": "fail-two-p1-package-script-and-ki-closeout-plus-two-p2-remediated"
+        },
+        {
+          "agent_id": "019f4dc3-db87-7043-b699-b1d1c4145217",
+          "fork_context": false,
+          "reviewed_head": "b46b0b745db4f9bde2dcd031e5e11d5d8b54d7cf",
+          "result": "fail-one-p1-unobserved-descendant-one-p2-ki-hard-stop-one-p3-guidance-remediated"
         }
       ]
     },
@@ -207,13 +213,20 @@
           "github_issue_number": 61
         },
         "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
+        "containment": {
+          "windows": "job-object-suspended-assignment-kill-on-close",
+          "posix": "dedicated-process-group",
+          "normal_completion_requires_verified_drain": true
+        },
         "deterministic_cases": {
           "temporal_stale_parent_pid_exclusion": "passed-repeated-5",
           "parent_pid_reuse_identity_exclusion": "passed-repeated-5",
           "normal": "passed-repeated-5",
           "timeout_descendant_cleanup": "passed-repeated-5",
           "interruption_descendant_cleanup": "passed-repeated-5",
-          "residual_after_root_exit_cleanup": "passed-repeated-5"
+          "residual_after_root_exit_cleanup": "passed-repeated-5",
+          "windows_orphan_job_containment": "passed-repeated-5",
+          "windows_fast_parent_exit_containment": "passed-repeated-5"
         },
         "post_merge_validation": {
           "trigger_commit": "b905fc6cd0db825dcf91edbaa19688ba2a0d44ec",
@@ -226,6 +239,8 @@
           "result": "passed-no-model-request",
           "exit_code": 0,
           "observation_verified": true,
+          "containment_mode": "windows-job-object",
+          "containment_verified": true,
           "observed_descendant_count": 0
         },
         "live_model_smoke": {
@@ -390,10 +405,10 @@
       "id": "KI-CX-WORKER-004",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "repeated host lifecycle tests intermittently classified the no-child normal fixture as residual_processes after a Windows parent PID was reused",
+      "trigger": "Windows polling could both attach an unrelated child after parent PID reuse and miss a detached child when the real parent exited before the next poll",
       "defer_reason": "the implementation and repeated local verification are complete, but policy keeps the Issue open through PR validation, merge, and post-merge audit",
-      "repayment_condition": "the identity fix and repeated coverage pass, the related PR merges, post-merge control-plane audit passes, and Issue #64 closes with that evidence",
-      "hard_stop": "before WI-CX0060 PR readiness, merge, dogfood continuation, or generalized managed-worker use",
+      "repayment_condition": "parent identity filtering and Windows Job Object containment pass reused-PID and fast-parent-exit coverage, the related PR merges, post-merge control-plane audit passes, and Issue #64 closes with that evidence",
+      "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
       "status": "repaid-on-merge",
       "repaid_by": "WI-CX0060-test",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
@@ -440,7 +455,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, and the 71576c0 review returned FAIL with two P1 and two P2 findings",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, and the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

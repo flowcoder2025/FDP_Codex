@@ -1,6 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 
 /**
  * @typedef {{pid: number, ppid: number, pgid: number | null, name: string, started_at: string | null}} ProcessInfo
@@ -18,6 +19,43 @@ import readline from 'node:readline';
  */
 
 const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
+const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
+const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
+const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
+const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
+
+function buildSpawnInvocation(options) {
+  if (process.platform !== 'win32') {
+    return {
+      command: options.command,
+      args: options.args || [],
+      cwd: options.cwd,
+      env: options.env,
+      containmentMode: 'posix-process-group',
+    };
+  }
+
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  return {
+    command: path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    args: [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', WINDOWS_JOB_RUNNER,
+    ],
+    cwd: options.cwd,
+    env: {
+      ...process.env,
+      ...options.env,
+      FDP_JOB_COMMAND: options.command,
+      FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify(options.args || []), 'utf8').toString('base64'),
+      FDP_JOB_CWD: path.resolve(options.cwd || process.cwd()),
+    },
+    containmentMode: 'windows-job-object',
+  };
+}
 
 /** @param {number} milliseconds */
 function sleep(milliseconds) {
@@ -309,11 +347,13 @@ async function terminateObservedTree(options) {
  * @param {NodeJS.ReadableStream} stream
  * @param {'stdout' | 'stderr'} streamName
  * @param {(event: ManagedProcessEvent) => void} emit
+ * @param {(line: string) => boolean} [onInternalLine]
  */
-function captureLines(stream, streamName, emit) {
+function captureLines(stream, streamName, emit, onInternalLine = () => false) {
   let count = 0;
   const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
   reader.on('line', (line) => {
+    if (onInternalLine(line)) return;
     count += 1;
     /** @type {unknown} */
     let payload = line;
@@ -368,10 +408,18 @@ export async function runManagedProcess(options) {
   const observed = new Map();
   const observationErrors = new Set();
   let observationSucceeded = false;
+  const invocation = buildSpawnInvocation(options);
+  const containment = {
+    mode: invocation.containmentMode,
+    assigned: process.platform !== 'win32',
+    drained: process.platform !== 'win32',
+    verified: false,
+    errors: [],
+  };
 
-  const child = spawn(options.command, options.args || [], {
-    cwd: options.cwd,
-    env: options.env,
+  const child = spawn(invocation.command, invocation.args, {
+    cwd: invocation.cwd,
+    env: invocation.env,
     detached: process.platform !== 'win32',
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -379,7 +427,21 @@ export async function runManagedProcess(options) {
   });
 
   const stdoutCount = captureLines(child.stdout, 'stdout', emit);
-  const stderrCount = captureLines(child.stderr, 'stderr', emit);
+  const stderrCount = captureLines(child.stderr, 'stderr', emit, (line) => {
+    if (line === WINDOWS_JOB_ASSIGNED_MARKER) {
+      containment.assigned = true;
+      return true;
+    }
+    if (line === WINDOWS_JOB_DRAINED_MARKER) {
+      containment.drained = true;
+      return true;
+    }
+    if (line.startsWith(WINDOWS_JOB_ERROR_PREFIX)) {
+      const message = line.slice(WINDOWS_JOB_ERROR_PREFIX.length).trim();
+      containment.errors.push(message || line);
+    }
+    return false;
+  });
   const closePromise = new Promise((resolve) => {
     child.once('close', (code, signal) => resolve({ kind: 'exit', code, signal }));
   });
@@ -407,6 +469,7 @@ export async function runManagedProcess(options) {
       stderr_line_count: stderrCount(),
       observation_verified: false,
       observation_errors: [message],
+      containment: { ...containment, verified: false },
       cleanup: {
         required: false,
         reason: null,
@@ -427,7 +490,7 @@ export async function runManagedProcess(options) {
     pid: rootPid,
     ppid: process.pid,
     pgid: process.platform === 'win32' ? null : rootPid,
-    name: path.basename(options.command),
+    name: path.basename(invocation.command),
     started_at: null,
   });
   emit({
@@ -435,6 +498,7 @@ export async function runManagedProcess(options) {
     timestamp: new Date().toISOString(),
     root_pid: rootPid,
     command: path.basename(options.command),
+    containment_mode: containment.mode,
     timeout_ms: options.timeoutMs,
   });
 
@@ -560,8 +624,16 @@ export async function runManagedProcess(options) {
   }
 
   if (cleanup.required && !cleanup.verified) status = 'cleanup_failed';
+  containment.verified = containment.assigned
+    && (containment.drained || (cleanup.required && cleanup.verified))
+    && containment.errors.length === 0;
+  if (process.platform === 'win32' && status === 'completed' && !containment.verified) {
+    status = 'containment_failed';
+  }
   const descendantPids = [...observed.keys()].filter((pid) => pid !== rootPid).sort((a, b) => a - b);
-  const observationVerified = observationSucceeded && (!cleanup.required || cleanup.verified);
+  const observationVerified = observationSucceeded
+    && (!cleanup.required || cleanup.verified)
+    && containment.verified;
   const ok = status === 'completed' && exitCode === 0 && observationVerified;
   const result = {
     schema_version: 1,
@@ -578,6 +650,7 @@ export async function runManagedProcess(options) {
     stderr_line_count: stderrCount(),
     observation_verified: observationVerified,
     observation_errors: [...observationErrors],
+    containment,
     cleanup,
   };
   emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
