@@ -1,21 +1,23 @@
 # Layer 2 Scope Code Decision Handback
 
-Status: user-decision-needed.
+Status: resolved-by-WI-CX0038.
 
 WI: WI-CX0037-docs.
 
 Decision target: Layer 2 project scope code rule.
 
-## Current Boundary
+Resolution: the user selected Option A with code `FCD` for target `fdp-codex-dogfood` at `C:\dev\FDP_Codex_Dogfood`. See `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`.
 
-FDP_Codex can now proceed to first Layer 2 scaffold generation only after the user chooses the Layer 2 project scope code rule.
+## Historical Boundary At Handback
+
+At the time of this handback, FDP_Codex could proceed to first Layer 2 scaffold generation only after the user chose the Layer 2 project scope code rule.
 
 Already resolved:
 
 - Layer 2 chunk ids are scoped per target project.
 - Cross-manifest chunk references must be qualified as `layer1:<chunk_id>` or `target:<project_scope_code>:<chunk_id>`.
 
-Still user-gated:
+Still user-gated at the time:
 
 - Which project scope code rule Layer 2 target WIs use.
 
@@ -64,7 +66,7 @@ C, repository-derived code, is acceptable when the repository name is stable and
 
 D, long explicit slug, is best for portfolios with many similar target projects, but it is heavier in branches, PR titles, and handoffs.
 
-## Decision Prompt
+## Historical Decision Prompt
 
 Choose one:
 
@@ -81,6 +83,6 @@ Example answer:
 A, use FS
 ```
 
-## Next Work After User Choice
+## Resolution And Next Work
 
-After the user chooses the scope code rule, FDP_Codex may create a scoped decision WI that records the accepted rule and then prepares the first Layer 2 scaffold WI, still respecting the hard stops for release, deployment, package publication, OSS submission, A3 behavior, public API/external contract changes, production dependency addition, and destructive operations.
+WI-CX0038 records the accepted `FCD` rule. After it merges, WI-CX0055-feat may generate the first Layer 2 scaffold while still respecting the hard stops for release, deployment, package publication, OSS submission, A3 behavior, public API/external contract changes, production dependency addition, and destructive operations outside the approved target-directory creation.

@@ -84,7 +84,7 @@ Every generated Layer 2 scaffold must record:
 
 ## Generation Gates
 
-Do not generate the first Layer 2 target-project scaffold until the Layer 2 project scope code rule is resolved or explicitly deferred with a hard stop.
+Do not generate a Layer 2 target-project scaffold until its project scope code is resolved or explicitly deferred with a hard stop. The first dogfood target satisfies this gate through `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md` with accepted code `FCD`.
 
 Chunk id scope is resolved as per-target-project by `docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md`.
 
@@ -102,10 +102,11 @@ Layer 1 validation for this contract must prove:
 - target chunk ids are scoped per target project;
 - context bodies remain forbidden in ledgers and handoffs;
 - provenance is required;
-- unresolved scope code decisions block the first generated target scaffold.
+- unresolved scope code decisions block the affected target scaffold;
+- an accepted target code, decision reference, and target root are required before generation.
 
-## Decision Needed
+## Decision State
 
 The live Decision Needed queue remains in `.flowset/fix_plan.md`.
 
-This WI does not decide the Layer 2 project scope code rule.
+WI-CX0038 resolves the first dogfood target scope code as `FCD`. Future target projects still require their own accepted or explicitly deferred scope-code state.

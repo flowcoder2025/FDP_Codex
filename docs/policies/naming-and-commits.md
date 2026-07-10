@@ -35,11 +35,15 @@ Bootstrap exception:
 - New references should use the canonical category-bearing form.
 - New WIs must not use the old short form.
 
-Layer 2 generated target projects may define their own project scope code. Until locked, examples should use:
+Layer 2 generated target projects use the project scope code accepted by their target manifest and Layer 1 provenance decision:
 
 ```text
-WI-TGNNNN-category
+WI-<PROJECT_CODE><NNNN>-<category>
 ```
+
+The first dogfood target `fdp-codex-dogfood` uses `WI-FCDNNNN-category`.
+
+`TG` is only a temporary fallback for a target whose manifest explicitly records `scope_code_status: temporary`. It must not be used for the accepted dogfood target.
 
 ## Allowed Categories
 
