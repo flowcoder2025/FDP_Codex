@@ -92,6 +92,19 @@ Do not use this draft specification to claim a stable public API or external con
 
 Do not publish, deploy, package, submit to the OSS program, or enable A3 publication behavior through Layer 2 scaffold generation.
 
+## Command Surface
+
+Layer 1 provides a dependency-free generator and standalone validator:
+
+```text
+npm run layer2:generate -- --output <path> --project-id <id> --project-name <name> --scope-code <code> --source-repo <url> --source-commit <sha> --generation-wi <wi> --decision-ref <layer1:chunk>
+npm run layer2:validate -- --root <path>
+```
+
+The generator must refuse a non-empty output directory. It creates scaffold files only; Git initialization, remotes, push, publication, release, and deployment remain separate approval-bound operations.
+
+The standalone validator must verify required roles, the target WI namespace, per-target chunk ids, registered source hashes, metadata-only context ledger entries, KI and verification-debt fields, Layer 1 provenance, and bootstrap flow continuity.
+
 ## Minimal Validator Coverage
 
 Layer 1 validation for this contract must prove:

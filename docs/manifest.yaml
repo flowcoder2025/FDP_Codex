@@ -1627,6 +1627,46 @@ chunks:
       - validation
       - wi-start
     body_carryover: forbidden
+  - id: tool.generate-layer2-scaffold
+    title: Layer 2 Scaffold Generator
+    source: scripts/generate-layer2-scaffold.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - layer-modeling
+      - target-project-generation
+      - validation
+      - tooling
+      - handoff
+    body_carryover: forbidden
+  - id: tool.validate-layer2-scaffold
+    title: Layer 2 Scaffold Validator
+    source: scripts/validate-layer2-scaffold.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - layer-modeling
+      - target-project-generation
+      - validation
+      - tooling
+      - handoff
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0055-feat
+    title: WI-CX0055-feat Validation Record
+    source: docs/records/validation-wi-cx0055-feat.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - handoff
+      - layer-modeling
+      - target-project-generation
+      - validation
+      - wi-start
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v1
   implementation: scripts/build-context-pack.mjs

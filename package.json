@@ -7,6 +7,8 @@
   "scripts": {
     "validate": "node scripts/validate-repo.mjs",
     "context:pack": "node scripts/build-context-pack.mjs",
+    "layer2:generate": "node scripts/generate-layer2-scaffold.mjs",
+    "layer2:validate": "node scripts/validate-layer2-scaffold.mjs",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "typecheck:strict-probe": "node scripts/report-type-strictness.mjs",
     "ci:check": "npm run typecheck && npm run validate"
