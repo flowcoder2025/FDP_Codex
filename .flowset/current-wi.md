@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0058-fix
+WI id: WI-CX0059-fix
 
 Category: fix
 
-Title: Context Pack Selection Breadth Guard
+Title: Ephemeral Worker Process Lifecycle Guard
 
 Layer: Layer 1
 
@@ -12,45 +12,47 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0058-fix-context-pack-selection-breadth-guard
+Branch: wi/cx0059-fix-ephemeral-worker-process-lifecycle-guard
 
-Approval envelope: the user instructed Codex to proceed with the next recommended WI under the active supervised A2 envelope. This WI may implement, validate, publish, and merge the Layer 1 context-selection fix after checks pass. Existing exclusions remain: target remote creation, target push or PR, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, automation prompt or schedule change, runner reactivation, authority expansion, A3 publication behavior, S2 execution, separate reviewer creation, and destructive operations.
+Approval envelope: the user instructed Codex to repair the workflow before further dogfood progression and later instructed Codex to continue after local validation under the active supervised A2 envelope. This WI may implement, validate, publish, and merge the Layer 1 worker lifecycle guard after checks pass. A live model smoke that transmits repository content required explicit approval; the user approved it, but execution policy still rejected it, so the separate provider boundary remains blocked. Existing exclusions remain: target remote creation, target push or PR, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, automation prompt or schedule change, runner reactivation, authority expansion, A3 publication behavior, S2 execution, separate reviewer creation, and destructive operations.
 
 ## Scope
 
-Replace broad token-intersection context selection with exact explicit references and specialized intent-tag matching, then reject over-broad packs before ledger append.
+Add a bounded and observable ephemeral worker supervisor that tracks and verifies cleanup of the exact root and descendant process identities before controller fallback.
 
 ## Triage
 
 - PSC: P1
-- WTC: VAL
+- WTC: AUTO
 - Risk: R2
 - ESC: E1+E3+E5+E6
-- Primary evaluator stance: prove materially smaller context selection for the observed 76, 120, and 123 chunk cases without weakening always-on, flow, risk, or explicit-reference coverage.
-- Validator stance: require deterministic exact matching, hard limits, fail-before-append behavior, metadata-only output, KI repayment, and retained runner and publication boundaries.
+- Primary evaluator stance: prove normal output capture, finite timeout, interruption handling, exact process identity tracking, descendant-first cleanup, and post-cleanup absence.
+- Validator stance: fail closed when observation or cleanup cannot be verified; reject `danger-full-access`; preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.
 
 ## Verification Plan
 
-- Preserve always-on, WI flow, R2 policy baseline, static intent, and exact changed-source selection.
-- Allow dynamic `loads_for` selection only for exact specialized tags explicitly present in `--intent`.
-- Limit dynamic selection to 24 chunks and total selection to 40 chunks.
-- Reject over-broad requests before ledger append without silent truncation.
-- Re-run equivalent WI-CX0056, WI-CX0057, and WI-CX0058 inputs.
-- Run syntax, repository, type, diff, and GitHub Actions checks.
+- Stream worker JSONL stdout and stderr without persisting prompt or event bodies.
+- Apply a finite timeout and handle controller interruption.
+- Track pid, parent pid, executable name, and process start time.
+- Terminate matched descendants before parents and verify no matched process remains.
+- Validate normal, timeout, interruption, and observed-residual paths with a deterministic process tree.
+- Validate the installed Codex CLI path without a model request.
+- Attempt a live read-only model smoke only after explicit repository-content transmission approval; if execution policy still rejects it, record the no-bypass provider boundary separately from process cleanup.
+- Run syntax, repository, type, diff, and GitHub Actions checks before publication.
 
 ## Completion Evidence
 
-- Initial context pack `ctx-wi-cx0058-fix-20260710081912`; timestamp `2026-07-10T08:19:12.097Z`; 76 metadata-only ledger entries; no chunk bodies.
-- Accepted decision `docs/decisions/2026-07-10-context-selection-breadth-guard.md`.
-- Layer 1 evidence `docs/records/validation-wi-cx0058-fix.md`.
-- Equivalent WI-CX0058 selection reduced from 76 to 18.
-- Equivalent WI-CX0057 selection reduced from 120 to 29.
-- Equivalent WI-CX0056 request is rejected at 41 total chunks instead of appending another 123-entry pack.
-- KI-CX-CONTEXT-001 is repaid.
+- Context pack `ctx-wi-cx0059-fix-20260710095004`; timestamp `2026-07-10T09:50:04.441Z`; 17 metadata-only ledger entries; no chunk bodies.
+- Accepted decision `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`.
+- Implemented specification `docs/specifications/ephemeral-worker-runner.md`.
+- Normal, timeout, interruption, and observed-residual fixture cases pass with verified process cleanup and no remaining fixture process.
+- Local `codex exec --help` smoke passes through the managed supervisor without a model request.
+- The live read-only model smoke was rejected by execution policy before execution and again after explicit user approval; no bypass was attempted.
+- KI-CX-WORKER-001 is repaid by deterministic OS process-tree cleanup, no-residual proof, and the installed Codex CLI local smoke.
 
 ## Open Known Issues
 
-- KI-CX-WORKER-001: ephemeral worker attempts can leave processes alive after wrapper termination; repay through WI-CX0059-fix before generalized unattended ephemeral worker use or runner reactivation.
+- KI-CX-PROVIDER-001: repository-backed model execution is policy-blocked in the current environment even after explicit user approval; it blocks dogfood continuation, generalized unattended model workers, and runner reactivation.
 
 ## Boundary
 

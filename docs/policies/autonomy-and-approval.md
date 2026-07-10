@@ -139,6 +139,18 @@ The default ephemeral worker sandbox is `workspace-write`. FDP_Codex must not us
 
 This split does not replace the separately verified Codex app worktree automation contract. The A2 runner remains paused until reactivation is separately approved and its remaining cadence, trigger, and review gates are satisfied.
 
+### Ephemeral Worker Process Lifecycle
+
+Supervised local ephemeral workers must run through `scripts/run-ephemeral-worker.mjs`. Direct unmanaged `codex exec --ephemeral` use is not allowed for unattended WI execution.
+
+The managed wrapper must use a finite timeout, stream JSONL stdout and stderr observably, track the root and descendant process identities, terminate matched descendants before parents on timeout or interruption, and verify that no matched process remains before controller fallback. An observation or cleanup result that cannot be verified is a failure.
+
+Controllers must use the wrapper's internal timeout or an interrupt signal as the normal stop path. Force-killing the wrapper cannot guarantee that its cleanup routine runs.
+
+Worker prompts must be passed through stdin instead of argv or a wrapper-created prompt file. The wrapper must not create persistent Codex app tasks, persist an event log by default, accept `danger-full-access`, change the runner, or inherit controller-owned Git and publication authority.
+
+Live model execution remains subject to the active data and network approval boundary. Local process fixtures and non-model CLI help smoke do not authorize repository-content transmission.
+
 ## Control-Plane Runtime Validation
 
 Fresh-run claims must be backed by control-plane evidence, not only repository documents or green local validators.

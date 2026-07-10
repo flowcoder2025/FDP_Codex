@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T08:35:00Z",
+  "updated_at": "2026-07-10T10:39:59Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -16,23 +16,26 @@
     "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
     "docs/records/validation-wi-cx0057-docs.md",
     "docs/decisions/2026-07-10-context-selection-breadth-guard.md",
-    "docs/records/validation-wi-cx0058-fix.md"
+    "docs/records/validation-wi-cx0058-fix.md",
+    "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
+    "docs/specifications/ephemeral-worker-runner.md",
+    "docs/records/validation-wi-cx0059-fix.md"
   ],
   "current_wi": {
-    "id": "WI-CX0058-fix",
+    "id": "WI-CX0059-fix",
     "category": "fix",
-    "title": "Context Pack Selection Breadth Guard",
+    "title": "Ephemeral Worker Process Lifecycle Guard",
     "status": "validated",
-    "branch": "wi/cx0058-fix-context-pack-selection-breadth-guard",
-    "validation_record": "docs/records/validation-wi-cx0058-fix.md"
+    "branch": "wi/cx0059-fix-ephemeral-worker-process-lifecycle-guard",
+    "validation_record": "docs/records/validation-wi-cx0059-fix.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0059-fix",
-    "item": "Ephemeral Worker Process Lifecycle Guard",
-    "state": "ready",
-    "owner_gate": "CODEX",
-    "lock_blocker": "no",
+    "wi_id": "WI-CX0060-test",
+    "item": "Trusted Ephemeral Worker End-to-End Proof",
+    "state": "blocked-external",
+    "owner_gate": "H1",
+    "lock_blocker": "yes",
     "strategy": {
       "PSC": "P1",
       "WTC": "AUTO",
@@ -40,6 +43,7 @@
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
+      "dogfood continuation",
       "generalized unattended ephemeral worker use",
       "runner reactivation"
     ]
@@ -72,12 +76,39 @@
       "worker_ownership": ["reconstruct", "edit", "validate"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "runtime_status": "degraded-process-lifecycle-open",
+      "runtime_status": "managed-guard-validated-provider-smoke-policy-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
         "observed_process_ids": [61312, 40280, 60288],
         "process_ids_confirmed_terminated": true,
         "repayment_wi": "WI-CX0059-fix"
+      },
+      "managed_guard": {
+        "status": "validated-provider-smoke-policy-blocked",
+        "supervisor": "scripts/run-ephemeral-worker.mjs",
+        "specification": "docs/specifications/ephemeral-worker-runner.md",
+        "default_timeout_ms": 120000,
+        "allowed_sandboxes": ["read-only", "workspace-write"],
+        "event_stream": "jsonl-stdout-no-default-persistence",
+        "prompt_transport": "stdin",
+        "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
+        "deterministic_cases": {
+          "normal": "passed",
+          "timeout_descendant_cleanup": "passed",
+          "interruption_descendant_cleanup": "passed",
+          "residual_after_root_exit_cleanup": "passed"
+        },
+        "local_cli_smoke": {
+          "command_surface": "codex exec --help",
+          "result": "passed-no-model-request",
+          "exit_code": 0,
+          "observation_verified": true,
+          "observed_descendant_count": 0
+        },
+        "live_model_smoke": {
+          "result": "policy-rejected-after-user-approval",
+          "blocker": "execution policy denies private workspace disclosure because the external model destination is not established as trusted"
+        }
       }
     }
   },
@@ -121,9 +152,22 @@
       "severity": "Medium",
       "owner": "CODEX",
       "trigger": "ephemeral worker attempts produced no visible events, left a partial edit, and left observed processes alive after wrapper termination",
-      "defer_reason": "controller terminated the exact observed processes, reviewed the partial diff, and continued without app task fanout",
-      "repayment_condition": "WI-CX0059-fix adds bounded timeout, event/error capture, and verified descendant cleanup",
-      "hard_stop": "before generalized unattended ephemeral worker use or runner reactivation",
+      "defer_reason": "deterministic OS process tests, no-residual proof, and installed Codex CLI local smoke exercise the process lifecycle without requiring a model response",
+      "repayment_condition": "WI-CX0059-fix adds bounded observation, timeout, interruption, residual cleanup, and verified absence",
+      "hard_stop": "provider trust remains separately gated by KI-CX-PROVIDER-001",
+      "status": "repaid",
+      "repaid_by": "WI-CX0059-fix",
+      "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md",
+      "evidence": "docs/records/validation-wi-cx0059-fix.md"
+    },
+    {
+      "id": "KI-CX-PROVIDER-001",
+      "severity": "Medium",
+      "owner": "H1",
+      "trigger": "repository-backed managed model smoke was policy-rejected before execution and again after explicit user approval",
+      "defer_reason": "process lifecycle is locally repaid without bypassing the external disclosure boundary",
+      "repayment_condition": "execution environment establishes the configured model service as trusted and permits a repository-backed managed smoke",
+      "hard_stop": "before dogfood continuation, generalized unattended model worker use, or runner reactivation",
       "status": "open"
     }
   ],

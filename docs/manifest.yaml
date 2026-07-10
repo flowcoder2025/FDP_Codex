@@ -1738,6 +1738,121 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: decision.ephemeral-worker-process-lifecycle-guard
+    title: Ephemeral Worker Process Lifecycle Guard
+    source: docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - automation-planning
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: spec.ephemeral-worker-runner
+    title: Ephemeral Worker Runner
+    source: docs/specifications/ephemeral-worker-runner.md
+    type: specification
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - automation-planning
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.codex-invocation
+    title: Codex CLI Invocation Resolver
+    source: scripts/lib/codex-invocation.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - automation-planning
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.managed-process
+    title: Managed Process Supervisor
+    source: scripts/lib/managed-process.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - automation-planning
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.run-ephemeral-worker
+    title: Ephemeral Worker Runner
+    source: scripts/run-ephemeral-worker.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - automation-planning
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.smoke-ephemeral-worker-cli
+    title: Ephemeral Worker CLI Local Smoke
+    source: scripts/smoke-ephemeral-worker-cli.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.test-ephemeral-worker-lifecycle
+    title: Ephemeral Worker Lifecycle Test
+    source: scripts/test-ephemeral-worker-lifecycle.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: fixture.managed-worker-tree
+    title: Managed Worker Process Tree Fixture
+    source: scripts/fixtures/managed-worker-tree.mjs
+    type: validation-fixture
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0059-fix
+    title: WI-CX0059-fix Validation Record
+    source: docs/records/validation-wi-cx0059-fix.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v2
   implementation: scripts/build-context-pack.mjs

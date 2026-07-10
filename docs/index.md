@@ -35,6 +35,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/specifications/layer-2-knowledge-scaffold.md`
 - `docs/specifications/runtime-snapshot.md`
 - `docs/specifications/a2-handoff-receiver-contract.md`
+- `docs/specifications/ephemeral-worker-runner.md`
 
 ## Decisions
 
@@ -66,6 +67,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`
 - `docs/decisions/2026-07-10-context-selection-breadth-guard.md`
+- `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`
 
 ## Runbooks
 
@@ -138,6 +140,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0056-test.md`
 - `docs/records/validation-wi-cx0057-docs.md`
 - `docs/records/validation-wi-cx0058-fix.md`
+- `docs/records/validation-wi-cx0059-fix.md`
 
 ## Tooling
 
@@ -148,6 +151,12 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/report-type-strictness.mjs`
 - `scripts/generate-layer2-scaffold.mjs`
 - `scripts/validate-layer2-scaffold.mjs`
+- `scripts/lib/codex-invocation.mjs`
+- `scripts/lib/managed-process.mjs`
+- `scripts/run-ephemeral-worker.mjs`
+- `scripts/smoke-ephemeral-worker-cli.mjs`
+- `scripts/test-ephemeral-worker-lifecycle.mjs`
+- `scripts/fixtures/managed-worker-tree.mjs`
 
 ## GitHub Templates
 
