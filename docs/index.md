@@ -132,6 +132,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0052-test.md`
 - `docs/records/validation-wi-cx0053-docs.md`
 - `docs/records/validation-wi-cx0054-fix.md`
+- `docs/records/validation-wi-cx0055-feat.md`
 
 ## Tooling
 
@@ -140,6 +141,8 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/validate-repo.mjs`
 - `scripts/build-context-pack.mjs`
 - `scripts/report-type-strictness.mjs`
+- `scripts/generate-layer2-scaffold.mjs`
+- `scripts/validate-layer2-scaffold.mjs`
 
 ## GitHub Templates
 

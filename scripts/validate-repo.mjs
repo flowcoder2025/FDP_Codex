@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -89,6 +90,9 @@ const requiredFiles = [
   'scripts/validate-repo.mjs',
   'scripts/build-context-pack.mjs',
   'scripts/report-type-strictness.mjs',
+  'scripts/generate-layer2-scaffold.mjs',
+  'scripts/validate-layer2-scaffold.mjs',
+  'docs/records/validation-wi-cx0055-feat.md',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -798,7 +802,8 @@ function validateFlowStateReadableSnapshotContract() {
     && sample.selected_chunk_ids.includes('flow.state-snapshot');
   checks.flow_state_snapshot_queue = !fixPlan.includes('Whether current WI and handoff should be split into stricter machine-readable state later')
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation'));
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')));
   checks.flow_state_snapshot_record = record.includes('WI: WI-CX0039-docs')
     && record.includes('Machine-readable flow-state snapshot exists and is validator-backed')
     && record.includes('No Layer 2 project scope code rule was chosen')
@@ -1117,7 +1122,8 @@ function validatePortfolioGuardrailValidatorBaseline() {
     && portfolioValidationRecord.includes('ESC: E1+E3+E5+E6');
   checks.portfolio_guardrail_queue_repaid = !fixPlan.includes('Whether portfolio guardrails become deterministic validator rules')
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation'))
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')))
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no');
   checks.portfolio_guardrail_manifest = manifest.includes('id: decision.portfolio-guardrail-validator-baseline')
     && manifest.includes(decisionPath)
@@ -1192,7 +1198,8 @@ function validateAutonomousWorkExhaustionStopGate() {
     && Array.isArray(state.triggered_work)
     && state.triggered_work.some((item) => item.wi_id === 'WI-CX0035-test' && item.status === 'blocked-until-trigger')
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation'))
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')))
     && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
@@ -1818,7 +1825,8 @@ function validateLayer2KnowledgeScaffoldContract() {
     && spec.includes('docs/decisions/2026-07-10-layer-2-scope-code-accepted.md')
     && spec.includes('Chunk id scope is resolved as per-target-project')
     && spec.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
-    && fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+    && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
   checks.layer2_scaffold_knowledge_link = knowledge.includes('docs/specifications/layer-2-knowledge-scaffold.md')
@@ -2094,7 +2102,8 @@ function validateLayer2ScopeCodeOptionsPacket() {
   checks.layer2_scope_code_queue = !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional')
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
       || (fixPlan.includes('docs/decisions/2026-07-10-layer-2-scope-code-accepted.md')
-        && fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')));
+        && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'))));
   checks.layer2_scope_code_manifest = manifest.includes('record.layer-2-scope-code-options')
     && manifest.includes('docs/records/layer-2-scope-code-options-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0034-docs')
@@ -2117,7 +2126,8 @@ function validateLayer2ScopeCodeOptionsPacket() {
     && record.includes('production dependency addition')
     && record.includes('destructive local realignment occurred')
     && (handoff.includes('First Layer 2 target-project scaffold generation is blocked')
-      || handoff.includes('no target directory or Layer 2 files are created by WI-CX0038'));
+      || handoff.includes('no target directory or Layer 2 files are created by WI-CX0038')
+      || handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`'));
 
   if (!checks.layer2_scope_code_packet_boundary) error('layer2_scope_code.boundary_missing', 'Scope code options packet must preserve the user decision and generation boundary.');
   if (!checks.layer2_scope_code_packet_options) error('layer2_scope_code.options_missing', 'Scope code options packet must contain options A-D plus primary and fallback recommendations.');
@@ -2163,7 +2173,8 @@ function validateLayer2ChunkIdScopePolicy() {
       || knowledge.includes('The first dogfood target scope code is accepted as `FCD`'));
   checks.layer2_chunk_id_queue = !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional')
     && (fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation'));
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')));
   checks.layer2_chunk_id_manifest = manifest.includes('decision.layer-2-chunk-id-scope-policy')
     && manifest.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
     && manifest.includes('record.validation-wi-cx0036-docs')
@@ -2185,7 +2196,8 @@ function validateLayer2ChunkIdScopePolicy() {
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && (handoff.includes('First Layer 2 target-project scaffold generation is blocked on the Layer 2 project scope code rule')
       || handoff.includes('First Layer 2 target-project scaffold generation remains blocked until WI-CX0054 is merged and WI-CX0038 records `FCD`')
-      || handoff.includes('WI-CX0055-feat may generate the first dogfood scaffold after WI-CX0038 merges'));
+      || handoff.includes('WI-CX0055-feat may generate the first dogfood scaffold after WI-CX0038 merges')
+      || handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`'));
 
   if (!checks.layer2_chunk_id_decision) error('layer2_chunk_id.decision_missing', 'Chunk id scope decision must accept per-target-project scope and qualified references.');
   if (!checks.layer2_chunk_id_rejections) error('layer2_chunk_id.rejections_missing', 'Chunk id scope decision must reject global and per-layer alternatives with rationale.');
@@ -2226,7 +2238,8 @@ function validateLayer2ScopeCodeDecisionHandback() {
   checks.layer2_scope_handback_queue = !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && fixPlan.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
     && fixPlan.includes('docs/decisions/2026-07-10-layer-2-scope-code-accepted.md')
-    && fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation');
+    && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'));
   checks.layer2_scope_handback_manifest = manifest.includes('record.layer-2-scope-code-decision-handback')
     && manifest.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0037-docs')
@@ -2248,7 +2261,8 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('production dependency addition')
     && record.includes('destructive local realignment occurred')
-    && handoff.includes('The Layer 2 scope-code gate is resolved');
+    && (handoff.includes('The Layer 2 scope-code gate is resolved')
+      || handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`'));
 
   if (!checks.layer2_scope_handback_boundary) error('layer2_scope_handback.boundary_missing', 'Handback must preserve user decision and scaffold-generation boundary.');
   if (!checks.layer2_scope_handback_recommendation) error('layer2_scope_handback.recommendation_missing', 'Handback must include recommended A and fallback B with debt.');
@@ -2299,10 +2313,8 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && scaffold.includes('accepted code `FCD`')
     && handback.includes('Status: resolved-by-WI-CX0038')
     && handback.includes('Resolution: the user selected Option A with code `FCD`');
-  checks.layer2_scope_accepted_state = state.current_wi?.id === 'WI-CX0038-docs'
-    && state.current_wi?.validation_record === recordPath
-    && state.current_priority?.wi_id === 'WI-CX0055-feat'
-    && state.current_priority?.item === 'First Layer 2 Dogfood Scaffold Generation'
+  checks.layer2_scope_accepted_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
+    && ['WI-CX0055-feat', 'WI-CX0056-test'].includes(state.current_priority?.wi_id)
     && state.layer2_target?.project_id === 'fdp-codex-dogfood'
     && state.layer2_target?.root === targetRoot
     && state.layer2_target?.project_scope_code === 'FCD'
@@ -2310,12 +2322,13 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && state.layer2_target?.scope_code_decision_ref === decisionPath
     && state.layer2_target?.wi_pattern === 'WI-FCDNNNN-category'
     && state.control_plane?.automation?.status === 'PAUSED';
-  checks.layer2_scope_accepted_flow = currentWi.includes('WI id: WI-CX0038-docs')
+  checks.layer2_scope_accepted_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && currentWi.includes('Status: validated')
-    && fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+    && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
-    && handoff.includes('The Layer 2 scope-code gate is resolved')
-    && handoff.includes('WI-CX0055-feat may generate the first dogfood scaffold after WI-CX0038 merges');
+    && handoff.includes('WI-CX0038-docs is merged through PR #39')
+    && handoff.includes('C:\\dev\\FDP_Codex_Dogfood');
   checks.layer2_scope_accepted_registration = manifest.includes('id: decision.layer-2-scope-code-accepted')
     && manifest.includes(decisionPath)
     && manifest.includes('id: record.validation-wi-cx0038-docs')
@@ -2334,7 +2347,8 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && record.includes('Risk: R1')
     && record.includes('ESC: E1+E3+E5+E6');
   checks.layer2_scope_accepted_boundary = !state.hard_stops.includes('first_layer2_target_project_scaffold_generation')
-    && state.current_priority?.blocks?.includes('generation before WI-CX0038 merge')
+    && (state.current_priority?.blocks?.includes('generation before WI-CX0038 merge')
+      || state.layer2_target?.scaffold_status === 'generated-validated-local')
     && decision.includes('does not itself create the dogfood directory or generate Layer 2 files')
     && record.includes('No release publication, deployment, package publication, OSS program submission')
     && record.includes('automation reactivation')
@@ -2900,9 +2914,11 @@ function validateA2WorktreeIsolationRepairValidation() {
     && state.control_plane?.worktree_isolation?.evidence === recordPath
     && (state.current_priority?.wi_id === 'WI-CX0038-docs'
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
+      || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'))
       || fixPlan.includes('Waiting for user decision: choose the Layer 2 project scope code rule'))
     && handoff.includes('A2 worktree isolation repair is repaid by WI-CX0052-test')
     && (handoff.includes('A, use <CODE>') || handoff.includes('code is `FCD`'));
@@ -2958,9 +2974,11 @@ function validateStrategicGoalSteeringContract() {
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && (state.current_priority?.wi_id === 'WI-CX0038-docs'
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
+      || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
-      || fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
+      || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof'))
       || fixPlan.includes('Layer 2 project scope code rule'))
     && handoff.includes('WI-CX0052-test')
     && handoff.includes('WI-CX0053-docs: Strategic Goal Steering Contract');
@@ -2981,6 +2999,136 @@ function validateStrategicGoalSteeringContract() {
   if (!checks.goal_steering_boundary) error('goal_steering.boundary_missing', 'WI-CX0053 must preserve publication, automation, git, and Layer 2 scaffold boundaries.');
 }
 
+function validateLayer2ScaffoldGenerator() {
+  const generatorPath = 'scripts/generate-layer2-scaffold.mjs';
+  const scaffoldValidatorPath = 'scripts/validate-layer2-scaffold.mjs';
+  const recordPath = 'docs/records/validation-wi-cx0055-feat.md';
+  const generator = read(generatorPath);
+  const scaffoldValidator = read(scaffoldValidatorPath);
+  const spec = read('docs/specifications/layer-2-knowledge-scaffold.md');
+  const pkg = JSON.parse(read('package.json'));
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const recordsReadme = read('docs/records/README.md');
+  const record = read(recordPath);
+  let generated = null;
+  let validated = null;
+  let overwriteRejected = false;
+  let smokeError = null;
+  const tempRoot = mkdtempSync(path.join(tmpdir(), 'fdp-codex-layer2-'));
+  const outputRoot = path.join(tempRoot, 'smoke-target');
+  const generatorArgs = [
+    generatorPath,
+    '--output', outputRoot,
+    '--project-id', 'smoke-target',
+    '--project-name', 'Smoke Target',
+    '--scope-code', 'SMK',
+    '--source-repo', 'https://github.com/flowcoder2025/FDP_Codex.git',
+    '--source-commit', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    '--generation-wi', 'WI-CX0055-feat',
+    '--decision-ref', 'layer1:decision.layer-2-scope-code-accepted',
+  ];
+  try {
+    generated = JSON.parse(execFileSync(process.execPath, generatorArgs, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }));
+    validated = JSON.parse(execFileSync(process.execPath, [scaffoldValidatorPath, '--root', outputRoot], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }));
+    try {
+      execFileSync(process.execPath, generatorArgs, {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch {
+      overwriteRejected = true;
+    }
+  } catch (error) {
+    smokeError = error.stderr?.toString().trim() || error.message;
+  } finally {
+    const resolvedTemp = path.resolve(tempRoot);
+    const resolvedBase = path.resolve(tmpdir()) + path.sep;
+    if (!resolvedTemp.startsWith(resolvedBase)) {
+      error('layer2_generator.temp_cleanup_guard', 'Temporary scaffold path escaped the OS temp directory.', resolvedTemp);
+    } else {
+      rmSync(resolvedTemp, { recursive: true, force: true });
+    }
+  }
+
+  checks.layer2_generator_scripts = generator.includes('Refusing to overwrite non-empty output directory')
+    && generator.includes("add('.flowset/context-ledger.jsonl'")
+    && generator.includes("add('docs/manifest.yaml'")
+    && scaffoldValidator.includes('manifest_hash_failures')
+    && scaffoldValidator.includes('forbiddenLedgerKeys')
+    && scaffoldValidator.includes('verification_debt_registry')
+    && scaffoldValidator.includes('layer1_provenance');
+  checks.layer2_generator_command_surface = pkg.scripts?.['layer2:generate'] === 'node scripts/generate-layer2-scaffold.mjs'
+    && pkg.scripts?.['layer2:validate'] === 'node scripts/validate-layer2-scaffold.mjs'
+    && spec.includes('## Command Surface')
+    && spec.includes('The generator must refuse a non-empty output directory')
+    && spec.includes('Git initialization, remotes, push, publication, release, and deployment remain separate approval-bound operations');
+  checks.layer2_generator_smoke = smokeError === null
+    && generated?.ok === true
+    && generated?.project_scope_code === 'SMK'
+    && generated?.file_count >= 15
+    && validated?.ok === true
+    && Array.isArray(validated?.checks?.manifest_hash_failures)
+    && validated.checks.manifest_hash_failures.length === 0
+    && overwriteRejected;
+  checks.layer2_generator_registration = manifest.includes('id: tool.generate-layer2-scaffold')
+    && manifest.includes(generatorPath)
+    && manifest.includes('id: tool.validate-layer2-scaffold')
+    && manifest.includes(scaffoldValidatorPath)
+    && manifest.includes('id: record.validation-wi-cx0055-feat')
+    && manifest.includes(recordPath)
+    && docsIndex.includes(generatorPath)
+    && docsIndex.includes(scaffoldValidatorPath)
+    && docsIndex.includes(recordPath)
+    && recordsReadme.includes(recordPath);
+  checks.layer2_generator_flow = currentWi.includes('WI id: WI-CX0055-feat')
+    && currentWi.includes('Status: validated')
+    && fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
+    && handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`')
+    && state.current_wi?.id === 'WI-CX0055-feat'
+    && state.current_priority?.wi_id === 'WI-CX0056-test'
+    && state.layer2_target?.scaffold_status === 'generated-validated-local'
+    && state.layer2_target?.git_head === '09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9'
+    && state.layer2_target?.remote_configured === false
+    && state.layer2_target?.verification_debt === 'VD-FCD0001';
+  checks.layer2_generator_record = record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0055-feat-20260710042421')
+    && record.includes('a5ae05cdbd35d89de35f84748004a8e677b5201d')
+    && record.includes('935e0679f22655b2293acf7ee06311c17ff0fd35')
+    && record.includes('09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9')
+    && record.includes('The target repository has no configured remote')
+    && record.includes('Fresh-context continuation is not yet proven')
+    && record.includes('PSC: P1')
+    && record.includes('WTC: FND')
+    && record.includes('Risk: R2')
+    && record.includes('ESC: E1+E3+E5+E6');
+  checks.layer2_generator_boundary = state.control_plane?.automation?.status === 'PAUSED'
+    && record.includes('No target remote, target push, target PR')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('Layer 1 push or merge occurred: no');
+
+  if (!checks.layer2_generator_scripts) error('layer2_generator.scripts_missing', 'Layer 2 generator and validator must implement overwrite, hash, ledger, debt, and provenance safeguards.');
+  if (!checks.layer2_generator_command_surface) error('layer2_generator.command_surface_missing', 'Package and specification must expose the Layer 2 generator and validator commands.');
+  if (!checks.layer2_generator_smoke) error('layer2_generator.smoke_failed', 'Generic Layer 2 scaffold generation, validation, or overwrite refusal failed.', smokeError);
+  if (!checks.layer2_generator_registration) error('layer2_generator.registration_missing', 'Manifest and indexes must register WI-CX0055 tools and evidence.');
+  if (!checks.layer2_generator_flow) error('layer2_generator.flow_missing', 'Flow state must record the validated FCD target and advance to WI-CX0056.');
+  if (!checks.layer2_generator_record) error('layer2_generator.record_missing', 'WI-CX0055 record must capture context, source, target commit, strategy, and fresh-context debt.');
+  if (!checks.layer2_generator_boundary) error('layer2_generator.boundary_missing', 'WI-CX0055 must preserve runner, publication, dependency, and external-contract boundaries.');
+}
 function validatePackage() {
   const pkg = JSON.parse(read('package.json'));
   checks.package_validate_script = pkg.scripts?.validate ?? null;
@@ -3039,6 +3187,7 @@ validateWorktreeIsolationVerification();
 validateA2WorktreeIsolationRepairGate();
 validateA2WorktreeIsolationRepairValidation();
 validateStrategicGoalSteeringContract();
+validateLayer2ScaffoldGenerator();
 validatePackage();
 
 const result = {

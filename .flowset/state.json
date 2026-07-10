@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T04:08:12Z",
+  "updated_at": "2026-07-10T04:32:44Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -10,31 +10,33 @@
     ".flowset/runtime-snapshot.json",
     "docs/records/validation-wi-cx0052-test.md",
     "docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md",
-    "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md"
+    "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
+    "docs/records/validation-wi-cx0055-feat.md"
   ],
   "current_wi": {
-    "id": "WI-CX0038-docs",
-    "category": "docs",
-    "title": "Layer 2 Scope Code Accepted Decision",
+    "id": "WI-CX0055-feat",
+    "category": "feat",
+    "title": "First Layer 2 Dogfood Scaffold Generation",
     "status": "validated",
-    "branch": "wi/cx0038-docs-layer-2-scope-code-accepted-decision",
-    "validation_record": "docs/records/validation-wi-cx0038-docs.md"
+    "branch": "wi/cx0055-feat-first-layer-2-dogfood-scaffold",
+    "validation_record": "docs/records/validation-wi-cx0055-feat.md"
   },
   "current_priority": {
     "kind": "wi",
-    "wi_id": "WI-CX0055-feat",
-    "item": "First Layer 2 Dogfood Scaffold Generation",
+    "wi_id": "WI-CX0056-test",
+    "item": "Layer 2 Fresh-Context Handoff Continuation Proof",
     "state": "ready",
     "owner_gate": "CODEX",
     "lock_blocker": "no",
     "strategy": {
       "PSC": "P1",
-      "WTC": "KNOW",
+      "WTC": "VAL",
       "Risk": "R2",
       "ESC": "E1+E3+E5+E6"
     },
     "blocks": [
-      "generation before WI-CX0038 merge"
+      "fresh target session evidence",
+      "claiming the dogfood workflow is validated"
     ]
   },
   "control_plane": {
@@ -87,6 +89,13 @@
     "scope_code_status": "accepted",
     "scope_code_decision_ref": "docs/decisions/2026-07-10-layer-2-scope-code-accepted.md",
     "wi_pattern": "WI-FCDNNNN-category",
-    "scaffold_status": "approved-after-wi-cx0038-merge"
+    "scaffold_status": "generated-validated-local",
+    "current_wi": "WI-FCD0001-docs",
+    "next_wi": "WI-FCD0002-test",
+    "verification_debt": "VD-FCD0001",
+    "git_repository": true,
+    "git_head": "09d0e0d9c32f57ce721482d2ea7f2efb7497e3a9",
+    "remote_configured": false,
+    "validation_command": "npm.cmd run validate"
   }
 }
