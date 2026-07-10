@@ -4177,7 +4177,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('019f4db0-018f-7db1-b8e4-81c8e1aa92fc')
     && proofRecord.includes('two P1 and two P2 findings')
     && proofRecord.includes('forbidding all npm, pnpm, Bun, Yarn, and Corepack execution')
-    && proofRecord.includes('repaid-on-merge');
+    && proofRecord.includes('repaid-on-merge')
+    && proofRecord.includes('audit:control-plane -- --phase working')
+    && proofRecord.includes('Issue #64 OPEN/expected-OPEN state');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')

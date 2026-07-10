@@ -84,6 +84,7 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer `019f4db0-018f-7db1-b8e4-81c8e1aa92fc` reviewed head `71576c01ca9a1db1fb59031c01a398bb13e9cba8` and returned FAIL with two P1 and two P2 findings.
 - The P1 package-script bypass is remediated by forbidding all npm, pnpm, Bun, Yarn, and Corepack execution inside the worker; repository-supplied validation now belongs to the visible controller after worker exit.
 - Issue #64 was reopened and labeled `fdp:ki`, `fdp:debt`, and `ki:high`; its state is `repaid-on-merge` until PR validation, merge, and post-merge audit complete. Issue #63 and Strategy A publication wording were repaired.
+- `npm.cmd run audit:control-plane -- --phase working` passed on the clean remediation head, including Issue #64 OPEN/expected-OPEN state and required KI severity labels.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 
