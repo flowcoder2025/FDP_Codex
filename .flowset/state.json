@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-10T13:21:17Z",
+  "updated_at": "2026-07-10T14:35:00Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -22,15 +22,18 @@
     "docs/records/validation-wi-cx0059-fix.md",
     "docs/records/validation-wi-cx0061-fix.md",
     "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
-    "docs/records/validation-wi-cx0062-fix.md"
+    "docs/records/validation-wi-cx0062-fix.md",
+    "docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md",
+    "docs/specifications/independent-review-evidence.md",
+    "docs/records/validation-wi-cx0063-feat.md"
   ],
   "current_wi": {
-    "id": "WI-CX0062-fix",
-    "category": "fix",
-    "title": "Control-Plane Integrity Reconciliation",
+    "id": "WI-CX0063-feat",
+    "category": "feat",
+    "title": "Independent Blind Adversarial Review Gate",
     "status": "validated",
-    "branch": "wi/cx0062-fix-control-plane-integrity-reconciliation",
-    "validation_record": "docs/records/validation-wi-cx0062-fix.md"
+    "branch": "wi/cx0063-feat-independent-blind-adversarial-review-gate",
+    "validation_record": "docs/records/validation-wi-cx0063-feat.md"
   },
   "current_priority": {
     "kind": "wi",
@@ -43,7 +46,7 @@
       "PSC": "P1",
       "WTC": "AUTO",
       "Risk": "R2",
-      "ESC": "E1+E3+E5+E6"
+      "ESC": "E1+E2+E3+E5+E6"
     },
     "blocks": [
       "dogfood continuation",
@@ -73,7 +76,7 @@
       "evidence_issue": 56
     },
     "operational_integrity": {
-      "status": "repaid-on-merge",
+      "status": "repaid",
       "decision": "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
       "validation_record": "docs/records/validation-wi-cx0062-fix.md",
       "audit_command": "npm run audit:control-plane",
@@ -85,7 +88,24 @@
       "residual_worktree_directories": 0,
       "registered_worktree_count": 1,
       "live_remote_branch_policy": "main plus current WI branch before merge; main only after closeout",
-      "merge_status_source": "live GitHub PR state"
+      "merge_status_source": "live GitHub PR state",
+      "merge_pr": 57,
+      "merge_commit": "48f2a88daba2bf307022901aa5d2d76beb56ac0d",
+      "control_issue_state": "closed"
+    },
+    "independent_review": {
+      "status": "required-before-merge",
+      "decision": "docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md",
+      "specification": "docs/specifications/independent-review-evidence.md",
+      "audit_command": "npm run audit:independent-review",
+      "pr_baseline_from": 58,
+      "required_risks": ["R1", "R2", "R3"],
+      "required_evaluators": ["E2", "E3"],
+      "required_surface": "separate-clean-context",
+      "multi_agent_fork_context": false,
+      "head_change_invalidates_review": true,
+      "blocking_findings": ["P0", "P1", "P2"],
+      "pass_label": "pr:independent-review-passed"
     },
     "worker_topology": {
       "mode": "single-visible-controller-ephemeral-workers",
@@ -290,7 +310,7 @@
       "defer_reason": "none; the user approved immediate reconciliation",
       "repayment_condition": "WI-CX0062-fix merges and the post-merge control-plane audit passes",
       "hard_stop": "before WI-CX0060-test, dogfood, runner replacement, release readiness, or workflow-success claims",
-      "status": "repaid-on-merge",
+      "status": "repaid",
       "repaid_by": "WI-CX0062-fix",
       "decision_ref": "docs/decisions/2026-07-10-control-plane-operational-integrity.md",
       "evidence": "docs/records/validation-wi-cx0062-fix.md",

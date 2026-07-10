@@ -11,6 +11,7 @@
     "worker:smoke-local": "node scripts/smoke-ephemeral-worker-cli.mjs",
     "worker:test": "node scripts/test-ephemeral-worker-lifecycle.mjs",
     "audit:control-plane": "node scripts/audit-control-plane.mjs",
+    "audit:independent-review": "node scripts/audit-independent-review.mjs",
     "layer2:generate": "node scripts/generate-layer2-scaffold.mjs",
     "layer2:validate": "node scripts/validate-layer2-scaffold.mjs",
     "typecheck": "tsc --project tsconfig.json --noEmit",

@@ -80,9 +80,27 @@ A PR is not ready for merge until:
 - the PR body links the WI scope and validation evidence,
 - all R2/R3 verification debt required before merge is repaid,
 - required blind or adversarial review is complete when policy requires it,
+- `needs:blind-review`, `needs:adversarial-review`, and `pr:independent-review-passed` are present for non-trivial R1/R2/R3 work,
+- `npm run audit:independent-review -- --pr <number>` passes against the current PR head,
 - relevant KI issues are linked or explicitly deferred,
 - no Decision Needed item blocks the merge,
 - `pr:approved-merge` or an equivalent maintainer approval signal is present.
+
+## Independent Review Merge Gate
+
+For every non-trivial R1, R2, or R3 WI:
+
+1. finish implementation and deterministic validation;
+2. push the final candidate head and open the PR without `pr:approved-merge`;
+3. start a separate blind reviewer with no inherited implementation context;
+4. attach the structured result as a GitHub PR review anchored to the candidate head;
+5. resolve every P0, P1, and P2 finding;
+6. if the head changes, discard the prior result and repeat the separate review;
+7. apply `pr:independent-review-passed` only for PASS with no blocking finding;
+8. run `npm run audit:independent-review -- --pr <number>`;
+9. only after that audit passes, apply `pr:approved-merge`.
+
+The implementing controller may relay the independent agent's exact result to GitHub when the reviewer has no GitHub identity, but it must record the reviewer agent id and may not rewrite the verdict or findings. A relayed review is not independent evidence unless the result declares clean context and the GitHub review is anchored to the current head.
 
 Public PR merge is a verification debt repayment boundary.
 

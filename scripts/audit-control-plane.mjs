@@ -112,7 +112,9 @@ for (const knownIssue of state.known_issues || []) {
 
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,labels,url']));
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;
+const independentReviewBaselinePr = state.control_plane?.independent_review?.pr_baseline_from ?? Number.POSITIVE_INFINITY;
 const requiredPrLabels = ['fdp:approved-work', 'needs:validator', 'pr:ready-for-review', 'pr:approved-merge'];
+const requiredIndependentReviewLabels = ['needs:blind-review', 'needs:adversarial-review', 'pr:independent-review-passed'];
 for (const pullRequest of pullRequests.filter((candidate) => candidate.number >= baselinePr && candidate.number !== prNumber)) {
   const labels = pullRequest.labels.map((label) => label.name);
   const riskLabels = labels.filter((label) => /^risk:R[0-3]$/.test(label));
@@ -120,6 +122,9 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
   addCheck(`pr.${pullRequest.number}.metadata`, pullRequest.state === 'MERGED'
     && riskLabels.length === 1
     && trackLabels.length >= 1
+    && (pullRequest.number < independentReviewBaselinePr
+      || labels.includes('risk:R0')
+      || requiredIndependentReviewLabels.every((label) => labels.includes(label)))
     && requiredPrLabels.every((label) => labels.includes(label)), { state: pullRequest.state, labels });
 }
 
@@ -132,6 +137,9 @@ if (prNumber) {
     && currentPr.headRefName === activeBranch
     && labels.filter((label) => /^risk:R[0-3]$/.test(label)).length === 1
     && labels.some((label) => label.startsWith('track:'))
+    && (prNumber < independentReviewBaselinePr
+      || labels.includes('risk:R0')
+      || requiredIndependentReviewLabels.every((label) => labels.includes(label)))
     && requiredPrLabels.every((label) => labels.includes(label)), {
     prNumber,
     actual_state: currentPr?.state || null,

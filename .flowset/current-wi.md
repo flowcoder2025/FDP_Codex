@@ -1,10 +1,10 @@
 # Current WI
 
-WI id: WI-CX0062-fix
+WI id: WI-CX0063-feat
 
-Category: fix
+Category: feat
 
-Title: Control-Plane Integrity Reconciliation
+Title: Independent Blind Adversarial Review Gate
 
 Layer: Layer 1
 
@@ -12,46 +12,44 @@ Risk: R2
 
 Status: validated
 
-Branch: wi/cx0062-fix-control-plane-integrity-reconciliation
+Branch: wi/cx0063-feat-independent-blind-adversarial-review-gate
 
-Approval envelope: the user approved the recommended full control-plane integrity reset. This WI may backfill truthful GitHub Issue and PR metadata, archive runner tasks, retire the hourly worktree automation, remove exact verified stale worktrees/directories and merged branches, implement the live audit, publish and merge the reconciliation PR, and close KI-CX-CONTROL-001 only after post-merge audit evidence. Existing exclusions remain: dogfood continuation, provider-policy workaround, target remote or publication, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, S2 execution, and separate reviewer creation.
+Approval envelope: the user explicitly required verification to use an independent agent with blind adversarial review and instructed Codex to continue afterward. This WI may implement the general review gate, create its GitHub label, run a separate clean-context agent review, publish and merge the WI after that review passes, and then reassess the next goal-critical work. Existing exclusions remain: provider-policy bypass, dogfood continuation before its gate is satisfied, retired-runner recreation, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, and self-review presented as independent evidence.
 
 ## Scope
 
-Restore the live WI/KI/PR/branch/worktree/task lifecycle to the original single-controller FDP_Codex goal and install an executable audit that prevents file-only false-green completion.
+Make independent blind adversarial review an executable merge gate for every non-trivial R1/R2/R3 WI, anchor evidence to the current PR head, and invalidate stale review evidence after any head change.
 
 ## Triage
 
 - PSC: P1
-- WTC: AUTO
+- WTC: VAL
 - Risk: R2
-- ESC: E1+E3+E5+E6
-- Primary evaluator stance: trust live GitHub, Git, Codex task, automation, and worktree evidence over narrative completion claims.
-- Validator stance: require linked Issue state, PR metadata, exact branch/worktree retention, retired automation, truthful backfill disclosure, and post-merge closeout while preserving provider, dogfood, release, authority, dependency, API, and external-contract boundaries.
+- ESC: E1+E2+E3+E5+E6
+- Primary evaluator stance: attempt to falsify independence, current-head binding, blocking-finding handling, and merge-label ordering.
+- Validator stance: require executable stale-head, inherited-context, blocking-finding, and missing-label rejection plus live GitHub review evidence before merge.
 
 ## Verification Plan
 
-- Backfill all historical KI Issues with explicit non-contemporaneous disclosure and close only evidence-proven repayments.
-- Backfill PR #33 through #45 labels with explicit historical comments.
-- Archive all retired runner tasks, delete the hourly automation, and remove only verified clean/empty worktree state.
-- Delete local and remote merged branches only after exact PR-head verification and prune stale refs.
-- Add `npm run audit:control-plane` with working, PR, and post-merge phases.
-- Run repository, type, diff, live GitHub, branch, worktree, Issue, PR-label, and post-merge checks before completion.
+- Add a machine-readable independent-review evidence contract.
+- Add a live GitHub review audit with deterministic self-tests.
+- Require separate clean-context review and adversarial findings for all non-trivial R1/R2/R3 WIs.
+- Forbid `pr:approved-merge` until the current PR head passes the independent review audit.
+- Run repository CI, working and PR control-plane audits, and a separate `fork_context: false` reviewer on this WI.
+- Treat every code or policy change after review as invalidating evidence and repeat review when needed.
 
 ## Completion Evidence
 
-- Context pack `ctx-wi-cx0062-fix-20260710131943`; timestamp `2026-07-10T13:19:43.723Z`; 16 metadata-only ledger entries; no chunk bodies.
-- Historical KI Issues #46 through #55 exist; #46 through #54 are closed with repayment evidence and #55 remains open.
-- KI-CX-CONTROL-001 is open as Issue #56 and is repaid on merge only after the post-merge audit passes.
-- PR #33 through #45 carry reconstructed workflow labels plus comments that disclose the metadata was absent at merge time.
-- Thirty-two retired runner tasks were archived, the hourly automation was deleted, residual Codex worktree directories are zero, and local/remote branches contain only the active lifecycle set.
-- Accepted decision `docs/decisions/2026-07-10-control-plane-operational-integrity.md` and validation record `docs/records/validation-wi-cx0062-fix.md` define the repair and evidence.
+- Context pack `ctx-wi-cx0063-feat-20260710143115`; timestamp `2026-07-10T14:31:15.585Z`; 19 metadata-only ledger entries; no chunk bodies.
+- `scripts/audit-independent-review.mjs --self-test` rejects stale head, inherited context, blocking findings, and missing labels while accepting a valid review.
+- Decision `docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md` defines the merge boundary.
+- Specification `docs/specifications/independent-review-evidence.md` defines clean reviewer input and live GitHub evidence.
+- Validation record `docs/records/validation-wi-cx0063-feat.md` records repository evidence and the required external review sequence.
 
 ## Open Known Issues
 
-- KI-CX-PROVIDER-001 / Issue #55 remains open and blocks WI-CX0060-test, dogfood continuation, unattended model workers, and runner reactivation.
-- KI-CX-CONTROL-001 / Issue #56 remains open until this WI merges, branch/task closeout completes, and the post-merge audit evidence is attached.
+- KI-CX-PROVIDER-001 / Issue #55 remains open and blocks the existing managed CLI worker proof, dogfood continuation on that surface, and runner reactivation.
 
 ## Boundary
 
-The legacy hourly A2 runner is retired. The Layer 2 target was not touched. No release publication, deployment, package publication, OSS program submission, production dependency addition, public API or external contract change, automation reactivation, replacement automation creation, A3 publication behavior, A2/A3 authority expansion, S2 execution, or separate reviewer creation occurred. Destructive cleanup was limited to the user-approved, pre-verified retired tasks, empty worktree shells, and exact merged branch heads recorded in Issue #56.
+The retired hourly runner remains absent. The Layer 2 target was not touched. No provider-policy workaround, release publication, deployment, package publication, OSS program submission, production dependency addition, public API or external contract change, A2/A3 authority expansion, or self-issued independent review occurred.

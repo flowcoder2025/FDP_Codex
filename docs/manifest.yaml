@@ -1909,6 +1909,64 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: decision.independent-blind-adversarial-review-gate
+    title: Independent Blind Adversarial Review Gate
+    source: docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: spec.independent-review-evidence
+    title: Independent Review Evidence
+    source: docs/specifications/independent-review-evidence.md
+    type: specification
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.audit-independent-review
+    title: Independent Review Audit
+    source: scripts/audit-independent-review.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0063-feat
+    title: WI-CX0063-feat Validation Record
+    source: docs/records/validation-wi-cx0063-feat.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
 hook_contract:
   status: implemented-v2
   implementation: scripts/build-context-pack.mjs

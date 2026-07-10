@@ -16,6 +16,10 @@
 - [ ] R2/R3 verification debt required before merge is repaid.
 - [ ] Blind review completed when required.
 - [ ] Adversarial review completed when required.
+- [ ] Independent reviewer used a clean context and did not receive implementation narrative or self-grade.
+- [ ] GitHub review `commit_id` and review payload `reviewed_head` match the current PR head.
+- [ ] `npm run audit:independent-review -- --pr <number>` passes.
+- [ ] No implementation or policy change occurred after the passing review.
 
 ## Policy Checks
 
@@ -36,4 +40,5 @@
 - [ ] PR title uses `WI-CXNNNN-category concise summary`.
 - [ ] Branch uses `wi/cxNNNN-category-short-slug`.
 - [ ] Required labels are applied.
+- [ ] `pr:approved-merge` was applied only after the independent review audit passed.
 - [ ] Maintainer or user approval exists.

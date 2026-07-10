@@ -70,6 +70,7 @@ Current validation records:
 - `docs/records/validation-wi-cx0059-fix.md`
 - `docs/records/validation-wi-cx0061-fix.md`
 - `docs/records/validation-wi-cx0062-fix.md`
+- `docs/records/validation-wi-cx0063-feat.md`
 
 Other records:
 

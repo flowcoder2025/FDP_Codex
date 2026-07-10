@@ -36,6 +36,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/specifications/runtime-snapshot.md`
 - `docs/specifications/a2-handoff-receiver-contract.md`
 - `docs/specifications/ephemeral-worker-runner.md`
+- `docs/specifications/independent-review-evidence.md`
 
 ## Decisions
 
@@ -69,6 +70,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/decisions/2026-07-10-context-selection-breadth-guard.md`
 - `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md`
 - `docs/decisions/2026-07-10-control-plane-operational-integrity.md`
+- `docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md`
 
 ## Runbooks
 
@@ -144,6 +146,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0059-fix.md`
 - `docs/records/validation-wi-cx0061-fix.md`
 - `docs/records/validation-wi-cx0062-fix.md`
+- `docs/records/validation-wi-cx0063-feat.md`
 
 ## Tooling
 
@@ -161,6 +164,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/test-ephemeral-worker-lifecycle.mjs`
 - `scripts/fixtures/managed-worker-tree.mjs`
 - `scripts/audit-control-plane.mjs`
+- `scripts/audit-independent-review.mjs`
 
 ## GitHub Templates
 

@@ -115,6 +115,15 @@ The goal section must restate the accumulated project-level outcome rather than 
 - Every KI in this public repository must have a linked GitHub Issue before a related public PR merge. Same-WI repayment may create and close the Issue in that WI, but it may not omit the Issue.
 - A merged WI is not closed until required PR metadata exists, linked KI Issues have truthful state, the WI branch is deleted, stale worktrees/tasks are removed or archived, and the live control-plane audit passes.
 - GitHub is authoritative for post-validation PR and Issue state. Handoff files must instruct the next session to query live state rather than predict that an already merged PR is still pending.
+
+## Independent Verification Gate
+
+- Every non-trivial R1, R2, or R3 WI must receive E2 blind independent review and E3 adversarial review before merge.
+- An agent reviewer must be separate from the implementing agent and start without inherited implementation context. For `multi_agent_v1`, use `fork_context: false`.
+- Give the reviewer the accumulated goal, WI scope, base/head commits, changed files, authoritative sources, and verification commands. Do not provide implementation chat, persuasive narrative, self-grade, expected verdict, or suggested findings.
+- The reviewer inspects evidence directly, attempts to falsify readiness, reports P0-P3 findings first, and does not edit the implementation.
+- Any PR head change invalidates the prior review. `pr:approved-merge` is forbidden until the current head passes `npm run audit:independent-review -- --pr <number>`.
+- PASS with no unresolved P0, P1, or P2 finding is required. Same-thread review, conditional pass, stale-head evidence, or inherited context does not satisfy the gate.
 ## Work Style
 
 - Inspect existing files before editing.

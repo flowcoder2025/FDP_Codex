@@ -1,0 +1,47 @@
+# Decision: Independent Blind Adversarial Review Gate
+
+Status: accepted-v0.
+
+Date: 2026-07-10.
+
+## Context
+
+FDP_Codex defined E2 Blind Independent Review and S2 Separate Blind Review, but most WIs could still merge after same-thread validation. A checklist and a prepared review packet did not create an operational gate. This allowed an implementing agent to validate its own interpretation and left independent review as debt.
+
+The user requires the verification stage to use an independent agent that receives a clean, non-persuasive context and reviews from an adversarial perspective before work continues.
+
+## Decision
+
+Every non-trivial R1, R2, or R3 WI requires E2 Blind Independent Review and E3 Adversarial Review before merge.
+
+- The reviewer is a separate agent, separate Codex thread, or human reviewer.
+- Agent-based review starts with clean context. Multi-agent review uses `fork_context: false`.
+- The reviewer receives the accumulated goal, WI scope, base and head commit, changed files, authoritative sources, and verification commands. It does not receive implementation chat, persuasive PR narrative, or the implementer's self-grade.
+- The reviewer inspects source and diff evidence directly, actively attempts to falsify readiness, and does not edit the implementation.
+- The result is attached as a GitHub PR review with the machine-readable marker defined by `docs/specifications/independent-review-evidence.md`.
+- The GitHub review commit and payload `reviewed_head` must both equal the current PR head.
+- Any implementation or policy change after review invalidates the result. A fresh independent review is required.
+- PASS with no P0, P1, or P2 finding is required. Conditional pass, blocked, request-changes, or any unresolved P0-P2 finding blocks `pr:approved-merge`.
+- P3 findings require an explicit disposition. They may remain as residual risk only when the active boundary permits it.
+
+R0 work may use S0 or S1 when it is genuinely trivial and does not alter policy, workflow, public behavior, verification, context, or external state.
+
+## Operational Gate
+
+`npm run audit:independent-review -- --pr <number>` reads the live PR head, labels, and GitHub reviews. It fails when the review is missing, stale, same-context, structurally incomplete, non-PASS, or contains blocking findings.
+
+Required PR labels are:
+
+- `needs:blind-review`
+- `needs:adversarial-review`
+- `pr:independent-review-passed`
+
+`pr:approved-merge` is applied only after the independent review audit passes.
+
+## Historical Runner Debt
+
+WI-CX0042 and its runner-specific S2 debt are closed as obsolete, not passed. The reviewed worktree cron has been retired and deleted. Any future runner replacement is new work and must pass this general gate; the old review packet cannot authorize or validate it.
+
+## Boundary
+
+This decision does not authorize dogfood continuation, provider-policy bypass, runner replacement, release, deployment, package publication, OSS submission, production dependencies, public API or external contract changes, A2/A3 authority expansion, or S2 self-review.
