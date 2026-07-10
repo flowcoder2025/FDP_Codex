@@ -10,11 +10,11 @@ Layer: Layer 1
 
 Risk: R2
 
-Status: validation-blocked
+Status: blocked-external
 
 Branch: wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof
 
-Approval envelope: the user instructed Codex to continue the next goal-critical work. This WI may verify the configured official ChatGPT-login Codex CLI through the existing managed worker, add deterministic confinement for that worker, register every discovered KI, and prepare a supervised PR after the live proof passes. A repository-backed dogfood retry remains separately blocked until the user explicitly approves transmission of the local-only dogfood repository contents to the external model service after being informed of that risk.
+Approval envelope: the user instructed Codex to continue the next goal-critical work and explicitly approved transmission of the local-only dogfood repository contents to the configured external model service for one managed read-only proof. The execution policy still rejected that exact run and stated that user approval cannot override the untrusted-destination boundary. This WI may preserve the deterministic confinement fix and failure evidence but must not retry through another surface or workaround.
 
 ## Scope
 
@@ -48,11 +48,11 @@ Prove that the managed ephemeral worker can reconstruct and validate the separat
 - That attempt found the target handoff still instructed the controller to commit although the worktree was clean and the commit already existed. KI-CX-DOGFOOD-002 / Issue #62 records the false-green target handoff.
 - The worker then entered an unsupported collaboration wait, timed out at 180 seconds, and emitted no final JSON. Cleanup removed every matched process and verified zero residuals. KI-CX-WORKER-003 / Issue #61 records this failure.
 - The runner now adds `--disable multi_agent`; `npm.cmd run worker:test` passes invocation confinement plus normal, timeout, interruption, temporal-identity, and residual cleanup cases.
-- The post-fix dogfood retry was rejected before execution pending current explicit user approval of local target content transmission. No workaround was attempted.
+- The user explicitly approved the disclosed local target transmission. The exact post-fix retry was still rejected before execution because the configured external model destination is not established as trusted and approval cannot override that rule. No workaround was attempted.
 
 ## Open Known Issues
 
-- KI-CX-PROVIDER-001 / Issue #55 remains open until a repository-backed dogfood run is permitted and completes.
+- KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.
 - KI-CX-WORKER-003 / Issue #61 remains open until the post-fix live run completes with a final result and verified zero residuals.
 - KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
 - KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.

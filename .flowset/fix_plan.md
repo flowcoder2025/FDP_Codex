@@ -23,7 +23,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof: active but validation-blocked. The public-repository managed preflight passed, the first dogfood run timed out after unsupported nested collaboration with verified cleanup, and the runner confinement fix passes locally. The post-fix dogfood retry requires current explicit user approval of local target content transmission.
+- [ ] WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof: blocked externally. The public-repository preflight passed and worker confinement passes locally, but the exact post-fix dogfood retry was policy-rejected even after current explicit user approval. Do not retry through another surface or workaround.
 
 ## Triggered Work
 
@@ -31,13 +31,13 @@ Discipline:
 
 ## Next Candidates
 
-- None while WI-CX0060-test is active. Do not start the target handoff repair or lower-priority work until the bounded post-fix worker proof resolves the current validation gate.
+- None while WI-CX0060-test is externally blocked. Do not start the target handoff repair or lower-priority work merely to avoid the trusted-destination boundary.
 
 ## Known Issue Debt
 
 | Item | Severity | Owner | Trigger | Defer reason | Repayment condition | Hard stop | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| KI-CX-PROVIDER-001 / Issue #55 Repository-backed model worker trust boundary. | Medium | H1 | The public-repository managed preflight passed, but the post-fix local dogfood retry was policy-rejected pending current explicit user approval of repository-content transmission. | WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard repaid process cleanup, and the WI-CX0060 public preflight proved the official ChatGPT-login command path without weakening disclosure policy. | The user explicitly approves the disclosed local target transmission risk and the managed dogfood proof completes. | Before completing WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation. | open |
+| KI-CX-PROVIDER-001 / Issue #55 Repository-backed model worker trust boundary. | Medium | H1 / execution platform | The public-repository preflight passed, but the exact post-fix local dogfood retry was policy-rejected even after current explicit user approval; the configured external destination is not established as trusted. | WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard repaid process cleanup, and WI-CX0060 preserves the public preflight, failed dogfood run, verified cleanup, and deterministic confinement without bypassing disclosure policy. | The execution platform establishes a trusted model destination and permits the managed repository-backed dogfood proof. | Before completing WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation. | open |
 | KI-CX-WORKER-003 / Issue #61 Managed worker nested-collaboration timeout. | High | CODEX | The first dogfood run completed target reconstruction and validation, then entered an unsupported collaboration wait and timed out before final output. | None; timeout cleanup succeeded but does not prove end-to-end completion. | The runner disables `multi_agent`, deterministic confinement passes, and a live dogfood run returns a final result before timeout with verified zero residuals. | Before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement. | open |
 | KI-CX-DOGFOOD-002 / Issue #62 Generated target stale-handoff false green. | High | CODEX | The clean committed target still instructed the controller to review and commit, while both target validators passed. | The finding was discovered read-only and Layer 1 must not silently rewrite Layer 2 state. | The generated target workflow records truthful post-commit state, its validator rejects the stale pattern, the target carries qualified fix evidence, and a clean worker confirms it. | Before claiming target operating state is current, starting another target WI, or generalizing target handoff correctness. | open |
 | KI-CX-REVIEW-001 / Issue #59 Independent reviewer provenance boundary. | High | H1 / execution platform | The repository can validate a controller-attested receipt but cannot verify a signed `multi_agent_v1` reviewer identity. | The current supervised WI uses an actual clean-context agent, live controller inspection, current-head GitHub review evidence, and active user approval without claiming cryptographic provenance. | The execution surface supplies a signed orchestrator attestation or a distinct independently authenticated reviewer identity that the repository can verify. | Before unattended/generalized automated merge, A2/A3 authority expansion, release candidate, public release, or OSS submission. | open |

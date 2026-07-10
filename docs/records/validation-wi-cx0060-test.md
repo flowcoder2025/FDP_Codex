@@ -1,6 +1,6 @@
 # WI-CX0060-test Validation Record
 
-Status: validation-blocked.
+Status: blocked-external.
 
 Date: 2026-07-11.
 
@@ -56,11 +56,11 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - `npm.cmd run worker:test`: passed invocation confinement, temporal stale-row exclusion, normal completion, timeout cleanup, interruption cleanup, and residual cleanup.
 - KI-CX-DOGFOOD-002 / Issue #62 records the generated target handoff false green without mixing target state into Layer 1.
 
-## Remaining Gate
+## Final External Gate
 
-The post-fix dogfood retry was rejected before execution because it would transmit local-only target repository contents to an external model service. The reviewer requires current explicit user approval after disclosure of that risk. Codex did not retry through another surface or workaround.
+The user explicitly approved transmission of the local-only dogfood repository contents to the configured external model service for one managed read-only proof. The exact post-fix command was still rejected before execution. The execution-policy result stated that the external destination is not established as trusted and that the data-exfiltration rule forbids the transfer even with explicit user approval.
 
-This WI remains validation-blocked until that one managed `read-only` retry completes with a final result and verified zero residual processes. Repository CI and current-head independent review follow only after the live evidence is complete.
+This WI is blocked externally until the execution platform establishes a trusted model destination and permits that managed repository-backed proof. Codex did not retry through another model surface, indirect command, or workaround. Repository CI passes locally, but current-head independent review and publication remain deferred until the live evidence is complete.
 
 ## Boundaries
 

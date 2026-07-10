@@ -31,7 +31,7 @@
     "id": "WI-CX0060-test",
     "category": "test",
     "title": "Trusted Ephemeral Worker End-to-End Proof",
-    "status": "validation-blocked",
+    "status": "blocked-external",
     "branch": "wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof",
     "validation_record": "docs/records/validation-wi-cx0060-test.md"
   },
@@ -39,8 +39,8 @@
     "kind": "wi",
     "wi_id": "WI-CX0060-test",
     "item": "Trusted Ephemeral Worker End-to-End Proof",
-    "state": "blocked-user-approval",
-    "owner_gate": "USER",
+    "state": "blocked-external",
+    "owner_gate": "H1",
     "lock_blocker": "yes",
     "strategy": {
       "PSC": "P1",
@@ -131,7 +131,7 @@
       "worker_ownership": ["reconstruct", "edit", "validate"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "runtime_status": "managed-guard-confined-public-preflight-passed-dogfood-approval-blocked",
+      "runtime_status": "managed-guard-confined-public-preflight-passed-dogfood-policy-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
         "observed_process_ids": [61312, 40280, 60288],
@@ -139,7 +139,7 @@
         "repayment_wi": "WI-CX0059-fix"
       },
       "managed_guard": {
-        "status": "confined-public-preflight-passed-dogfood-approval-blocked",
+        "status": "confined-public-preflight-passed-dogfood-policy-blocked",
         "supervisor": "scripts/run-ephemeral-worker.mjs",
         "specification": "docs/specifications/ephemeral-worker-runner.md",
         "default_timeout_ms": 120000,
@@ -147,7 +147,7 @@
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
         "nested_agent_confinement": {
-          "status": "implemented-local-live-proof-pending",
+          "status": "implemented-local-live-proof-policy-blocked",
           "cli_flag": "--disable multi_agent",
           "deterministic_test": "passed",
           "known_issue": "KI-CX-WORKER-003",
@@ -193,8 +193,9 @@
             "alive_after_cleanup": []
           },
           "post_fix_retry": {
-            "result": "policy-rejected-pending-current-user-approval",
-            "blocker": "explicit approval is required for local-only dogfood repository transmission"
+            "result": "policy-rejected-after-current-explicit-user-approval",
+            "user_approval_recorded": true,
+            "blocker": "the execution platform does not establish the configured external model destination as trusted, and user approval cannot override the rule"
           }
         }
       }
@@ -334,10 +335,10 @@
     {
       "id": "KI-CX-PROVIDER-001",
       "severity": "Medium",
-      "owner": "H1",
-      "trigger": "the public-repository managed preflight passed, but the post-fix local dogfood retry was policy-rejected pending current explicit user approval",
-      "defer_reason": "process lifecycle and public command-path trust are proven without bypassing the local target disclosure boundary",
-      "repayment_condition": "the user explicitly approves the disclosed local target transmission risk and the managed dogfood proof completes",
+      "owner": "H1 / execution platform",
+      "trigger": "the public-repository preflight passed, but the exact post-fix local dogfood retry was policy-rejected even after current explicit user approval",
+      "defer_reason": "process lifecycle, public command-path trust, and deterministic confinement are proven without bypassing the local target disclosure boundary",
+      "repayment_condition": "the execution platform establishes a trusted model destination and permits the managed repository-backed dogfood proof",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation",
       "status": "open",
       "github_issue_number": 55,

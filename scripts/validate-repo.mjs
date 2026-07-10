@@ -9,7 +9,7 @@ const errors = [];
 const warnings = [];
 const checks = {};
 
-const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked)$/m.test(text);
+const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
 
 const allowedCategories = new Set([
   'feat',
@@ -1312,7 +1312,8 @@ function validateAutonomousWorkExhaustionStopGate() {
       && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision'))
       || (retiredRunnerFlow
         && (fixPlan.includes('None while KI-CX-PROVIDER-001 / Issue #55 blocks the goal-critical worker proof')
-          || fixPlan.includes('None while WI-CX0060-test is active'))));
+          || fixPlan.includes('None while WI-CX0060-test is active')
+          || fixPlan.includes('None while WI-CX0060-test is externally blocked'))));
   checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
     && handoff.includes('No further independent autonomous WI should start unless')
     && (handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
@@ -3993,11 +3994,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     'managed-guard-validated-provider-smoke-policy-blocked',
     'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
     'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked',
   ].includes(topology.runtime_status)
     && [
       'validated-provider-smoke-policy-blocked',
       'validated-temporal-identity-provider-smoke-policy-blocked',
       'confined-public-preflight-passed-dogfood-approval-blocked',
+      'confined-public-preflight-passed-dogfood-policy-blocked',
     ].includes(guard.status)
     && guard.supervisor === 'scripts/run-ephemeral-worker.mjs'
     && guard.default_timeout_ms === 120000
@@ -4028,10 +4031,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_temporal_identity_state = [
     'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
     'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked',
   ].includes(topology.runtime_status)
     && [
       'validated-temporal-identity-provider-smoke-policy-blocked',
       'confined-public-preflight-passed-dogfood-approval-blocked',
+      'confined-public-preflight-passed-dogfood-policy-blocked',
     ].includes(guard.status)
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
@@ -4048,9 +4053,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && workerKi.evidence === recordPath
     && providerKi?.status === 'open'
     && providerKi.severity === 'Medium'
-    && providerKi.owner === 'H1'
+    && providerKi.owner.includes('H1')
     && providerKi.trigger.includes('explicit user approval')
-    && providerKi.repayment_condition.includes('explicitly approves')
+    && providerKi.repayment_condition.includes('trusted model destination')
     && providerKi.hard_stop.includes('dogfood continuation');
   checks.worker_temporal_identity_known_issue = temporalKi?.status === 'repaid'
     && temporalKi.severity === 'High'
@@ -4080,7 +4085,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runInvocationConfinementCase()')
     && lifecycleTest.includes('multi_agent_disabled: true')
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
-  checks.worker_proof_record = proofRecord.includes('Status: validation-blocked')
+  checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
     && proofRecord.includes('PSC: P1')
     && proofRecord.includes('WTC: AUTO')
     && proofRecord.includes('Risk: R2')
@@ -4088,26 +4093,27 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('FDP_CODEX_PROVIDER_TRUST_SMOKE_OK')
     && proofRecord.includes('019f4d18-0d31-7d03-9962-817fb2c11e44')
     && proofRecord.includes('alive_after_cleanup: []')
-    && proofRecord.includes('requires current explicit user approval');
+    && proofRecord.includes('even with explicit user approval');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
-    && currentWi.includes('Status: validation-blocked')
+    && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
-    && fixPlan.includes('active but validation-blocked')
-    && fixPlan.includes('post-fix dogfood retry requires current explicit user approval')
+    && fixPlan.includes('blocked externally')
+    && fixPlan.includes('policy-rejected even after current explicit user approval')
     && handoff.includes('Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
     && state.current_wi?.id === 'WI-CX0060-test'
-    && state.current_wi?.status === 'validation-blocked'
-    && state.current_priority?.state === 'blocked-user-approval'
-    && state.current_priority?.owner_gate === 'USER';
-  checks.worker_proof_state = topology.runtime_status === 'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked'
-    && guard.status === 'confined-public-preflight-passed-dogfood-approval-blocked'
+    && state.current_wi?.status === 'blocked-external'
+    && state.current_priority?.state === 'blocked-external'
+    && state.current_priority?.owner_gate === 'H1';
+  checks.worker_proof_state = topology.runtime_status === 'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked'
+    && guard.status === 'confined-public-preflight-passed-dogfood-policy-blocked'
     && guard.nested_agent_confinement?.cli_flag === '--disable multi_agent'
     && guard.nested_agent_confinement?.deterministic_test === 'passed'
     && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_verified === true
     && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.alive_after_cleanup) === '[]'
-    && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-pending-current-user-approval';
+    && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-after-current-explicit-user-approval'
+    && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true;
   checks.worker_proof_known_issues = confinementKi?.severity === 'High'
     && confinementKi?.owner === 'CODEX'
     && confinementKi?.status === 'open'
@@ -4155,7 +4161,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_proof_ledger) error('worker_proof.ledger_missing', 'WI-CX0060 must retain exactly 27 metadata-only fresh-context entries.');
   if (!checks.worker_proof_implementation) error('worker_proof.confinement_missing', 'Managed workers must disable nested multi-agent collaboration and retain deterministic argument coverage.');
   if (!checks.worker_proof_record) error('worker_proof.record_missing', 'WI-CX0060 must record the public preflight, first dogfood failure, cleanup, KIs, and approval gate.');
-  if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as validation-blocked on explicit user approval.');
+  if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as externally blocked after explicit user approval was insufficient.');
   if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
   if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');
   if (!checks.worker_proof_boundary) error('worker_proof.boundary_missing', 'WI-CX0060 must keep the target read-only and preserve runner, publication, authority, dependency, API, and destructive-operation boundaries.');
@@ -4250,7 +4256,7 @@ function validateControlPlaneOperationalIntegrity() {
     && ['repaid-on-merge', 'repaid'].includes(control?.status)
     && control?.repayment_condition.includes('post-merge control-plane audit passes');
   checks.control_integrity_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && ['validated', 'validation-blocked'].includes(state.current_wi?.status)
+    && ['validated', 'validation-blocked', 'blocked-external'].includes(state.current_wi?.status)
     && state.control_plane?.automation?.status === 'RETIRED'
     && ['repaid-on-merge', 'repaid'].includes(integrity.status)
     && integrity.control_issue === 56
@@ -4262,7 +4268,7 @@ function validateControlPlaneOperationalIntegrity() {
     && Array.isArray(state.triggered_work)
     && state.triggered_work.length === 0;
   checks.control_integrity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && /^Status: (?:validated|validation-blocked)$/m.test(currentWi)
+    && /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(currentWi)
     && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55')
     && fixPlan.includes('The hourly worktree runner is retired')
     && !fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')

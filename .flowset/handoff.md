@@ -6,7 +6,7 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof on branch `wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof`. It is validation-blocked pending current explicit user approval for one managed read-only transmission of the local dogfood repository to the configured model service.
+Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof on branch `wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof`. It is blocked externally: the exact managed read-only dogfood retry was rejected even after the user explicitly approved the disclosed local repository transmission.
 
 The official ChatGPT-login managed preflight passed. The first dogfood run reconstructed the target and passed both target validators, then timed out after entering unsupported nested collaboration; managed cleanup verified zero residual processes. The runner now enforces `--disable multi_agent`, and deterministic lifecycle tests pass.
 
@@ -174,11 +174,11 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Obtain explicit approval for the disclosed local dogfood repository transmission risk, then rerun the same managed read-only WI-CX0060 proof with nested agents disabled. If it completes, update evidence, run repository CI, publish the supervised PR, and require a fresh clean-context separate-agent PASS on the final head.
+Wait until the execution platform establishes a trusted model destination that permits the managed repository-backed proof. Then rerun the same read-only WI-CX0060 command with nested agents disabled; do not substitute another model surface or indirect command.
 
 ## Blocked Work
 
-- KI-CX-PROVIDER-001 blocks the post-fix dogfood proof until the user explicitly approves the currently disclosed local target transmission.
+- KI-CX-PROVIDER-001 blocks the post-fix dogfood proof until the execution platform establishes the configured model destination as trusted; current explicit user approval was not sufficient.
 - KI-CX-WORKER-003 blocks completion of WI-CX0060 until the post-fix run returns a final result before timeout with verified zero residuals.
 - KI-CX-DOGFOOD-002 blocks further target progression and target-handoff correctness claims until a qualified target fix and validator regression exist.
 - KI-CX-REVIEW-001 blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until reviewer provenance is machine-verifiable.
@@ -196,4 +196,4 @@ Obtain explicit approval for the disclosed local dogfood repository transmission
 3. Gather or validate control-plane evidence before claiming a fresh run, handoff receiver, or clean session boundary.
 4. Build a fresh context pack for the next WI.
 5. Run `npm run validate` before declaring repository policy work complete.
-6. For WI-CX0060, require explicit approval before the blocked managed dogfood retry; do not use direct unmanaged `codex exec`, another model surface, target edits, runner recreation, or authority expansion as a workaround.
+6. For WI-CX0060, verify that the execution platform now recognizes a trusted model destination before any retry; do not use direct unmanaged `codex exec`, another model surface, target edits, runner recreation, or authority expansion as a workaround.
