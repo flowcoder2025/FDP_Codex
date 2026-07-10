@@ -13,6 +13,7 @@ const requiredFiles = [
   'AGENTS.md',
   'README.md',
   'package.json',
+  '.codex/rules/fdp-managed-worker.rules',
   'docs/index.md',
   'docs/manifest.yaml',
   'docs/records/layer-1-provenance.md',
@@ -74,10 +75,12 @@ if (missingFiles.length === 0) {
   const verificationDebt = read('.flowset/verification-debt.yaml');
   const provenance = read('docs/records/layer-1-provenance.md');
   const pkg = JSON.parse(read('package.json'));
+  const managedWorkerPolicy = read('.codex/rules/fdp-managed-worker.rules');
   const chunks = parseChunks(manifest);
   const chunkIds = chunks.map((chunk) => chunk.id);
   const duplicateChunkIds = chunkIds.filter((id, index) => chunkIds.indexOf(id) !== index);
   const requiredChunkIds = [
+    'policy.managed-worker-exec',
     'flow.current-wi',
     'flow.fix-plan',
     'flow.handoff',
@@ -109,6 +112,12 @@ if (missingFiles.length === 0) {
     && wiPattern === `WI-${scopeCode}NNNN-category`
     && manifest.includes('chunk_id_scope: per-target-project')
     && manifest.includes(`chunk_ref_prefix: target:${scopeCode}`);
+  checks.managed_worker_exec_policy = managedWorkerPolicy.includes('decision = "forbidden"')
+    && managedWorkerPolicy.includes('"codex.exe"')
+    && managedWorkerPolicy.includes('"node.exe"')
+    && managedWorkerPolicy.includes('"npx.cmd"')
+    && managedWorkerPolicy.includes('"npm.cmd"')
+    && managedWorkerPolicy.includes('Nested Codex execution is forbidden');
   checks.manifest_always_on = manifest.includes('id: root.agents')
     && manifest.includes('id: registry.manifest');
   checks.manifest_chunk_ids = duplicateChunkIds.length === 0
@@ -190,6 +199,7 @@ if (missingFiles.length === 0) {
     && pkg.scripts?.validate === 'node scripts/validate-scaffold.mjs';
 
   if (!checks.manifest_identity) fail('scaffold.manifest_identity', 'Target manifest identity or FCD scope fields are invalid.');
+  if (!checks.managed_worker_exec_policy) fail('scaffold.managed_worker_exec_policy', 'Target scaffold must forbid nested Codex and direct runtime re-entry through project exec-policy.');
   if (!checks.manifest_always_on) fail('scaffold.manifest_always_on', 'Target manifest must name AGENTS and itself as always-on references.');
   if (!checks.manifest_chunk_ids) fail('scaffold.manifest_chunk_ids', 'Target manifest chunk ids are missing or duplicated.', { duplicateChunkIds, requiredChunkIds });
   if (hashFailures.length) fail('scaffold.manifest_hashes', 'Target manifest hashes must match every registered chunk source.', hashFailures);

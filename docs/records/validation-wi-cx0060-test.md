@@ -15,7 +15,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - Risk: R2
 - ESC: E1+E2+E3+E5+E6
 - Primary evaluator stance: falsify provider trust, clean-context reconstruction, final-result delivery, nested-agent confinement, process cleanup, and target handoff truthfulness.
-- Validator stance: require deterministic confinement, a completed live dogfood result, verified zero residual processes, repository CI, and a separate blind adversarial review before merge.
+- Validator stance: require built-in fan-out disabling plus supported exec-policy re-entry checks, a completed live dogfood result, verified zero residual processes, repository CI, and a separate blind adversarial review before merge.
 
 ## Context Evidence
 
@@ -49,12 +49,12 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 ## Remediation
 
 - KI-CX-WORKER-003 / Issue #61 records the nested-collaboration timeout.
-- `scripts/lib/codex-invocation.mjs` now builds the fixed worker argument list with `--disable multi_agent`.
+- `scripts/lib/codex-invocation.mjs` now builds the fixed worker argument list with `--disable multi_agent` and verifies the target exec-policy before reading a prompt.
 - `scripts/run-ephemeral-worker.mjs` uses that centralized argument builder.
-- `scripts/test-ephemeral-worker-lifecycle.mjs` asserts the confinement flag exactly once.
-- `docs/specifications/ephemeral-worker-runner.md` defines agent confinement independently of prompt wording.
+- `scripts/test-ephemeral-worker-lifecycle.mjs` asserts the confinement flag exactly once and validates the supported exec-policy contract.
+- `.codex/rules/fdp-managed-worker.rules` forbids supported direct Codex, runtime, package-executor, and nested-shell re-entry prefixes. This is explicitly not universal OS process isolation.
 - `npm.cmd run worker:test`: passed invocation confinement, temporal stale-row exclusion, normal completion, timeout cleanup, interruption cleanup, and residual cleanup.
-- `npm.cmd run worker:smoke-local`: passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
+- `npm.cmd run worker:smoke-local`: passed 12 real CLI exec-policy checks, then passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
 - KI-CX-DOGFOOD-002 / Issue #62 records the generated target handoff false green without mixing target state into Layer 1.
 
 ## Final External Gate
@@ -75,6 +75,12 @@ This WI is blocked externally until the execution platform establishes a trusted
 - Reviewer `019f4d78-ea57-73d1-9843-dd2d473cea12` reviewed head `7696fbb` and returned FAIL with two P2 live-GitHub drift findings plus one P3 CLI-smoke gap.
 - Issue #61 and Issue #63 titles and bodies were updated to the current deterministic-fix, provider-block, intermittent-review, and final-head-review facts.
 - The CLI smoke was strengthened to build the real worker arguments and replace only the stdin prompt marker with `--help`; the changed head remains unreviewed.
+- Reviewer `019f4d85-063e-7a10-a5a2-8584e247de8c` reviewed head `c86b9f036e823986d78d825c97408b70dcd444b1` and returned FAIL with one P1 supported-command shell-reentry bypass and one P2 Issue #55 live-body drift finding.
+- Issue #55 was synchronized. The remediation adds a fail-before-prompt exec-policy preflight, blocks the tested direct and wrapper forms, generates the rule into new Layer 2 scaffolds, and removes the overstated universal deterministic-confinement claim.
+- Repeated host lifecycle runs then reproduced a separate false `residual_processes` result in the no-child normal fixture. The observer could accept a new child under a reused Windows parent PID without confirming the current parent identity.
+- KI-CX-WORKER-004 / Issue #64 records the defect. `mergeObservedTree` now requires the live parent row to match the observed parent PID and start time before adding a descendant; deterministic reused-parent coverage and five consecutive full host lifecycle runs passed.
+- A missing target exec-policy was rejected with `worker.wrapper_error` before stdin was read or a model process started.
+- Post-remediation `npm.cmd run worker:smoke-local`, `npm.cmd run worker:test` repeated five times, `npm.cmd run ci:check`, and `git diff --check` passed in the host process environment.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 

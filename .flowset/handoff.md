@@ -8,11 +8,11 @@ FDP_Codex is public and in a public bootstrap, pre-release state.
 
 Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof on branch `wi/cx0060-test-trusted-ephemeral-worker-end-to-end-proof`. It is blocked externally: the exact managed read-only dogfood retry was rejected even after the user explicitly approved the disclosed local repository transmission.
 
-The official ChatGPT-login managed preflight passed. The first dogfood run reconstructed the target and passed both target validators, then timed out after entering unsupported nested collaboration; managed cleanup verified zero residual processes. The runner now enforces `--disable multi_agent`, and deterministic lifecycle tests pass.
+The official ChatGPT-login managed preflight passed. The first dogfood run reconstructed the target and passed both target validators, then timed out after entering unsupported nested collaboration; managed cleanup verified zero residual processes. The runner now enforces `--disable multi_agent`, verifies 12 supported direct and wrapper re-entry forms through the target exec-policy before reading the prompt, and passes lifecycle tests. This is not universal OS process isolation.
 
 KI-CX-WORKER-003 / Issue #61 tracks the missing final-result failure. KI-CX-DOGFOOD-002 / Issue #62 tracks the stale target handoff that both target validators accepted. KI-CX-PROVIDER-001 / Issue #55 remains open until the approved post-fix dogfood proof completes.
 
-Reviewer availability was intermittent. After two no-verdict attempts and one capacity failure, reviewer `019f4d6b-f84f-7c30-b759-038b6183cf70` returned FAIL on head `b63bbca2552d6fe071812c279143a046683d0ac1`, and reviewer `019f4d78-ea57-73d1-9843-dd2d473cea12` returned FAIL on head `7696fbb`. Their P2 findings were remediated, Issue #61 and Issue #63 were synchronized with the live GitHub state, and the real CLI confinement smoke now passes. The changed head remains unreviewed, so KI-CX-REVIEW-002 / Issue #63 still blocks independent PASS claims.
+Reviewer availability was intermittent. Reviewers returned FAIL on heads `b63bbca2552d6fe071812c279143a046683d0ac1`, `7696fbb`, and `c86b9f036e823986d78d825c97408b70dcd444b1`. The latest review found a P1 shell-reentry bypass and P2 Issue #55 drift. Issue #55 was synchronized, and the remediation adds fail-before-prompt exec-policy checks plus an explicit non-universal scope. Repeated host testing also exposed KI-CX-WORKER-004 / Issue #64: Windows parent PID reuse could create a false descendant. Live parent identity matching and deterministic coverage now pass five consecutive lifecycle runs. The changed head remains unreviewed, so KI-CX-REVIEW-002 / Issue #63 still blocks independent PASS claims.
 
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
@@ -176,7 +176,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Wait until the execution platform establishes a trusted model destination that permits the managed repository-backed proof. Then rerun the same read-only WI-CX0060 command with nested agents disabled; do not substitute another model surface or indirect command.
+Finish the WI-CX0060 blocked-outcome candidate with a fresh blind adversarial review, then obtain explicit push/PR approval and land it. After that, follow the user-approved Strategy A: build FDP_Codex locally through a v0.1 self-hosting completion candidate, then run one clean-project portability proof. The provider block remains a hard stop only for the repository-backed live model-worker claim; any later retry must use a target carrying `.codex/rules/fdp-managed-worker.rules`.
 
 ## Blocked Work
 

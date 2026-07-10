@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation, verifyManagedWorkerExecPolicy } from './lib/codex-invocation.mjs';
 import { runManagedProcess } from './lib/managed-process.mjs';
 
 const MAX_PROMPT_BYTES = 1024 * 1024;
@@ -71,8 +71,10 @@ async function main() {
     process.stdout.write(`${usage()}\n`);
     return;
   }
-  const prompt = await readPrompt();
   const invocation = resolveCodexInvocation();
+  const execPolicy = verifyManagedWorkerExecPolicy({ invocation, cwd: args.cwd });
+  emitJson({ type: 'worker.exec_policy_verified', timestamp: new Date().toISOString(), ...execPolicy });
+  const prompt = await readPrompt();
   const abortController = new AbortController();
   const onSigint = () => abortController.abort('SIGINT');
   const onSigterm = () => abortController.abort('SIGTERM');
@@ -89,6 +91,7 @@ async function main() {
       cwd: args.cwd,
       stdinText: prompt,
       timeoutMs: args.timeoutMs,
+      pollIntervalMs: 100,
       signal: abortController.signal,
       onEvent: emitJson,
     });

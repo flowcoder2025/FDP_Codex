@@ -155,8 +155,13 @@ export function mergeObservedTree(table, rootPid, observed) {
     changed = false;
     for (const entry of table) {
       const parent = observed.get(entry.ppid);
+      const currentParent = byPid.get(entry.ppid);
       const observedRoot = observed.get(rootPid);
-      const belongsToObservedParent = parentPids.has(entry.ppid) && isNotOlderThan(entry, parent);
+      const belongsToObservedParent = parentPids.has(entry.ppid)
+        && parent !== undefined
+        && currentParent !== undefined
+        && sameIdentity(parent, currentParent)
+        && isNotOlderThan(entry, parent);
       const belongsToPosixGroup = process.platform !== 'win32'
         && entry.pgid === rootPid
         && isNotOlderThan(entry, observedRoot);

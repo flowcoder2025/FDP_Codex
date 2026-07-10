@@ -149,6 +149,12 @@
           "fork_context": false,
           "reviewed_head": "7696fbb",
           "result": "fail-two-p2-github-drift-findings-plus-one-p3-remediated"
+        },
+        {
+          "agent_id": "019f4d85-063e-7a10-a5a2-8584e247de8c",
+          "fork_context": false,
+          "reviewed_head": "c86b9f036e823986d78d825c97408b70dcd444b1",
+          "result": "fail-one-p1-shell-reentry-and-one-p2-issue55-drift-remediated"
         }
       ]
     },
@@ -177,15 +183,24 @@
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
         "nested_agent_confinement": {
-          "status": "deterministic-proof-passed-post-fix-live-proof-not-run-policy-blocked",
+          "status": "builtin-and-supported-exec-policy-gates-passed-live-proof-not-run-policy-blocked",
           "cli_flag": "--disable multi_agent",
-          "deterministic_test": "passed",
+          "deterministic_test": "supported-contract-passed",
+          "exec_policy": {
+            "rule": ".codex/rules/fdp-managed-worker.rules",
+            "preflight": "passed-local-no-model-request",
+            "forbidden_case_count": 12,
+            "scope": "supported-direct-runtime-package-executor-and-shell-reentry-prefixes",
+            "universal_os_process_isolation": false,
+            "target_migration_issue": 62
+          },
           "known_issue": "KI-CX-WORKER-003",
           "github_issue_number": 61
         },
         "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
         "deterministic_cases": {
           "temporal_stale_parent_pid_exclusion": "passed-repeated-5",
+          "parent_pid_reuse_identity_exclusion": "passed-repeated-5",
           "normal": "passed-repeated-5",
           "timeout_descendant_cleanup": "passed-repeated-5",
           "interruption_descendant_cleanup": "passed-repeated-5",
@@ -363,6 +378,20 @@
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/54"
     },
     {
+      "id": "KI-CX-WORKER-004",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "repeated host lifecycle tests intermittently classified the no-child normal fixture as residual_processes after a Windows parent PID was reused",
+      "defer_reason": "none; false descendant discovery could target an unrelated process and was repaid before PR readiness",
+      "repayment_condition": "descendant discovery requires the currently live parent row to match the observed parent identity, deterministic reused-parent coverage passes, and five consecutive lifecycle runs pass",
+      "hard_stop": "before WI-CX0060 PR readiness, merge, dogfood continuation, or generalized managed-worker use",
+      "status": "repaid",
+      "repaid_by": "WI-CX0060-test",
+      "evidence": "docs/records/validation-wi-cx0060-test.md",
+      "github_issue_number": 64,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/64"
+    },
+    {
       "id": "KI-CX-PROVIDER-001",
       "severity": "Medium",
       "owner": "H1 / execution platform",
@@ -379,8 +408,8 @@
       "severity": "High",
       "owner": "CODEX",
       "trigger": "the first dogfood run completed target reconstruction and validation, then entered an unsupported collaboration wait and timed out before final output",
-      "defer_reason": "deterministic confinement and verified timeout cleanup pass, but the post-fix live final-result proof was rejected before execution by provider Issue #55",
-      "repayment_condition": "with multi_agent disabled, complete a repository-backed read-only dogfood run with final output and verified zero residuals",
+      "defer_reason": "built-in fan-out disabling, supported exec-policy re-entry checks, and verified timeout cleanup pass, but this is not universal OS process isolation and the post-fix live final-result proof was rejected before execution by provider Issue #55",
+      "repayment_condition": "after the target carries the managed-worker exec policy, complete a repository-backed read-only dogfood run with final output and verified zero residuals",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement",
       "status": "open",
       "github_issue_number": 61,
@@ -402,7 +431,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, and later bounded reviews of b63bbca and 7696fbb both returned FAIL with P2 findings",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, and the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

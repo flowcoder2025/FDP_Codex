@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, MANAGED_WORKER_EXEC_POLICY } from './lib/codex-invocation.mjs';
 import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
@@ -23,6 +24,23 @@ function runInvocationConfinementCase() {
   assert.deepEqual(args.slice(8), ['--sandbox', 'read-only', '-C', 'C:\\repo', '-']);
   assert.equal(args.filter((arg) => arg === 'multi_agent').length, 1);
   return { multi_agent_disabled: true };
+}
+
+function runExecPolicyContractCase() {
+  const policy = readFileSync(MANAGED_WORKER_EXEC_POLICY, 'utf8');
+  for (const token of [
+    'decision = "forbidden"',
+    '"codex.exe"',
+    '"node.exe"',
+    '"npm.cmd"',
+    '"powershell.exe"',
+    '"cmd.exe"',
+    '"python.exe"',
+    '"bash.exe"',
+  ]) {
+    assert(policy.includes(token), `managed worker exec-policy is missing ${token}`);
+  }
+  return { supported_reentry_families_forbidden: true };
 }
 
 function runTemporalIdentityCase() {
@@ -62,7 +80,31 @@ function runTemporalIdentityCase() {
   assert.equal(observed.has(50001), false);
   assert.equal(observed.has(50002), true);
   assert.equal(observed.has(50003), true);
-  return { stale_excluded: true, descendant_count: observed.size - 1 };
+
+  const reusedRootObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    {
+      pid: rootPid,
+      ppid: 12345,
+      pgid: rootPid,
+      name: 'reused-root',
+      started_at: '2026-07-10T11:00:00.000Z',
+    },
+    {
+      pid: 50004,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'unrelated-child',
+      started_at: '2026-07-10T11:00:00.100Z',
+    },
+  ], rootPid, reusedRootObserved);
+  assert.equal(reusedRootObserved.has(50004), false);
+
+  return {
+    stale_excluded: true,
+    reused_parent_identity_excluded: true,
+    descendant_count: observed.size - 1,
+  };
 }
 
 async function runNormalCase() {
@@ -74,7 +116,7 @@ async function runNormalCase() {
     pollIntervalMs: 100,
     onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'completed');
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, true);
   assert.equal(result.exit_code, 0);
   assert.equal(result.cleanup.required, false);
@@ -148,6 +190,7 @@ async function runResidualCase() {
 }
 
 const invocationConfinement = runInvocationConfinementCase();
+const execPolicyContract = runExecPolicyContractCase();
 const temporalIdentity = runTemporalIdentityCase();
 const normal = await runNormalCase();
 const timeout = await runTimeoutCase();
@@ -158,6 +201,7 @@ console.log(JSON.stringify({
   ok: true,
   cases: {
     invocation_confinement: invocationConfinement,
+    exec_policy_contract: execPolicyContract,
     temporal_identity: temporalIdentity,
     normal: {
       status: normal.status,

@@ -1647,6 +1647,19 @@ chunks:
       - tooling
       - handoff
     body_carryover: forbidden
+  - id: policy.managed-worker-exec
+    title: Managed Worker Exec Policy
+    source: .codex/rules/fdp-managed-worker.rules
+    type: policy
+    layer: layer1
+    status: implemented
+    loads_for:
+      - automation-planning
+      - command-execution
+      - target-project-generation
+      - validation
+      - handoff
+    body_carryover: forbidden
   - id: record.validation-wi-cx0055-feat
     title: WI-CX0055-feat Validation Record
     source: docs/records/validation-wi-cx0055-feat.md

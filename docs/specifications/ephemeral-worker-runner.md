@@ -27,10 +27,13 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 - `--sandbox` defaults to `workspace-write` and accepts only `read-only` or `workspace-write`.
 - stdin must contain a non-empty UTF-8 prompt no larger than 1 MiB.
 - `CODEX_CLI_PATH` may identify an explicit Codex executable. On Windows, the npm-installed `codex.js` shim target is preferred when present.
+- The target must be trusted by Codex and contain `.codex/rules/fdp-managed-worker.rules`.
 
 ## Agent Confinement
 
-The managed worker disables the Codex `multi_agent` feature at invocation. A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. This is enforced by the CLI argument builder rather than relying on prompt wording.
+The managed worker disables the Codex `multi_agent` feature at invocation. Before reading the prompt or making a model request, the wrapper also runs `codex execpolicy check` against the target's `.codex/rules/fdp-managed-worker.rules`. The preflight must verify that supported direct Codex, runtime, package-executor, and nested-shell re-entry forms resolve to `forbidden`; an absent rule or non-forbidden result fails closed.
+
+A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. The CLI flag and exec-policy preflight enforce the supported command contract rather than relying on prompt wording. This is not a claim of universal operating-system process isolation: arbitrary renamed binaries or undeclared launchers remain outside this rule language's prefix-matching guarantee and therefore block unattended or generalized worker authority.
 
 The controller remains responsible for any separate independent reviewer required by repository policy. Disabling nested agents inside an implementation or validation worker does not weaken the independent-review gate.
 
@@ -39,6 +42,7 @@ The controller remains responsible for any separate independent reviewer require
 The wrapper writes one JSON object per line to stdout. Event types are:
 
 - `worker.started`
+- `worker.exec_policy_verified`
 - `worker.stdout`
 - `worker.stderr`
 - `worker.timeout`
@@ -61,7 +65,7 @@ The direct child starts with `shell: false` and a hidden window on Windows. The 
 
 Windows obtains process metadata from `Get-CimInstance Win32_Process`. POSIX starts the worker in its own process group and obtains metadata from `ps -eo pid=,ppid=,pgid=,lstart=,comm=`. The process group keeps already observed descendants discoverable after the root exits.
 
-The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid and, on POSIX, the dedicated process group id before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active, but a candidate with a parseable start time earlier than its observed parent or process-group root is rejected as stale parent-pid metadata.
+The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid and, on POSIX, the dedicated process group id before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused Windows parent PID from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or process-group root is also rejected as stale parent-pid metadata.
 
 ## Completion And Cleanup
 
@@ -87,7 +91,7 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
+`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates the policy contract, normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` first executes the real `execpolicy check` preflight for direct and nested-shell re-entry cases, then builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 

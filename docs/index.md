@@ -158,6 +158,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/report-type-strictness.mjs`
 - `scripts/generate-layer2-scaffold.mjs`
 - `scripts/validate-layer2-scaffold.mjs`
+- `.codex/rules/fdp-managed-worker.rules`
 - `scripts/lib/codex-invocation.mjs`
 - `scripts/lib/managed-process.mjs`
 - `scripts/run-ephemeral-worker.mjs`
