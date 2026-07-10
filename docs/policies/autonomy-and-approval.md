@@ -129,6 +129,16 @@ FDP_Codex default:
 - For the next independent, context-hygiene-sensitive WI, prefer standalone or project automation with a dedicated worktree once that automation is explicitly installed, tested, and inside an approval envelope.
 - Until that automation surface is installed and verified, use handoff plus context pack metadata to make a fresh run possible, but do not claim automatic fresh-session execution.
 
+### Controller And Ephemeral Worker Split
+
+The default clean-context UX is one visible control task plus ephemeral CLI workers started with `codex exec --ephemeral`. The control task keeps the accumulated goal, user decisions, approval envelope, and final reporting. Workers reconstruct only the active WI from repository SSOT and must not create user-owned Codex app tasks.
+
+The controller owns branch creation and commit. It also owns staging, push, PR, merge, and any user-facing approval request. The worker owns repository reconstruction, worktree edits, and validation. A worker may inspect and recover an interrupted partial diff, but it must not broaden its own authority, configure remotes, publish changes, or claim the complete WI Git lifecycle.
+
+The default ephemeral worker sandbox is `workspace-write`. FDP_Codex must not use `danger-full-access` solely to write Git metadata. When that sandbox cannot write `.git`, the controller pre-creates the dedicated WI branch, independently reviews the worker diff and validation evidence, reruns the relevant validation, and creates the commit.
+
+This split does not replace the separately verified Codex app worktree automation contract. The A2 runner remains paused until reactivation is separately approved and its remaining cadence, trigger, and review gates are satisfied.
+
 ## Control-Plane Runtime Validation
 
 Fresh-run claims must be backed by control-plane evidence, not only repository documents or green local validators.

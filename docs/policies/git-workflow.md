@@ -95,6 +95,14 @@ Do not revert user or unknown changes unless the user explicitly asks for it.
 
 If unrelated changes block safe work, record the blocker in handoff and stop.
 
+## Controller-Owned Git Boundary For Ephemeral Workers
+
+An ephemeral CLI worker running under `workspace-write` may implement and validate a WI on a dedicated branch that the controller created before delegation. This is still branch-first work and is not an exception that permits implementation on `main`.
+
+The worker owns repository reconstruction, worktree edits, and validation. The controller owns branch creation, staged review, commit, push, PR, and merge. Before creating the commit, the controller must inspect the complete diff, verify that the worker stayed inside the approved WI, and rerun the relevant repository validation.
+
+Do not grant `danger-full-access` solely so an ephemeral worker can modify `.git`. A separately installed Codex app worktree automation may own Git operations only when its own approved contract and runtime capability evidence explicitly allow them.
+
 ## Evidence
 
 Each completed WI should leave evidence in at least one of:
