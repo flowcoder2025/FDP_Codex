@@ -1711,8 +1711,35 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: decision.context-selection-breadth-guard
+    title: Context Selection Breadth Guard
+    source: docs/decisions/2026-07-10-context-selection-breadth-guard.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - context-pack-building
+      - context-selection-breadth
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0058-fix
+    title: WI-CX0058-fix Validation Record
+    source: docs/records/validation-wi-cx0058-fix.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - context-pack-building
+      - context-selection-breadth
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
 hook_contract:
-  status: implemented-v1
+  status: implemented-v2
   implementation: scripts/build-context-pack.mjs
   input:
     - wi_id
@@ -1728,6 +1755,7 @@ hook_contract:
     - selection_rule_ids
     - load_reasons
     - selection_rules
+    - breadth_guard
     - hashes
     - decision_refs
     - ledger_append

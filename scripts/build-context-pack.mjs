@@ -76,8 +76,17 @@ const selectionRuleTable = [
 
 const loadsForRule = {
   id: 'manifest.loads-for-token-match',
-  trigger: 'manifest.loads_for token intersection',
+  trigger: 'manifest.loads_for exact intent-tag match',
 };
+
+const explicitReferenceRule = {
+  id: 'manifest.explicit-reference-match',
+  trigger: 'explicit chunk id, source path, or WI id reference',
+};
+
+const broadLoadsForTags = new Set(['audit', 'handoff', 'validation', 'wi-start']);
+const maxDynamicLoadsForChunks = 24;
+const maxSelectedChunks = 40;
 
 function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), 'utf8').replace(/\r\n/g, '\n');
@@ -136,6 +145,42 @@ function tokenize(values) {
     .filter(Boolean)
     .flatMap((value) => String(value).toLowerCase().split(/[^a-z0-9]+/))
     .filter(Boolean);
+}
+
+function normalizeTag(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function explicitIntentTags(value) {
+  return String(value ?? '')
+    .split(/[\s,]+/)
+    .map(normalizeTag)
+    .filter((tag) => tag.includes('-') && !broadLoadsForTags.has(tag));
+}
+
+function normalizedPath(value) {
+  return String(value).replace(/\\/g, '/').toLowerCase();
+}
+
+function explicitReferenceReason(chunk, request) {
+  const chunkSource = normalizedPath(chunk.source);
+  const changedPaths = new Set(request.changed_paths.map(normalizedPath));
+  if (changedPaths.has(chunkSource)) return 'changed path exactly matched chunk source';
+
+  const intent = String(request.task_intent ?? '').toLowerCase();
+  if (intent.includes(String(chunk.id).toLowerCase())) return 'intent explicitly referenced chunk id';
+  if (intent.includes(chunkSource)) return 'intent explicitly referenced chunk source';
+
+  const requestedWiIds = intent.match(/wi-[a-z0-9]+\d{4}-[a-z]+/g) ?? [];
+  const chunkReferenceText = [chunk.id, chunk.title, chunk.source].filter(Boolean).join(' ').toLowerCase();
+  if (requestedWiIds.some((wiId) => chunkReferenceText.includes(wiId))) {
+    return 'intent explicitly referenced WI id';
+  }
+  return null;
 }
 
 function addSelection(selections, item, rule, loadReason) {
@@ -198,26 +243,51 @@ function selectChunks({ alwaysOn, chunks }, request) {
   const changedTokens = tokenize(request.changed_paths);
   const requestTokens = new Set([...intentTokens, ...changedTokens]);
   const changedText = normalizeChangedPaths(request.changed_paths);
+  const requestedLoadsForTags = new Set(explicitIntentTags(request.task_intent));
+  const explicitReferenceChunkIds = new Set();
+  const dynamicLoadsForChunkIds = new Set();
 
   for (const rule of selectionRuleTable) {
     applyStaticRule(selections, byId, alwaysOn, rule, request, requestTokens, changedText);
   }
 
   for (const chunk of chunks) {
+    const referenceReason = explicitReferenceReason(chunk, request);
+    if (!referenceReason) continue;
+    addSelection(selections, chunk, explicitReferenceRule, referenceReason);
+    explicitReferenceChunkIds.add(chunk.id);
+  }
+
+  for (const chunk of chunks) {
     const loadsFor = chunk.loads_for ?? [];
-    const loadTokens = tokenize(loadsFor);
-    const matched = loadTokens.some((token) => requestTokens.has(token));
-    if (matched) {
+    const matchedTags = loadsFor
+      .map(normalizeTag)
+      .filter((tag) => tag.includes('-') && requestedLoadsForTags.has(tag));
+    if (matchedTags.length > 0) {
       addSelection(
         selections,
         chunk,
         loadsForRule,
-        `loads_for matched request tokens: ${loadsFor.join(', ')}`,
+        `loads_for exactly matched intent tags: ${matchedTags.join(', ')}`,
       );
+      dynamicLoadsForChunkIds.add(chunk.id);
     }
   }
 
-  return [...selections.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const selected = [...selections.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const breadthGuard = {
+    policy: 'exact-specialized-intent-tags-v1',
+    max_dynamic_loads_for_chunks: maxDynamicLoadsForChunks,
+    max_selected_chunks: maxSelectedChunks,
+    dynamic_loads_for_chunk_count: dynamicLoadsForChunkIds.size,
+    explicit_reference_chunk_count: explicitReferenceChunkIds.size,
+    total_selected_chunk_count: selected.length,
+    status: dynamicLoadsForChunkIds.size <= maxDynamicLoadsForChunks
+      && selected.length <= maxSelectedChunks
+      ? 'passed'
+      : 'rejected',
+  };
+  return { selected, breadthGuard };
 }
 
 function appendLedger(contextPack, actor) {
@@ -247,8 +317,18 @@ const request = {
 };
 
 const manifest = parseManifest(read('docs/manifest.yaml'));
-const selected = selectChunks(manifest, request);
 const generatedAt = new Date().toISOString();
+const { selected, breadthGuard } = selectChunks(manifest, request);
+if (breadthGuard.status === 'rejected') {
+  console.error(JSON.stringify({
+    ok: false,
+    error: 'context_selection_breadth_guard_rejected',
+    message: 'Narrow --intent to fewer exact specialized loads_for tags before appending the ledger.',
+    wi_id: request.wi_id,
+    breadth_guard: breadthGuard,
+  }, null, 2));
+  process.exit(1);
+}
 const appendRequested = args['append-ledger'] === true;
 const actor = args.actor || 'codex';
 const contextPack = {
@@ -262,6 +342,7 @@ const contextPack = {
   selected_chunk_ids: selected.map((chunk) => chunk.id),
   selection_rule_ids: [...new Set(selected.flatMap((chunk) => chunk.selection_rules))].sort(),
   selected_chunks: selected,
+  breadth_guard: breadthGuard,
   ledger_append: {
     requested: appendRequested,
     status: appendRequested ? 'appended' : 'not_requested',

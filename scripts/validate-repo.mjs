@@ -71,6 +71,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-08-autonomous-work-exhaustion-stop-gate.md',
   'docs/decisions/2026-07-08-a2-worktree-isolation-repair-gate.md',
   'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md',
+  'docs/decisions/2026-07-10-context-selection-breadth-guard.md',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -96,6 +97,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0055-feat.md',
   'docs/records/validation-wi-cx0056-test.md',
   'docs/records/validation-wi-cx0057-docs.md',
+  'docs/records/validation-wi-cx0058-fix.md',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -808,7 +810,8 @@ function validateFlowStateReadableSnapshotContract() {
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')));
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')));
   checks.flow_state_snapshot_record = record.includes('WI: WI-CX0039-docs')
     && record.includes('Machine-readable flow-state snapshot exists and is validator-backed')
     && record.includes('No Layer 2 project scope code rule was chosen')
@@ -944,11 +947,14 @@ function validateContextPackCommandSurface() {
   checks.context_pack_hygiene_append_procedure = hygiene.includes('--append-ledger') && hygiene.includes('ledger_append');
   checks.context_pack_decision_stdout_default = decision.includes('stdout-only by default');
   checks.context_pack_decision_append_explicit = decision.includes('only when `--append-ledger` is present');
-  checks.context_pack_manifest_hook_status = /^  status: implemented-v1$/m.test(manifest.split('hook_contract:')[1] ?? '');
+  checks.context_pack_manifest_hook_status = /^  status: implemented-v2$/m.test(manifest.split('hook_contract:')[1] ?? '');
   checks.context_pack_manifest_output_ledger_append = manifest.includes('    - ledger_append');
+  checks.context_pack_manifest_output_breadth_guard = manifest.includes('    - breadth_guard');
   checks.context_pack_sample_no_append = sample?.ledger_append?.requested === false && sample?.ledger_append?.status === 'not_requested';
   checks.context_pack_sample_no_bodies = sample?.contains_chunk_bodies === false && sample?.body_storage === 'forbidden';
   checks.context_pack_sample_selects_builder = Array.isArray(sample?.selected_chunk_ids) && sample.selected_chunk_ids.includes('tool.build-context-pack');
+  checks.context_pack_sample_breadth_guard = sample?.breadth_guard?.status === 'passed'
+    && sample.breadth_guard.total_selected_chunk_count === sample?.selected_chunk_ids?.length;
 
   if (!checks.context_pack_builder_has_append_flag) error('context_pack.builder_append_missing', 'Builder must implement explicit --append-ledger handling.');
   if (!checks.context_pack_spec_stdout_default) error('context_pack.spec_stdout_default_missing', 'Context pack spec must state stdout-only default.');
@@ -958,11 +964,13 @@ function validateContextPackCommandSurface() {
   if (!checks.context_pack_decision_stdout_default || !checks.context_pack_decision_append_explicit) {
     error('context_pack.decision_contract_missing', 'Context pack command decision must lock stdout default and explicit append.');
   }
-  if (!checks.context_pack_manifest_hook_status) error('context_pack.manifest_status_missing', 'Manifest hook contract must be implemented-v1.');
+  if (!checks.context_pack_manifest_hook_status) error('context_pack.manifest_status_missing', 'Manifest hook contract must be implemented-v2.');
   if (!checks.context_pack_manifest_output_ledger_append) error('context_pack.manifest_ledger_append_missing', 'Manifest hook output must include ledger_append.');
+  if (!checks.context_pack_manifest_output_breadth_guard) error('context_pack.manifest_breadth_guard_missing', 'Manifest hook output must include breadth_guard.');
   if (!checks.context_pack_sample_no_append) error('context_pack.default_mutates_ledger', 'Default context pack run must report no ledger append.');
   if (!checks.context_pack_sample_no_bodies) error('context_pack.body_contract_failed', 'Context pack output must forbid chunk bodies.');
   if (!checks.context_pack_sample_selects_builder) error('context_pack.selection_missing_builder', 'Context pack sample should select the builder chunk for builder work.');
+  if (!checks.context_pack_sample_breadth_guard) error('context_pack.breadth_guard_missing', 'Context pack sample must expose a passing breadth guard consistent with selected chunks.');
 }
 function validateContextSelectionRuleTable() {
   const builder = read('scripts/build-context-pack.mjs');
@@ -978,6 +986,7 @@ function validateContextSelectionRuleTable() {
     'intent.context-pack',
     'intent.github',
     'intent.validation',
+    'manifest.explicit-reference-match',
     'manifest.loads-for-token-match',
   ];
 
@@ -1016,6 +1025,9 @@ function validateContextSelectionRuleTable() {
   checks.context_selection_decision_stable_rules = decision.includes('stable rule ids') && decision.includes('selection_rule_ids');
   checks.context_selection_sample_no_append = sample?.ledger_append?.requested === false;
   checks.context_selection_sample_no_bodies = sample?.contains_chunk_bodies === false && sample?.body_storage === 'forbidden';
+  checks.context_selection_sample_breadth_guard = sample?.breadth_guard?.status === 'passed'
+    && sample.breadth_guard.dynamic_loads_for_chunk_count <= 24
+    && sample.breadth_guard.total_selected_chunk_count <= 40;
 
   if (missingBuilderRules.length) error('context_selection.builder_rules_missing', 'Builder must define all required context selection rule ids.', missingBuilderRules);
   if (missingSpecRules.length) error('context_selection.spec_rules_missing', 'Context pack spec must document all required context selection rule ids.', missingSpecRules);
@@ -1025,6 +1037,7 @@ function validateContextSelectionRuleTable() {
   if (!checks.context_selection_decision_stable_rules) error('context_selection.decision_contract_missing', 'Context selection decision must lock stable rule ids and output metadata.');
   if (!checks.context_selection_sample_no_append) error('context_selection.default_append_failed', 'Rule-table sample must keep default no-append behavior.');
   if (!checks.context_selection_sample_no_bodies) error('context_selection.body_contract_failed', 'Rule-table sample must forbid chunk bodies.');
+  if (!checks.context_selection_sample_breadth_guard) error('context_selection.breadth_guard_failed', 'Rule-table sample must satisfy the dynamic and total selection limits.');
 }
 function validateDecisionQueue() {
   const policy = read('docs/policies/decision-queue.md');
@@ -1130,7 +1143,8 @@ function validatePortfolioGuardrailValidatorBaseline() {
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')))
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no');
   checks.portfolio_guardrail_manifest = manifest.includes('id: decision.portfolio-guardrail-validator-baseline')
     && manifest.includes(decisionPath)
@@ -1208,7 +1222,8 @@ function validateAutonomousWorkExhaustionStopGate() {
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')))
     && fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision');
@@ -1837,7 +1852,8 @@ function validateLayer2KnowledgeScaffoldContract() {
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && !fixPlan.includes('Chunk id scope: global, per-layer, or per-target-project. | DQ-POLICY | CODEX | conditional');
   checks.layer2_scaffold_knowledge_link = knowledge.includes('docs/specifications/layer-2-knowledge-scaffold.md')
@@ -2116,7 +2132,8 @@ function validateLayer2ScopeCodeOptionsPacket() {
         && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))));
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'))));
   checks.layer2_scope_code_manifest = manifest.includes('record.layer-2-scope-code-options')
     && manifest.includes('docs/records/layer-2-scope-code-options-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0034-docs')
@@ -2189,7 +2206,8 @@ function validateLayer2ChunkIdScopePolicy() {
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')));
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')));
   checks.layer2_chunk_id_manifest = manifest.includes('decision.layer-2-chunk-id-scope-policy')
     && manifest.includes('docs/decisions/2026-07-08-layer-2-chunk-id-scope-policy.md')
     && manifest.includes('record.validation-wi-cx0036-docs')
@@ -2256,7 +2274,8 @@ function validateLayer2ScopeCodeDecisionHandback() {
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'));
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'));
   checks.layer2_scope_handback_manifest = manifest.includes('record.layer-2-scope-code-decision-handback')
     && manifest.includes('docs/records/layer-2-scope-code-decision-handback-2026-07-08.md')
     && manifest.includes('record.validation-wi-cx0037-docs')
@@ -2331,7 +2350,7 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && handback.includes('Status: resolved-by-WI-CX0038')
     && handback.includes('Resolution: the user selected Option A with code `FCD`');
   checks.layer2_scope_accepted_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && ['WI-CX0055-feat', 'WI-CX0056-test', 'WI-CX0057-docs', 'WI-CX0058-fix'].includes(state.current_priority?.wi_id)
+    && ['WI-CX0055-feat', 'WI-CX0056-test', 'WI-CX0057-docs', 'WI-CX0058-fix', 'WI-CX0059-fix'].includes(state.current_priority?.wi_id)
     && state.layer2_target?.project_id === 'fdp-codex-dogfood'
     && state.layer2_target?.root === targetRoot
     && state.layer2_target?.project_scope_code === 'FCD'
@@ -2344,7 +2363,8 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'))
     && !fixPlan.includes('Layer 2 project scope code rule. | DQ-USER | USER | conditional')
     && handoff.includes('WI-CX0038-docs is merged through PR #39')
     && handoff.includes('C:\\dev\\FDP_Codex_Dogfood');
@@ -2936,12 +2956,14 @@ function validateA2WorktreeIsolationRepairValidation() {
       || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.wi_id === 'WI-CX0057-docs'
       || state.current_priority?.wi_id === 'WI-CX0058-fix'
+      || state.current_priority?.wi_id === 'WI-CX0059-fix'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'))
       || fixPlan.includes('Waiting for user decision: choose the Layer 2 project scope code rule'))
     && handoff.includes('A2 worktree isolation repair is repaid by WI-CX0052-test')
     && (handoff.includes('A, use <CODE>') || handoff.includes('code is `FCD`'));
@@ -3000,12 +3022,14 @@ function validateStrategicGoalSteeringContract() {
       || state.current_priority?.wi_id === 'WI-CX0056-test'
       || state.current_priority?.wi_id === 'WI-CX0057-docs'
       || state.current_priority?.wi_id === 'WI-CX0058-fix'
+      || state.current_priority?.wi_id === 'WI-CX0059-fix'
       || state.current_priority?.item === 'Layer 2 project scope code rule')
     && (fixPlan.includes('WI-CX0038-docs Layer 2 Scope Code Accepted Decision')
       || (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
-      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard'))
+      || fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+      || fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard'))
       || fixPlan.includes('Layer 2 project scope code rule'))
     && handoff.includes('WI-CX0052-test')
     && handoff.includes('WI-CX0053-docs: Strategic Goal Steering Contract');
@@ -3121,12 +3145,12 @@ function validateLayer2ScaffoldGenerator() {
     && docsIndex.includes(scaffoldValidatorPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.layer2_generator_flow = currentWi.includes('WI id: WI-CX0057-docs')
+  checks.layer2_generator_flow = currentWi.includes('WI id: WI-CX0058-fix')
     && currentWi.includes('Status: validated')
-    && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+    && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`')
-    && state.current_wi?.id === 'WI-CX0057-docs'
-    && state.current_priority?.wi_id === 'WI-CX0058-fix'
+    && state.current_wi?.id === 'WI-CX0058-fix'
+    && state.current_priority?.wi_id === 'WI-CX0059-fix'
     && state.layer2_target?.scaffold_status === 'fresh-context-validated-local'
     && state.layer2_target?.git_head === 'a2702ab4fd370f37af1e804cb6b7e4977ea98f6a'
     && state.layer2_target?.remote_configured === false
@@ -3212,14 +3236,15 @@ function validateLayer2FreshContextContinuation() {
     && record.includes('VD-FCD0001 is repaid')
     && record.includes('controller pre-created the target branch')
     && record.includes('does not support a claim that the worker can own the full Git lifecycle');
-  checks.layer2_fresh_context_flow = currentWi.includes('WI id: WI-CX0057-docs')
+  checks.layer2_fresh_context_flow = currentWi.includes('WI id: WI-CX0058-fix')
     && currentWi.includes('Status: validated')
-    && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+    && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof')
     && handoff.includes('Fresh-context continuation is proven')
     && handoff.includes('WI-CX0057-docs: Ephemeral Worker Controller Boundary Contract')
-    && state.current_wi?.id === 'WI-CX0057-docs'
-    && state.current_priority?.wi_id === 'WI-CX0058-fix';
+    && handoff.includes('WI-CX0058-fix: Context Pack Selection Breadth Guard')
+    && state.current_wi?.id === 'WI-CX0058-fix'
+    && state.current_priority?.wi_id === 'WI-CX0059-fix';
   checks.layer2_fresh_context_state = target.project_id === 'fdp-codex-dogfood'
     && target.root === approvedTargetRoot
     && target.project_scope_code === 'FCD'
@@ -3246,9 +3271,13 @@ function validateLayer2FreshContextContinuation() {
     && dogfoodKi.decision_ref === 'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md'
     && dogfoodKi.evidence === 'docs/records/validation-wi-cx0057-docs.md'
     && completeKiFields(contextKi)
-    && contextKi.status === 'open'
+    && contextKi.status === 'repaid'
+    && contextKi.repaid_by === 'WI-CX0058-fix'
+    && contextKi.decision_ref === 'docs/decisions/2026-07-10-context-selection-breadth-guard.md'
+    && contextKi.evidence === 'docs/records/validation-wi-cx0058-fix.md'
     && !fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
-    && fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
+    && !fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
+    && fixPlan.includes('KI-CX-WORKER-001 Ephemeral worker process lifecycle')
     && record.includes('## Known Issues')
     && record.includes('Hard stop: before reactivating the runner')
     && record.includes('Hard stop: before generalized automated WI cadence');
@@ -3404,15 +3433,15 @@ function validateEphemeralWorkerControllerBoundary() {
     && record.includes('ephemeral_worker_live_runner_status: paused')
     && record.includes('npm.cmd run ci:check')
     && record.includes('git diff --check');
-  checks.ephemeral_worker_flow = currentWi.includes('WI id: WI-CX0057-docs')
+  checks.ephemeral_worker_flow = currentWi.includes('WI id: WI-CX0058-fix')
     && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0057-docs-ephemeral-worker-controller-boundary')
-    && fixPlan.includes('WI-CX0058-fix Context Pack Selection Breadth Guard')
+    && currentWi.includes('Branch: wi/cx0058-fix-context-pack-selection-breadth-guard')
+    && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && !fixPlan.includes('KI-CX-DOGFOOD-001 Ephemeral worker Git-metadata ownership')
-    && handoff.includes('Current WI: WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
+    && handoff.includes('Current WI: WI-CX0058-fix Context Pack Selection Breadth Guard')
     && handoff.includes('KI-CX-DOGFOOD-001 is repaid')
-    && state.current_wi?.id === 'WI-CX0057-docs'
-    && state.current_priority?.wi_id === 'WI-CX0058-fix';
+    && state.current_wi?.id === 'WI-CX0058-fix'
+    && state.current_priority?.wi_id === 'WI-CX0059-fix';
   checks.ephemeral_worker_topology = topology.mode === 'single-visible-controller-ephemeral-workers'
     && topology.controller_task_count === 1
     && topology.worker_surface === 'codex-cli-ephemeral'
@@ -3425,7 +3454,8 @@ function validateEphemeralWorkerControllerBoundary() {
     && dogfoodKi.repaid_by === 'WI-CX0057-docs'
     && dogfoodKi.decision_ref === decisionPath
     && dogfoodKi.evidence === recordPath
-    && contextKi?.status === 'open'
+    && contextKi?.status === 'repaid'
+    && contextKi.repaid_by === 'WI-CX0058-fix'
     && contextKi.repayment_condition.includes('WI-CX0058-fix')
     && contextKi.trigger.includes('123 metadata chunks')
     && contextKi.trigger.includes('120');
@@ -3453,6 +3483,198 @@ function validateEphemeralWorkerControllerBoundary() {
   if (!checks.ephemeral_worker_known_issues) error('ephemeral_worker.known_issues_missing', 'KI-CX-DOGFOOD-001 must be repaid while KI-CX-CONTEXT-001 remains open for WI-CX0058.');
   if (!checks.ephemeral_worker_boundary) error('ephemeral_worker.boundary_missing', 'WI-CX0057 must retain runner, target remote, publication, authority, dependency, API, and destructive-operation hard stops.');
   if (!checks.ephemeral_worker_live_runner) error('ephemeral_worker.runner_not_paused', 'When the local runner config exists, it must remain PAUSED.', liveRunnerStatus);
+}
+
+function validateContextSelectionBreadthGuard() {
+  const decisionPath = 'docs/decisions/2026-07-10-context-selection-breadth-guard.md';
+  const recordPath = 'docs/records/validation-wi-cx0058-fix.md';
+  const builderPath = 'scripts/build-context-pack.mjs';
+  const decision = read(decisionPath);
+  const record = read(recordPath);
+  const builder = read(builderPath);
+  const spec = read('docs/specifications/context-pack-builder.md');
+  const currentWi = read('.flowset/current-wi.md');
+  const fixPlan = read('.flowset/fix_plan.md');
+  const handoff = read('.flowset/handoff.md');
+  const state = readJson('.flowset/state.json');
+  const manifest = read('docs/manifest.yaml');
+  const docsIndex = read('docs/index.md');
+  const decisionsReadme = read('docs/decisions/README.md');
+  const recordsReadme = read('docs/records/README.md');
+  const ledgerEntries = read('.flowset/context-ledger.jsonl')
+    .split('\n')
+    .filter(Boolean)
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line)];
+      } catch {
+        return [];
+      }
+    });
+  const wiContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0058-fix'
+    && entry.timestamp === '2026-07-10T08:19:12.097Z');
+  const runBuilder = (args) => JSON.parse(execFileSync(process.execPath, [builderPath, ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }));
+
+  let currentSample = null;
+  let wi0057Sample = null;
+  let genericSample = null;
+  let rejectedSample = null;
+  let sampleError = null;
+  try {
+    currentSample = runBuilder([
+      '--wi', 'WI-CX0058-fix',
+      '--risk', 'R2',
+      '--intent', 'deterministic context selection breadth guard exact token provenance cap',
+      '--changed', 'scripts/build-context-pack.mjs',
+      '--changed', 'docs/specifications/context-pack-builder.md',
+      '--changed', 'docs/decisions/2026-07-08-context-selection-rule-table.md',
+      '--changed', 'scripts/validate-repo.mjs',
+    ]);
+    wi0057Sample = runBuilder([
+      '--wi', 'WI-CX0057-docs',
+      '--risk', 'R2',
+      '--intent', 'session-boundary ephemeral-worker controller-owned branch commit',
+      '--changed', 'docs/policies/autonomy-and-approval.md',
+      '--changed', 'docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md',
+      '--changed', 'docs/manifest.yaml',
+      '--changed', 'scripts/validate-repo.mjs',
+      '--changed', '.flowset/handoff.md',
+    ]);
+    genericSample = runBuilder([
+      '--wi', 'WI-CX0058-fix',
+      '--risk', 'R2',
+      '--intent', 'handoff validation',
+      '--changed', '.flowset/handoff.md',
+    ]);
+    try {
+      runBuilder([
+        '--wi', 'WI-CX0056-test',
+        '--risk', 'R2',
+        '--intent', 'fresh-run-continuation session-boundary layer-2 target handoff validation wi-start git pull-request',
+        '--changed', '.flowset/current-wi.md',
+        '--changed', '.flowset/fix_plan.md',
+        '--changed', '.flowset/handoff.md',
+        '--changed', '.flowset/state.json',
+        '--changed', 'docs/manifest.yaml',
+        '--changed', 'docs/records/validation-wi-cx0056-test.md',
+      ]);
+    } catch (rejectionError) {
+      rejectedSample = JSON.parse(rejectionError.stderr?.toString() ?? '{}');
+    }
+  } catch (validationError) {
+    sampleError = validationError.stderr?.toString().trim() || validationError.message;
+  }
+
+  const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
+  const contextKi = knownIssues.find((item) => item.id === 'KI-CX-CONTEXT-001');
+  const workerKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-001');
+  const topology = state.control_plane?.worker_topology ?? {};
+
+  checks.context_breadth_registration = manifest.includes('id: decision.context-selection-breadth-guard')
+    && manifest.includes(decisionPath)
+    && manifest.includes('id: record.validation-wi-cx0058-fix')
+    && manifest.includes(recordPath)
+    && docsIndex.includes(decisionPath)
+    && docsIndex.includes(recordPath)
+    && decisionsReadme.includes(decisionPath)
+    && recordsReadme.includes(recordPath);
+  checks.context_breadth_ledger = wiContextPackEntries.length === 76
+    && wiContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
+    && wiContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
+    && wiContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
+    && record.includes('76 metadata-only ledger entries')
+    && record.includes('contains_chunk_bodies: false');
+  checks.context_breadth_builder = builder.includes("policy: 'exact-specialized-intent-tags-v1'")
+    && builder.includes('manifest.explicit-reference-match')
+    && builder.includes('loads_for exactly matched intent tags')
+    && builder.includes('maxDynamicLoadsForChunks = 24')
+    && builder.includes('maxSelectedChunks = 40')
+    && builder.includes('context_selection_breadth_guard_rejected')
+    && builder.indexOf("breadthGuard.status === 'rejected'") < builder.indexOf("args['append-ledger']");
+  checks.context_breadth_spec = spec.includes('Status: implemented-v2')
+    && spec.includes('## Breadth Guard')
+    && spec.includes('Generic single terms')
+    && spec.includes('limited to 24 chunks')
+    && spec.includes('limited to 40 chunks')
+    && spec.includes('exit before ledger append')
+    && spec.includes('must not silently truncate');
+  checks.context_breadth_decision = decision.includes('Status: accepted-v0')
+    && decision.includes('123 chunks for WI-CX0056')
+    && decision.includes('120 for WI-CX0057')
+    && decision.includes('76 for the initial WI-CX0058')
+    && decision.includes('exact specialized tags')
+    && decision.includes('rejected before any ledger append')
+    && decision.includes('supersedes only the token-intersection behavior');
+  checks.context_breadth_samples = sampleError === null
+    && currentSample?.selected_chunk_ids?.length === 18
+    && currentSample?.breadth_guard?.status === 'passed'
+    && currentSample?.breadth_guard?.total_selected_chunk_count === 18
+    && wi0057Sample?.selected_chunk_ids?.length === 29
+    && wi0057Sample?.breadth_guard?.dynamic_loads_for_chunk_count === 14
+    && genericSample?.breadth_guard?.dynamic_loads_for_chunk_count === 0
+    && !genericSample?.selection_rule_ids?.includes('manifest.loads-for-token-match')
+    && rejectedSample?.error === 'context_selection_breadth_guard_rejected'
+    && rejectedSample?.breadth_guard?.dynamic_loads_for_chunk_count === 29
+    && rejectedSample?.breadth_guard?.total_selected_chunk_count === 41
+    && rejectedSample?.breadth_guard?.status === 'rejected';
+  checks.context_breadth_record = record.includes('Status: validated')
+    && record.includes('ctx-wi-cx0058-fix-20260710081912')
+    && record.includes('| Equivalent WI-CX0058 precise request | 76 | 18 |')
+    && record.includes('| Equivalent WI-CX0057 session-boundary request with changed handoff | 120 | 29 |')
+    && record.includes('rejected before append at dynamic 29 and total 41')
+    && record.includes('ledger line count unchanged at 4714 before and after')
+    && record.includes('observed process ids 61312, 40280, and 60288')
+    && record.includes('incomplete builder-only partial edit')
+    && record.includes('PSC: P1')
+    && record.includes('WTC: VAL')
+    && record.includes('Risk: R2')
+    && record.includes('ESC: E1+E3+E5+E6');
+  checks.context_breadth_flow = currentWi.includes('WI id: WI-CX0058-fix')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0058-fix-context-pack-selection-breadth-guard')
+    && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
+    && !fixPlan.includes('KI-CX-CONTEXT-001 Context-pack selection breadth')
+    && fixPlan.includes('KI-CX-WORKER-001 Ephemeral worker process lifecycle')
+    && handoff.includes('Current WI: WI-CX0058-fix Context Pack Selection Breadth Guard')
+    && state.current_wi?.id === 'WI-CX0058-fix'
+    && state.current_priority?.wi_id === 'WI-CX0059-fix';
+  checks.context_breadth_known_issues = contextKi?.status === 'repaid'
+    && contextKi.repaid_by === 'WI-CX0058-fix'
+    && contextKi.decision_ref === decisionPath
+    && contextKi.evidence === recordPath
+    && workerKi?.status === 'open'
+    && workerKi.severity === 'Medium'
+    && workerKi.owner === 'CODEX'
+    && workerKi.repayment_condition.includes('WI-CX0059-fix')
+    && workerKi.hard_stop.includes('runner reactivation');
+  checks.context_breadth_worker_evidence = topology.runtime_status === 'degraded-process-lifecycle-open'
+    && JSON.stringify(topology.last_attempt?.observed_process_ids) === JSON.stringify([61312, 40280, 60288])
+    && topology.last_attempt?.process_ids_confirmed_terminated === true
+    && topology.last_attempt?.repayment_wi === 'WI-CX0059-fix';
+  checks.context_breadth_boundary = state.control_plane?.automation?.status === 'PAUSED'
+    && state.layer2_target?.remote_configured === false
+    && state.hygiene?.context_bodies_carried === false
+    && record.includes('No release publication, deployment, package publication, OSS program submission')
+    && record.includes('production dependency addition')
+    && record.includes('public API or external contract change')
+    && record.includes('first Layer 2 scaffold generation occurred')
+    && record.includes('No destructive filesystem or git operation occurred');
+
+  if (!checks.context_breadth_registration) error('context_breadth.registration_missing', 'Manifest and indexes must register the WI-CX0058 decision and evidence.');
+  if (!checks.context_breadth_ledger) error('context_breadth.ledger_missing', 'WI-CX0058 must preserve its initial 76-entry metadata-only context evidence.');
+  if (!checks.context_breadth_builder) error('context_breadth.builder_missing', 'Builder must implement exact references, exact specialized tags, limits, and fail-before-append ordering.');
+  if (!checks.context_breadth_spec) error('context_breadth.spec_missing', 'Context pack v2 specification must document exact matching and deterministic limits.');
+  if (!checks.context_breadth_decision) error('context_breadth.decision_missing', 'Decision must supersede broad token intersection and retain existing context contracts.');
+  if (!checks.context_breadth_samples) error('context_breadth.samples_failed', 'Equivalent 76/120/123 cases and generic-token regression must satisfy v2 counts and rejection behavior.', sampleError);
+  if (!checks.context_breadth_record) error('context_breadth.record_missing', 'WI-CX0058 record must capture regression, worker dogfood, strategy, and process cleanup evidence.');
+  if (!checks.context_breadth_flow) error('context_breadth.flow_missing', 'Flow state must validate WI-CX0058 and advance to WI-CX0059.');
+  if (!checks.context_breadth_known_issues) error('context_breadth.known_issues_missing', 'Context breadth must be repaid while worker process lifecycle remains a complete Medium KI.');
+  if (!checks.context_breadth_worker_evidence) error('context_breadth.worker_evidence_missing', 'State must record bounded metadata about the worker process-lifecycle failure and cleanup.');
+  if (!checks.context_breadth_boundary) error('context_breadth.boundary_missing', 'WI-CX0058 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.');
 }
 
 function validatePackage() {
@@ -3516,6 +3738,7 @@ validateStrategicGoalSteeringContract();
 validateLayer2ScaffoldGenerator();
 validateLayer2FreshContextContinuation();
 validateEphemeralWorkerControllerBoundary();
+validateContextSelectionBreadthGuard();
 validatePackage();
 
 const result = {

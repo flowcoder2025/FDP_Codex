@@ -29,6 +29,7 @@ Current decisions:
 - `docs/decisions/2026-07-10-runtime-snapshot-state-reconciliation.md`: accepted historical/runtime current-state reconciliation.
 - `docs/decisions/2026-07-10-layer-2-scope-code-accepted.md`: accepted `FCD` scope code for the first Layer 2 dogfood target.
 - `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md`: accepted one visible control task, ephemeral CLI workers, and controller-owned Git operations.
+- `docs/decisions/2026-07-10-context-selection-breadth-guard.md`: accepted exact specialized intent-tag matching and fail-before-append selection limits.
 
 Decision Needed:
 
