@@ -107,6 +107,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0057-docs.md',
   'docs/records/validation-wi-cx0058-fix.md',
   'docs/records/validation-wi-cx0059-fix.md',
+  'docs/records/validation-wi-cx0061-fix.md',
   'docs/records/validation-wi-cx0020-feat.md',
   'docs/records/validation-wi-cx0021-feat.md',
   'docs/records/validation-wi-cx0022-docs.md',
@@ -257,6 +258,7 @@ const requiredChunkIds = [
   'tool.test-ephemeral-worker-lifecycle',
   'fixture.managed-worker-tree',
   'record.validation-wi-cx0059-fix',
+  'record.validation-wi-cx0061-fix',
 ];
 
 const requiredLabels = [
@@ -3706,9 +3708,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const decisionPath = 'docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md';
   const specPath = 'docs/specifications/ephemeral-worker-runner.md';
   const recordPath = 'docs/records/validation-wi-cx0059-fix.md';
+  const temporalRecordPath = 'docs/records/validation-wi-cx0061-fix.md';
   const decision = read(decisionPath);
   const spec = read(specPath);
   const record = read(recordPath);
+  const temporalRecord = read(temporalRecordPath);
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const managedProcess = read('scripts/lib/managed-process.mjs');
   const codexInvocation = read('scripts/lib/codex-invocation.mjs');
@@ -3737,9 +3741,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     });
   const wiContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0059-fix'
     && entry.timestamp === '2026-07-10T09:50:04.441Z');
+  const temporalContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0061-fix'
+    && entry.timestamp === '2026-07-10T10:52:06.771Z');
   const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
   const workerKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-001');
   const providerKi = knownIssues.find((item) => item.id === 'KI-CX-PROVIDER-001');
+  const temporalKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-002');
   const topology = state.control_plane?.worker_topology ?? {};
   const guard = topology.managed_guard ?? {};
   const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
@@ -3779,12 +3786,23 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && docsIndex.includes(recordPath)
     && decisionsReadme.includes(decisionPath)
     && recordsReadme.includes(recordPath);
+  checks.worker_temporal_identity_registration = manifest.includes('id: record.validation-wi-cx0061-fix')
+    && manifest.includes(temporalRecordPath)
+    && docsIndex.includes(temporalRecordPath)
+    && recordsReadme.includes(temporalRecordPath);
   checks.worker_lifecycle_ledger = wiContextPackEntries.length === 17
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
     && wiContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
     && record.includes('17 metadata-only ledger entries')
     && record.includes('contains_chunk_bodies: false');
+  checks.worker_temporal_identity_ledger = temporalContextPackEntries.length === 17
+    && temporalContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
+    && temporalContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
+    && temporalContextPackEntries.some((entry) => entry.chunk_id === 'tool.managed-process')
+    && temporalContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
+    && temporalRecord.includes('17 metadata-only entries')
+    && temporalRecord.includes('contains_chunk_bodies: false');
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
     && managedProcess.includes("'ps', ['-eo', 'pid=,ppid=,pgid=,lstart=,comm=']")
     && managedProcess.includes('started_at')
@@ -3796,6 +3814,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('shell: false')
     && managedProcess.includes('residual-processes-after-root-exit')
     && managedProcess.includes('observationSucceeded && (!cleanup.required || cleanup.verified)');
+  checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
+    && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
+    && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid) && isNotOlderThan(entry, parent)')
+    && managedProcess.includes('isNotOlderThan(entry, observedRoot)')
+    && lifecycleTest.includes('function runTemporalIdentityCase()')
+    && lifecycleTest.includes('assert.equal(observed.has(50001), false)')
+    && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
+    && lifecycleTest.includes('assert.equal(observed.has(50003), true)');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
     && runner.includes("'exec'")
     && runner.includes("'--ephemeral'")
@@ -3811,6 +3837,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
+    && testResult?.cases?.temporal_identity?.stale_excluded === true
+    && testResult?.cases?.temporal_identity?.descendant_count === 2
     && testResult?.cases?.normal?.status === 'completed'
     && testResult?.cases?.normal?.stdout_line_count === 1
     && testResult?.cases?.normal?.stderr_line_count === 1
@@ -3854,6 +3882,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('130 for interruption')
     && spec.includes('npm run worker:test')
     && spec.includes('npm run worker:smoke-local');
+  checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
+    && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
     && record.includes('PSC: P1')
     && record.includes('WTC: AUTO')
@@ -3866,30 +3896,53 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('The user then explicitly approved that stated transmission risk')
     && record.includes('KI-CX-WORKER-001 is repaid by this WI')
     && record.includes('KI-CX-PROVIDER-001 now owns the separate external-provider trust boundary');
-  checks.worker_lifecycle_flow = currentWi.includes('WI id: WI-CX0059-fix')
+  checks.worker_lifecycle_flow = currentWi.includes('Status: validated')
+    && (currentWi.includes('WI id: WI-CX0059-fix') || currentWi.includes('WI id: WI-CX0061-fix'))
     && currentWi.includes('Status: validated')
-    && currentWi.includes('Branch: wi/cx0059-fix-ephemeral-worker-process-lifecycle-guard')
     && fixPlan.includes('WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
-    && handoff.includes('Current WI: WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
-    && state.current_wi?.id === 'WI-CX0059-fix'
     && state.current_wi?.status === 'validated'
     && state.current_priority?.wi_id === 'WI-CX0060-test'
     && state.current_priority?.state === 'blocked-external'
     && state.current_priority?.owner_gate === 'H1'
     && state.current_priority?.lock_blocker === 'yes';
-  checks.worker_lifecycle_state = topology.runtime_status === 'managed-guard-validated-provider-smoke-policy-blocked'
-    && guard.status === 'validated-provider-smoke-policy-blocked'
+  checks.worker_lifecycle_state = ['managed-guard-validated-provider-smoke-policy-blocked', 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'].includes(topology.runtime_status)
+    && ['validated-provider-smoke-policy-blocked', 'validated-temporal-identity-provider-smoke-policy-blocked'].includes(guard.status)
     && guard.supervisor === 'scripts/run-ephemeral-worker.mjs'
     && guard.default_timeout_ms === 120000
     && JSON.stringify(guard.allowed_sandboxes) === JSON.stringify(['read-only', 'workspace-write'])
     && guard.prompt_transport === 'stdin'
-    && guard.deterministic_cases?.normal === 'passed'
-    && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed'
-    && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed'
-    && guard.deterministic_cases?.residual_after_root_exit_cleanup === 'passed'
+    && String(guard.deterministic_cases?.normal).startsWith('passed')
+    && String(guard.deterministic_cases?.timeout_descendant_cleanup).startsWith('passed')
+    && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
+    && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.live_model_smoke?.result === 'policy-rejected-after-user-approval';
+  checks.worker_temporal_identity_record = temporalRecord.includes('Status: validated')
+    && temporalRecord.includes('PSC: P1')
+    && temporalRecord.includes('WTC: AUTO')
+    && temporalRecord.includes('Risk: R2')
+    && temporalRecord.includes('ESC: E1+E3+E5+E6')
+    && temporalRecord.includes('intermittently reported `residual_processes`')
+    && temporalRecord.includes('Five consecutive full lifecycle runs passed')
+    && temporalRecord.includes('KI-CX-WORKER-002 Windows stale parent-pid descendant false positive');
+  checks.worker_temporal_identity_flow = currentWi.includes('WI id: WI-CX0061-fix')
+    && currentWi.includes('Status: validated')
+    && currentWi.includes('Branch: wi/cx0061-fix-worker-descendant-temporal-identity')
+    && handoff.includes('Current WI: WI-CX0061-fix Worker Descendant Temporal Identity Guard')
+    && state.current_wi?.id === 'WI-CX0061-fix'
+    && state.current_wi?.validation_record === temporalRecordPath
+    && state.current_priority?.wi_id === 'WI-CX0060-test'
+    && state.current_priority?.state === 'blocked-external';
+  checks.worker_temporal_identity_state = topology.runtime_status === 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'
+    && guard.status === 'validated-temporal-identity-provider-smoke-policy-blocked'
+    && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
+    && guard.deterministic_cases?.normal === 'passed-repeated-5'
+    && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
+    && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed-repeated-5'
+    && guard.deterministic_cases?.residual_after_root_exit_cleanup === 'passed-repeated-5'
+    && guard.post_merge_validation?.trigger_commit === 'b905fc6cd0db825dcf91edbaa19688ba2a0d44ec'
+    && guard.post_merge_validation?.repayment_wi === 'WI-CX0061-fix';
   checks.worker_lifecycle_known_issue = workerKi?.status === 'repaid'
     && workerKi.severity === 'Medium'
     && workerKi.owner === 'CODEX'
@@ -3902,6 +3955,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && providerKi.trigger.includes('after explicit user approval')
     && providerKi.repayment_condition.includes('establishes the configured model service as trusted')
     && providerKi.hard_stop.includes('dogfood continuation');
+  checks.worker_temporal_identity_known_issue = temporalKi?.status === 'repaid'
+    && temporalKi.severity === 'High'
+    && temporalKi.owner === 'CODEX'
+    && temporalKi.repaid_by === 'WI-CX0061-fix'
+    && temporalKi.trigger.includes('stale Windows parent-pid metadata')
+    && temporalKi.repayment_condition.includes('temporal descendant filtering')
+    && temporalKi.hard_stop.includes('before dogfood continuation')
+    && temporalKi.evidence === temporalRecordPath;
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'PAUSED'
     && state.layer2_target?.remote_configured === false
@@ -3911,6 +3972,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('No production dependency addition, public API or external contract change occurred')
     && record.includes('No destructive filesystem or git operation occurred');
   checks.worker_lifecycle_live_runner_status = liveRunnerStatus;
+  checks.worker_temporal_identity_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
+    && state.control_plane?.automation?.status === 'PAUSED'
+    && state.layer2_target?.remote_configured === false
+    && temporalRecord.includes('The Layer 2 target was not touched')
+    && temporalRecord.includes('No live model smoke or provider-policy workaround was attempted')
+    && temporalRecord.includes('No destructive filesystem or git operation occurred');
 
   if (!checks.worker_lifecycle_registration) error('worker_lifecycle.registration_missing', 'Manifest and indexes must register the WI-CX0059 decision, specification, tools, fixture, and record.');
   if (!checks.worker_lifecycle_ledger) error('worker_lifecycle.ledger_missing', 'WI-CX0059 must retain its 17-entry metadata-only fresh context evidence.');
@@ -3926,6 +3993,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_lifecycle_state) error('worker_lifecycle.state_missing', 'Machine state must expose local guard results and the rejected-before-execution live smoke.');
   if (!checks.worker_lifecycle_known_issue) error('worker_lifecycle.known_issue_missing', 'WI-CX0059 must repay the process KI while retaining the separate provider-trust KI and hard stops.');
   if (!checks.worker_lifecycle_boundary) error('worker_lifecycle.boundary_missing', 'WI-CX0059 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.', liveRunnerStatus);
+  if (!checks.worker_temporal_identity_registration) error('worker_temporal_identity.registration_missing', 'Manifest and indexes must register the WI-CX0061 validation record.');
+  if (!checks.worker_temporal_identity_ledger) error('worker_temporal_identity.ledger_missing', 'WI-CX0061 must retain its 17-entry metadata-only fresh context evidence.');
+  if (!checks.worker_temporal_identity_implementation) error('worker_temporal_identity.implementation_missing', 'Descendant discovery must reject candidates older than the observed parent or process-group root and retain deterministic coverage.');
+  if (!checks.worker_temporal_identity_spec) error('worker_temporal_identity.spec_missing', 'Worker specification must define stale parent-pid temporal filtering.');
+  if (!checks.worker_temporal_identity_record) error('worker_temporal_identity.record_missing', 'WI-CX0061 record must capture the post-merge trigger, strategy, repeated proof, KI repayment, and boundaries.');
+  if (!checks.worker_temporal_identity_flow) error('worker_temporal_identity.flow_missing', 'Flow state must expose validated WI-CX0061 and retain the blocked provider proof as next priority.');
+  if (!checks.worker_temporal_identity_state) error('worker_temporal_identity.state_missing', 'Machine state must expose the repeated temporal identity result and post-merge trigger commit.');
+  if (!checks.worker_temporal_identity_known_issue) error('worker_temporal_identity.known_issue_missing', 'KI-CX-WORKER-002 must record severity, ownership, repayment, evidence, and hard stop.');
+  if (!checks.worker_temporal_identity_boundary) error('worker_temporal_identity.boundary_missing', 'WI-CX0061 must preserve runner, target, provider, publication, and destructive-operation boundaries.', liveRunnerStatus);
 }
 
 function validatePackage() {

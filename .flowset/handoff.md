@@ -6,9 +6,9 @@ Status: live.
 
 FDP_Codex is public and in a public bootstrap, pre-release state.
 
-Current WI: WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard. The guard is validated; repository-backed model execution remains separately policy-blocked by KI-CX-PROVIDER-001.
+Current WI: WI-CX0061-fix Worker Descendant Temporal Identity Guard. The Windows false-descendant hotfix is validated; repository-backed model execution remains separately policy-blocked by KI-CX-PROVIDER-001.
 
-WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`.
+WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
 
@@ -34,6 +34,8 @@ Two dogfood `codex exec --ephemeral` attempts produced no visible events, left o
 
 WI-CX0059 implements `scripts/run-ephemeral-worker.mjs` with stdin-only prompts, JSONL event streaming, finite timeout, interruption handling, pid/start-time identity tracking, POSIX process-group tracking, descendant-first cleanup, and post-cleanup verification. Deterministic normal, timeout, interruption, and observed-residual cases pass; an exact post-test process query found no fixture process; and a no-model `codex exec --help` smoke passes through the supervisor. KI-CX-WORKER-001 is repaid.
 
+Required post-merge validation of WI-CX0059 intermittently classified an older Windows process row with a stale parent pid as a live descendant after the root pid was reused. WI-CX0061 rejects candidates that started before their observed parent or process-group root and adds a deterministic stale-row test. Five consecutive full lifecycle runs passed, repaying KI-CX-WORKER-002 before dogfood or runner reactivation.
+
 The repository-backed read-only model smoke was rejected before execution and again after the user explicitly approved the stated transmission risk. Codex did not bypass the policy. KI-CX-PROVIDER-001 now owns that external-provider trust boundary and blocks dogfood continuation, generalized unattended model workers, and runner reactivation.
 
 Automation runner S2 review packet is available at `docs/records/automation-runner-s2-review-packet-2026-07-08.md`. It prepares S2 but does not satisfy E2 by itself.
@@ -55,6 +57,7 @@ Release publication, deployment, package publication, and OSS program submission
 - WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof. Evidence: `docs/records/validation-wi-cx0056-test.md`. Result: a minimal prompt reconstructed the next target WI and debt, the target continued without prior conversation bodies, and VD-FCD0001 is repaid.
 - WI-CX0057-docs: Ephemeral Worker Controller Boundary Contract. Evidence: `docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md` and `docs/records/validation-wi-cx0057-docs.md`. Result: a single visible controller owns Git and user interaction while ephemeral workers reconstruct, edit, and validate without app task fan-out.
 - WI-CX0058-fix: Context Pack Selection Breadth Guard. Evidence: `docs/decisions/2026-07-10-context-selection-breadth-guard.md` and `docs/records/validation-wi-cx0058-fix.md`. Result: exact matching and fail-before-append limits repay KI-CX-CONTEXT-001.
+- WI-CX0059-fix: Ephemeral Worker Process Lifecycle Guard. Evidence: `docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md` and `docs/records/validation-wi-cx0059-fix.md`. Result: managed timeout, interruption, process-tree cleanup, and no-model CLI smoke repay KI-CX-WORKER-001.
 
 ## Orientation SSOT
 
@@ -97,6 +100,7 @@ Release publication, deployment, package publication, and OSS program submission
 - Fresh-context continuation is validated and `VD-FCD0001` is repaid. WI-CX0057 repays KI-CX-DOGFOOD-001 with a single visible controller, ephemeral workers, and controller-owned Git operations; this does not reactivate the runner.
 - WI-CX0058 repays KI-CX-CONTEXT-001 with exact specialized-tag matching, explicit source references, and dynamic 24/total 40 fail-before-append limits.
 - KI-CX-WORKER-001 is repaid by WI-CX0059's deterministic OS process-tree cleanup, no-residual proof, and installed Codex CLI local smoke.
+- KI-CX-WORKER-002 is repaid by WI-CX0061's temporal descendant identity rule, deterministic stale-row test, and five repeated lifecycle passes.
 - KI-CX-PROVIDER-001 records the policy-rejected repository-to-model trust boundary. Do not resume dogfood, generalized unattended model workers, or the runner until the execution environment establishes the provider as trusted and permits the managed smoke.
 - E2/S2 blind review for the runner remains debt before generalized A2/A3 expansion or release-candidate readiness.
 - Strict TypeScript source conversion remains DQ-DEBT; the strictness probe records debt only.
@@ -136,11 +140,11 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 - Remote `main` is the repository standard after completed PR merges.
 - `C:\dev\FDP_Codex` is canonical after WI-CX0018 realignment to `origin/main`.
-- Active WI branch for this cycle: `wi/cx0059-fix-ephemeral-worker-process-lifecycle-guard`.
+- Active WI branch for this cycle: `wi/cx0061-fix-worker-descendant-temporal-identity`.
 
 ## Next Action
 
-Publish and merge the validated WI-CX0059 guard inside the active envelope. WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof remains blocked on KI-CX-PROVIDER-001; do not retry the rejected repository-backed model smoke, resume dogfood, or reactivate the runner through a workaround.
+Publish and merge the validated WI-CX0061 hotfix inside the active envelope. WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof remains blocked on KI-CX-PROVIDER-001; do not retry the rejected repository-backed model smoke, resume dogfood, or reactivate the runner through a workaround.
 
 ## Blocked Work
 
@@ -160,4 +164,4 @@ Publish and merge the validated WI-CX0059 guard inside the active envelope. WI-C
 3. Gather or validate control-plane evidence before claiming a fresh run, handoff receiver, or clean session boundary.
 4. Build a fresh context pack for the next WI.
 5. Run `npm run validate` before declaring repository policy work complete.
-6. Finish WI-CX0059 publication if still pending, then stop at KI-CX-PROVIDER-001. Do not retry the policy-rejected repository-backed model smoke, run direct unmanaged `codex exec`, resume dogfood, or reactivate the runner through a workaround. Stop at target remote creation, target push, runner reactivation, release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive operations unless explicitly approved.
+6. Finish WI-CX0061 publication if still pending, then stop at KI-CX-PROVIDER-001. Do not retry the policy-rejected repository-backed model smoke, run direct unmanaged `codex exec`, resume dogfood, or reactivate the runner through a workaround. Stop at target remote creation, target push, runner reactivation, release, deployment, package publication, OSS submission, automation authority expansion, S2 execution, separate reviewer creation, or destructive operations unless explicitly approved.

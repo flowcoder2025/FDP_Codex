@@ -116,11 +116,23 @@ function sameIdentity(expected, current) {
 }
 
 /**
+ * @param {ProcessInfo} candidate
+ * @param {ProcessInfo | undefined} ancestor
+ */
+function isNotOlderThan(candidate, ancestor) {
+  if (!candidate.started_at || !ancestor?.started_at) return true;
+  const candidateStartedAt = Date.parse(candidate.started_at);
+  const ancestorStartedAt = Date.parse(ancestor.started_at);
+  if (!Number.isFinite(candidateStartedAt) || !Number.isFinite(ancestorStartedAt)) return true;
+  return candidateStartedAt >= ancestorStartedAt;
+}
+
+/**
  * @param {ProcessInfo[]} table
  * @param {number} rootPid
  * @param {Map<number, ProcessInfo>} observed
  */
-function mergeObservedTree(table, rootPid, observed) {
+export function mergeObservedTree(table, rootPid, observed) {
   const byPid = new Map(table.map((entry) => [entry.pid, entry]));
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
@@ -142,8 +154,13 @@ function mergeObservedTree(table, rootPid, observed) {
   while (changed) {
     changed = false;
     for (const entry of table) {
-      const belongsToPosixGroup = process.platform !== 'win32' && entry.pgid === rootPid;
-      if (entry.pid === process.pid || (!parentPids.has(entry.ppid) && !belongsToPosixGroup) || observed.has(entry.pid)) continue;
+      const parent = observed.get(entry.ppid);
+      const observedRoot = observed.get(rootPid);
+      const belongsToObservedParent = parentPids.has(entry.ppid) && isNotOlderThan(entry, parent);
+      const belongsToPosixGroup = process.platform !== 'win32'
+        && entry.pgid === rootPid
+        && isNotOlderThan(entry, observedRoot);
+      if (entry.pid === process.pid || (!belongsToObservedParent && !belongsToPosixGroup) || observed.has(entry.pid)) continue;
       observed.set(entry.pid, entry);
       parentPids.add(entry.pid);
       changed = true;
