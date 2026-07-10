@@ -1338,13 +1338,10 @@ chunks:
     source: docs/records/automation-runner-s2-review-packet-2026-07-08.md
     type: record
     layer: layer1
-    status: review-needed
+    status: historical-obsolete
     loads_for:
-      - blind-review-planning
-      - adversarial-review-planning
-      - automation-planning
-      - evaluator-strategy-selection
-      - handoff
+      - audit
+      - historical-automation-evidence
     body_carryover: forbidden
   - id: record.validation-wi-cx0041-docs
     title: WI-CX0041-docs Validation Record
@@ -1363,13 +1360,10 @@ chunks:
     source: docs/records/post-bootstrap-automation-cadence-decision-handback-2026-07-08.md
     type: record
     layer: layer1
-    status: user-decision-needed
+    status: historical-obsolete
     loads_for:
-      - decision-needed
-      - automation-planning
-      - approval-envelope
-      - handoff
-      - wi-start
+      - audit
+      - historical-automation-evidence
     body_carryover: forbidden
   - id: record.validation-wi-cx0043-docs
     title: WI-CX0043-docs Validation Record
@@ -1905,6 +1899,90 @@ chunks:
       - control-plane-integrity
       - github-governance
       - post-merge-closeout
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: github.workflow.independent-review
+    title: Independent Review Required Check
+    source: .github/workflows/independent-review.yml
+    type: github-workflow
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: decision.independent-blind-adversarial-review-gate
+    title: Independent Blind Adversarial Review Gate
+    source: docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md
+    type: decision
+    layer: layer1
+    status: accepted
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
+  - id: spec.independent-review-evidence
+    title: Independent Review Evidence
+    source: docs/specifications/independent-review-evidence.md
+    type: specification
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.audit-independent-review
+    title: Independent Review Audit
+    source: scripts/audit-independent-review.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - blind-review
+      - adversarial-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.publish-independent-review-status
+    title: Independent Review Status Publisher
+    source: scripts/publish-independent-review-status.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - independent-review
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: record.validation-wi-cx0063-feat
+    title: WI-CX0063-feat Validation Record
+    source: docs/records/validation-wi-cx0063-feat.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - independent-review
+      - blind-review
+      - adversarial-review
       - validation
       - handoff
       - wi-start

@@ -117,6 +117,7 @@ Review and gate labels:
 - `pr:needs-validation`
 - `pr:ready-for-review`
 - `pr:blocked-policy`
+- `pr:independent-review-passed`
 - `pr:approved-merge`
 
 Contributor labels:

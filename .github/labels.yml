@@ -88,6 +88,9 @@
 - name: pr:approved-merge
   color: "0e8a16"
   description: PR is approved for merge.
+- name: pr:independent-review-passed
+  color: "0e8a16"
+  description: Current PR head passed independent blind adversarial review.
 - name: external-contribution
   color: "c5def5"
   description: External contributor issue or PR.

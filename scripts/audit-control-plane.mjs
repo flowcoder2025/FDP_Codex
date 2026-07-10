@@ -37,6 +37,38 @@ function sameValues(actual, expected) {
   return JSON.stringify(sorted(actual)) === JSON.stringify(sorted(expected));
 }
 
+function latestStatusForContext(statuses, context) {
+  return statuses
+    .filter((item) => item.context === context)
+    .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')))[0] || null;
+}
+
+function inspectIndependentReview(reviewPrNumber, { allowMerged = false } = {}) {
+  const commandArgs = [
+    'scripts/audit-independent-review.mjs',
+    '--pr', String(reviewPrNumber),
+    '--allow-merge-approved',
+  ];
+  if (allowMerged) commandArgs.push('--allow-merged');
+
+  try {
+    return JSON.parse(run(process.execPath, commandArgs));
+  } catch (caught) {
+    const stdout = caught?.stdout?.toString?.().trim() || '';
+    try {
+      return JSON.parse(stdout);
+    } catch {
+      return {
+        ok: false,
+        errors: [{
+          id: 'audit.execution_failed',
+          detail: caught?.stderr?.toString?.().trim() || caught?.message || String(caught),
+        }],
+      };
+    }
+  }
+}
+
 const checks = {};
 const errors = [];
 const addCheck = (id, ok, detail) => {
@@ -87,6 +119,49 @@ addCheck('codex.recorded_runner_task_closeout', integrityState.runner_tasks_arch
   live_app_query_required: true,
 });
 
+const repo = run('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']);
+const branchProtection = JSON.parse(run('gh', ['api', `repos/${repo}/branches/main/protection`]));
+const protectionChecks = branchProtection.required_status_checks?.checks || [];
+const expectedProtectedContexts = [
+  'validate (node 20.x)',
+  'validate (node 24.x)',
+  'independent-review',
+];
+addCheck('github.main_branch_protection', branchProtection.required_status_checks?.strict === true
+  && branchProtection.enforce_admins?.enabled === true
+  && branchProtection.required_conversation_resolution?.enabled === true
+  && branchProtection.allow_force_pushes?.enabled === false
+  && branchProtection.allow_deletions?.enabled === false
+  && expectedProtectedContexts.every((context) => protectionChecks.some((check) => check.context === context
+    && check.app_id === 15368)), {
+  strict: branchProtection.required_status_checks?.strict,
+  enforce_admins: branchProtection.enforce_admins?.enabled,
+  conversation_resolution: branchProtection.required_conversation_resolution?.enabled,
+  allow_force_pushes: branchProtection.allow_force_pushes?.enabled,
+  allow_deletions: branchProtection.allow_deletions?.enabled,
+  checks: protectionChecks,
+});
+
+const independentReviewState = state.control_plane?.independent_review ?? {};
+const bootstrapStatusRunId = independentReviewState.bootstrap_status_run || null;
+const bootstrapStatusRun = bootstrapStatusRunId
+  ? JSON.parse(run('gh', [
+    'run', 'view', String(bootstrapStatusRunId),
+    '--json', 'databaseId,event,headSha,status,conclusion,url',
+  ]))
+  : null;
+
+function statusSourceMatches(pullRequestNumber, status) {
+  const actionsStatus = status?.creator?.login === 'github-actions[bot]';
+  if (!actionsStatus || pullRequestNumber !== 58) return actionsStatus;
+  return bootstrapStatusRun?.databaseId === bootstrapStatusRunId
+    && bootstrapStatusRun?.event === 'pull_request'
+    && bootstrapStatusRun?.headSha === independentReviewState.bootstrap_status_source_head
+    && bootstrapStatusRun?.status === 'completed'
+    && bootstrapStatusRun?.conclusion === 'success'
+    && status.target_url === bootstrapStatusRun.url;
+}
+
 const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,labels,url']));
 for (const knownIssue of state.known_issues || []) {
   const issue = issues.find((candidate) => candidate.number === knownIssue.github_issue_number);
@@ -110,9 +185,11 @@ for (const knownIssue of state.known_issues || []) {
   });
 }
 
-const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,labels,url']));
+const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;
+const independentReviewBaselinePr = state.control_plane?.independent_review?.pr_baseline_from ?? Number.POSITIVE_INFINITY;
 const requiredPrLabels = ['fdp:approved-work', 'needs:validator', 'pr:ready-for-review', 'pr:approved-merge'];
+const requiredIndependentReviewLabels = ['needs:blind-review', 'needs:adversarial-review', 'pr:independent-review-passed'];
 for (const pullRequest of pullRequests.filter((candidate) => candidate.number >= baselinePr && candidate.number !== prNumber)) {
   const labels = pullRequest.labels.map((label) => label.name);
   const riskLabels = labels.filter((label) => /^risk:R[0-3]$/.test(label));
@@ -120,7 +197,21 @@ for (const pullRequest of pullRequests.filter((candidate) => candidate.number >=
   addCheck(`pr.${pullRequest.number}.metadata`, pullRequest.state === 'MERGED'
     && riskLabels.length === 1
     && trackLabels.length >= 1
+    && (pullRequest.number < independentReviewBaselinePr
+      || labels.includes('risk:R0')
+      || requiredIndependentReviewLabels.every((label) => labels.includes(label)))
     && requiredPrLabels.every((label) => labels.includes(label)), { state: pullRequest.state, labels });
+  if (pullRequest.number >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
+    const independentReview = inspectIndependentReview(pullRequest.number, { allowMerged: true });
+    addCheck(`pr.${pullRequest.number}.independent_review`, independentReview.ok === true, independentReview);
+    const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${pullRequest.headRefOid}`]));
+    const independentStatus = latestStatusForContext(statuses, 'independent-review');
+    addCheck(`pr.${pullRequest.number}.independent_review_status`, independentStatus?.state === 'success'
+      && statusSourceMatches(pullRequest.number, independentStatus), {
+      status: independentStatus || null,
+      bootstrap_run: pullRequest.number === 58 ? bootstrapStatusRun : null,
+    });
+  }
 }
 
 if (prNumber) {
@@ -132,6 +223,9 @@ if (prNumber) {
     && currentPr.headRefName === activeBranch
     && labels.filter((label) => /^risk:R[0-3]$/.test(label)).length === 1
     && labels.some((label) => label.startsWith('track:'))
+    && (prNumber < independentReviewBaselinePr
+      || labels.includes('risk:R0')
+      || requiredIndependentReviewLabels.every((label) => labels.includes(label)))
     && requiredPrLabels.every((label) => labels.includes(label)), {
     prNumber,
     actual_state: currentPr?.state || null,
@@ -140,6 +234,17 @@ if (prNumber) {
     expected_head: activeBranch,
     labels,
   });
+  if (currentPr && prNumber >= independentReviewBaselinePr && !labels.includes('risk:R0')) {
+    const independentReview = inspectIndependentReview(prNumber, { allowMerged: phase === 'post-merge' });
+    addCheck('pr.current_independent_review', independentReview.ok === true, independentReview);
+    const statuses = JSON.parse(run('gh', ['api', `repos/${repo}/statuses/${currentPr.headRefOid}`]));
+    const independentStatus = latestStatusForContext(statuses, 'independent-review');
+    addCheck('pr.current_independent_review_status', independentStatus?.state === 'success'
+      && statusSourceMatches(prNumber, independentStatus), {
+      status: independentStatus || null,
+      bootstrap_run: prNumber === 58 ? bootstrapStatusRun : null,
+    });
+  }
 }
 
 const report = {

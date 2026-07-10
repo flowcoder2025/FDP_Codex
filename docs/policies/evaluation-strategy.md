@@ -96,6 +96,11 @@ S2 Separate Blind Review:
 
 - A separate Codex thread, separate reviewer, or human reviewer receives the goal, changed files, and evidence without the implementer's persuasive narrative.
 - Required to satisfy E2.
+- Agent-based S2 must start from clean context. `multi_agent_v1` reviewers use `fork_context: false`.
+- The reviewer must actively perform E3 adversarial falsification, report P0-P3 findings first, and must not edit the implementation.
+- The result must be anchored to the current PR head through `docs/specifications/independent-review-evidence.md`.
+- The result must include a controller-attested orchestrator receipt. This is auditable metadata, not signed reviewer identity; KI-CX-REVIEW-001 governs the remaining provenance limit.
+- Any head change invalidates the review.
 - Required before release-candidate decisions, public release, OSS program submission, A2/A3 autonomy enablement, and disputed or ambiguous evidence.
 
 H1 Human Maintainer Gate:
@@ -105,6 +110,14 @@ H1 Human Maintainer Gate:
 - H1 is an approval gate, not an E-code.
 
 ## Selection Matrix
+
+Repository-wide non-trivial WI default:
+
+- Every R1, R2, or R3 WI requires E2 + E3 on S2 before merge.
+- R0 may use S0 or S1 only when it does not change policy, workflow, public behavior, validation, context, or external state.
+- PASS with no unresolved P0/P1/P2 finding is required before `pr:approved-merge`.
+- The required `independent-review` status and live audit must pass; labels alone do not satisfy S2.
+- The required status publisher is GitHub Actions app-bound, PR-serialized, pending-before-audit, and stable across two live reads. This is defense in depth; KI-CX-STATUS-001 records that GitHub Free cannot bind the context to one workflow identity.
 
 Foundation policy:
 
@@ -201,6 +214,8 @@ Every R2 or higher evaluation must record:
 - Decision Needed items,
 - handoff update.
 
+Every non-trivial R1, R2, or R3 PR must also retain a live GitHub review that satisfies `npm run audit:independent-review -- --pr <number>`. A validation record or PR checkbox cannot substitute for that live review.
+
 If E2 is required but S2 was not used, the work may continue only when the current boundary does not require E2 completion before merge. The validation record must state that E2 remains unrepaid.
 
 ## Decision Status
@@ -208,6 +223,7 @@ If E2 is required but S2 was not used, the work may continue only when the curre
 Resolved by `docs/decisions/2026-07-08-evaluation-surface-baseline.md`:
 
 - E2 requires S2 Separate Blind Review.
+- Every non-trivial R1, R2, or R3 WI requires E2 and E3 on S2 before merge.
 - S1 same-thread review may support R2 pre-release work but does not satisfy E2.
 - Adversarial checklists remain evaluator prompts by default.
 - H1 Human Maintainer Gate is mandatory before first public release, tagged release, package publication, deployment, or OSS program submission.
