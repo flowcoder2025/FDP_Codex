@@ -19,6 +19,24 @@ function isProcessAlive(pid) {
   }
 }
 
+function assertObservedCleanupPartition(result) {
+  const observedPids = [result.root_pid, ...result.observed_descendant_pids]
+    .sort((a, b) => a - b);
+  const classifiedPids = [
+    ...result.cleanup.confirmed_gone_pids,
+    ...result.cleanup.identity_mismatch_pids,
+    ...result.cleanup.alive_after_cleanup,
+  ].sort((a, b) => a - b);
+
+  assert.equal(
+    new Set(classifiedPids).size,
+    classifiedPids.length,
+    'cleanup classified a PID more than once: ' + JSON.stringify(result.cleanup),
+  );
+  assert.deepEqual(classifiedPids, observedPids);
+  return true;
+}
+
 function runBuiltinFanoutFlagCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
@@ -167,11 +185,8 @@ async function runTimeoutCase() {
   assert.equal(result.cleanup.reason, 'timeout');
   assert.equal(result.cleanup.verified, true);
   assert.deepEqual(result.cleanup.alive_after_cleanup, []);
-  assert(
-    result.cleanup.confirmed_gone_pids.includes(result.root_pid)
-      || result.cleanup.identity_mismatch_pids.includes(result.root_pid),
-  );
-  return result;
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
 }
 
 async function runInterruptionCase() {
@@ -193,7 +208,8 @@ async function runInterruptionCase() {
     assert.equal(result.cleanup.reason, 'interrupted');
     assert.equal(result.cleanup.verified, true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
-    return result;
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
   } finally {
     clearTimeout(timer);
   }
@@ -285,7 +301,12 @@ async function runObservationHangTimeoutCase() {
     assert.equal(isProcessAlive(result.root_pid), false);
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
-    return { ...result, elapsed_ms: elapsedMs };
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    return {
+      ...result,
+      elapsed_ms: elapsedMs,
+      cleanup_partition_verified: cleanupPartitionVerified,
+    };
   } finally {
     if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
     else process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = previousDelay;
@@ -317,7 +338,12 @@ async function runObservationHangInterruptionCase() {
     assert.equal(isProcessAlive(result.root_pid), false);
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
-    return { ...result, elapsed_ms: elapsedMs };
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    return {
+      ...result,
+      elapsed_ms: elapsedMs,
+      cleanup_partition_verified: cleanupPartitionVerified,
+    };
   } finally {
     clearTimeout(abortTimer);
     if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
@@ -385,11 +411,13 @@ console.log(JSON.stringify({
         status: windowsCases.timeout.status,
         observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,
         cleanup_verified: windowsCases.timeout.cleanup.verified,
+        cleanup_partition_verified: windowsCases.timeout.cleanup_partition_verified,
       },
       interruption: {
         status: windowsCases.interruption.status,
         observed_descendant_count: windowsCases.interruption.observed_descendant_pids.length,
         cleanup_verified: windowsCases.interruption.cleanup.verified,
+        cleanup_partition_verified: windowsCases.interruption.cleanup_partition_verified,
       },
       orphan_containment: {
         status: windowsCases.orphanContainment.status,
@@ -408,12 +436,14 @@ console.log(JSON.stringify({
         elapsed_ms: windowsCases.observationHangTimeout.elapsed_ms,
         timed_out: windowsCases.observationHangTimeout.timed_out,
         atomic_child_pid: windowsCases.observationHangTimeout.containment.atomic_child_pid,
+        cleanup_partition_verified: windowsCases.observationHangTimeout.cleanup_partition_verified,
       },
       observation_hang_interruption: {
         status: windowsCases.observationHangInterruption.status,
         elapsed_ms: windowsCases.observationHangInterruption.elapsed_ms,
         interrupted: windowsCases.observationHangInterruption.interrupted,
         atomic_child_pid: windowsCases.observationHangInterruption.containment.atomic_child_pid,
+        cleanup_partition_verified: windowsCases.observationHangInterruption.cleanup_partition_verified,
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,

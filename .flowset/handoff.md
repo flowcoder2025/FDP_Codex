@@ -176,7 +176,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Finish the WI-CX0060 blocked-outcome candidate with a fresh blind adversarial review, then obtain explicit push/PR approval and land it. After that, follow the user-approved Strategy A: build FDP_Codex locally through a v0.1 self-hosting completion candidate, then run one clean-project portability proof. The provider block remains a hard stop only for the repository-backed live model-worker claim; any later retry requires a worker-only command boundary that does not restrict the visible controller.
+Finish the WI-CX0060 `blocked-external` evidence checkpoint with a fresh blind adversarial review, then obtain explicit push/PR approval and land it as a non-completion checkpoint. Keep Issues #55 and #61 open and do not mark the end-to-end proof complete. After that, follow the user-approved Strategy A: build FDP_Codex locally through a v0.1 self-hosting completion candidate, then run one clean-project portability proof. The provider block remains a hard stop only for the repository-backed live model-worker claim; any later retry requires a worker-only command boundary that does not restrict the visible controller.
 
 ## Blocked Work
 

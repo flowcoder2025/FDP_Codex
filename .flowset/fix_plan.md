@@ -23,7 +23,7 @@ Discipline:
 
 ## Current Priority
 
-- [ ] WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof: close the truthful blocked outcome. The public preflight, controller-owned validation boundary, built-in fan-out flag, Windows process cleanup, and unsupported-platform fail-closed guard pass locally; worker command re-entry confinement is not implemented, but the post-fix dogfood final-result proof remains externally blocked. Land the evidence only after a fresh blind review; do not claim end-to-end completion.
+- [ ] WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof: land a truthful `blocked-external` evidence checkpoint, not a completed proof. The public preflight, controller-owned validation boundary, built-in fan-out flag, Windows process cleanup, and unsupported-platform fail-closed guard pass locally; worker command re-entry confinement is not implemented, and the post-fix dogfood final-result proof remains externally blocked. Preserve Issues #55 and #61 as open, and land only after a fresh blind review without claiming end-to-end completion.
 
 ## Triggered Work
 

@@ -4001,9 +4001,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.timeout?.status === 'timed_out'
         && testResult?.cases?.windows_lifecycle?.timeout?.observed_descendant_count >= 2
         && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.interruption?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.interruption?.observed_descendant_count >= 2
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
         && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.status === 'containment_failed'
@@ -4015,10 +4017,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.elapsed_ms < 5000
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.timed_out === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.status === 'cleanup_failed'
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < 5000
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.interrupted === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
@@ -4030,6 +4034,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE')
     && lifecycleTest.includes('FDP_JOB_TEST_OBSERVATION_DELAY_MS')
     && lifecycleTest.includes('function runObservationHangInterruptionCase()')
+    && lifecycleTest.includes('function assertObservedCleanupPartition(result)')
     && lifecycleTest.includes("assert.equal(isProcessAlive(confirmedAtomicChildPid), false)")
     && lifecycleTest.includes("assert.equal(isProcessAlive(result.containment.atomic_child_pid), false)")
     && lifecycleTest.includes('containment.verified')
@@ -4252,9 +4257,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
-    && fixPlan.includes('close the truthful blocked outcome')
+    && fixPlan.includes('land a truthful `blocked-external` evidence checkpoint, not a completed proof')
     && fixPlan.includes('policy-rejected even after current explicit user approval')
+    && currentWi.includes('that merge does not complete the live proof or repay Issues #55 and #61')
+    && proofRecord.includes('land through the normal supervised PR lifecycle as a non-completion checkpoint')
     && handoff.includes('Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
+    && handoff.includes('land it as a non-completion checkpoint')
     && state.current_wi?.id === 'WI-CX0060-test'
     && state.current_wi?.status === 'blocked-external'
     && state.current_priority?.state === 'blocked-external'
