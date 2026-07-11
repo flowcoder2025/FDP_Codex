@@ -22,6 +22,10 @@ function isProcessAlive(pid) {
 function assertObservedCleanupPartition(result) {
   const observedPids = [result.root_pid, ...result.observed_descendant_pids]
     .sort((a, b) => a - b);
+  const atomicChildPid = result.containment.atomic_child_pid;
+  assert(Number.isInteger(atomicChildPid) && atomicChildPid > 0);
+  assert.equal(typeof result.containment.atomic_child_started_at, 'string');
+  assert(result.observed_descendant_pids.includes(atomicChildPid));
   const classifiedPids = [
     ...result.cleanup.confirmed_gone_pids,
     ...result.cleanup.identity_mismatch_pids,
@@ -412,12 +416,16 @@ console.log(JSON.stringify({
         observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,
         cleanup_verified: windowsCases.timeout.cleanup.verified,
         cleanup_partition_verified: windowsCases.timeout.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.timeout.observed_descendant_pids
+          .includes(windowsCases.timeout.containment.atomic_child_pid),
       },
       interruption: {
         status: windowsCases.interruption.status,
         observed_descendant_count: windowsCases.interruption.observed_descendant_pids.length,
         cleanup_verified: windowsCases.interruption.cleanup.verified,
         cleanup_partition_verified: windowsCases.interruption.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.interruption.observed_descendant_pids
+          .includes(windowsCases.interruption.containment.atomic_child_pid),
       },
       orphan_containment: {
         status: windowsCases.orphanContainment.status,
@@ -437,6 +445,8 @@ console.log(JSON.stringify({
         timed_out: windowsCases.observationHangTimeout.timed_out,
         atomic_child_pid: windowsCases.observationHangTimeout.containment.atomic_child_pid,
         cleanup_partition_verified: windowsCases.observationHangTimeout.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.observationHangTimeout.observed_descendant_pids
+          .includes(windowsCases.observationHangTimeout.containment.atomic_child_pid),
       },
       observation_hang_interruption: {
         status: windowsCases.observationHangInterruption.status,
@@ -444,6 +454,8 @@ console.log(JSON.stringify({
         interrupted: windowsCases.observationHangInterruption.interrupted,
         atomic_child_pid: windowsCases.observationHangInterruption.containment.atomic_child_pid,
         cleanup_partition_verified: windowsCases.observationHangInterruption.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.observationHangInterruption.observed_descendant_pids
+          .includes(windowsCases.observationHangInterruption.containment.atomic_child_pid),
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,

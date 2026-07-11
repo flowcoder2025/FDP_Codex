@@ -331,8 +331,14 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("CreateProcess");
             }
 
+            string atomicChildStartedAt;
+            using (var atomicChild = Process.GetProcessById((int)processInfo.dwProcessId))
+            {
+                atomicChildStartedAt = atomicChild.StartTime.ToUniversalTime().ToString("o");
+            }
             Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED");
-            Console.Error.WriteLine("FDP_JOB_RUNNER_ATOMIC_CHILD:" + processInfo.dwProcessId);
+            Console.Error.WriteLine(
+                "FDP_JOB_RUNNER_ATOMIC_CHILD:" + processInfo.dwProcessId + "|" + atomicChildStartedAt);
             if (Environment.GetEnvironmentVariable("FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE") == "1")
             {
                 Thread.Sleep(Timeout.Infinite);

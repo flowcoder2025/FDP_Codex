@@ -469,7 +469,21 @@ export async function runManagedProcess(options) {
     drained: false,
     verified: false,
     atomic_child_pid: null,
+    atomic_child_started_at: null,
     errors: [],
+  };
+  let spawnedRootPid = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let atomicChildMarker = null;
+  const registerAtomicChildIdentity = () => {
+    if (spawnedRootPid === null || atomicChildMarker === null) return;
+    observed.set(atomicChildMarker.pid, {
+      pid: atomicChildMarker.pid,
+      ppid: spawnedRootPid,
+      pgid: null,
+      name: path.basename(options.command),
+      started_at: atomicChildMarker.started_at,
+    });
   };
 
   const child = spawn(invocation.command, invocation.args, {
@@ -492,10 +506,21 @@ export async function runManagedProcess(options) {
       return true;
     }
     if (line.startsWith(WINDOWS_JOB_ATOMIC_CHILD_PREFIX)) {
-      const pid = Number.parseInt(line.slice(WINDOWS_JOB_ATOMIC_CHILD_PREFIX.length), 10);
-      if (Number.isInteger(pid) && pid > 0) {
+      const marker = line.slice(WINDOWS_JOB_ATOMIC_CHILD_PREFIX.length);
+      const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
+      const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
+      const startedAt = markerMatch?.[2] ?? '';
+      if (Number.isInteger(pid) && pid > 0 && Number.isFinite(Date.parse(startedAt))) {
         containment.atomic_child_pid = pid;
-        emit({ type: 'worker.atomic_child', timestamp: new Date().toISOString(), pid });
+        containment.atomic_child_started_at = startedAt;
+        atomicChildMarker = { pid, started_at: startedAt };
+        registerAtomicChildIdentity();
+        emit({
+          type: 'worker.atomic_child',
+          timestamp: new Date().toISOString(),
+          pid,
+          started_at: startedAt,
+        });
       } else {
         containment.errors.push(`invalid atomic child marker: ${line}`);
       }
@@ -551,6 +576,7 @@ export async function runManagedProcess(options) {
   }
 
   const rootPid = child.pid;
+  spawnedRootPid = rootPid;
   observed.set(rootPid, {
     pid: rootPid,
     ppid: process.pid,
@@ -558,6 +584,7 @@ export async function runManagedProcess(options) {
     name: path.basename(invocation.command),
     started_at: null,
   });
+  registerAtomicChildIdentity();
   emit({
     type: 'worker.started',
     timestamp: new Date().toISOString(),
