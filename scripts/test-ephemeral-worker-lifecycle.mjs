@@ -289,6 +289,51 @@ async function runThrowingStartedCallbackCase() {
   };
 }
 
+async function runStdinEarlyExitCase() {
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'exit-immediately'],
+    stdinText: 'x'.repeat(1024 * 1024),
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+  });
+  assert.equal(result.status, 'stdin_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert(result.stdin_errors.length >= 1);
+  assert.equal(result.cleanup.required, true);
+  assert.equal(result.cleanup.reason, 'stdin-failed');
+  assert.equal(result.cleanup.verified, true);
+  assert.equal(isProcessAlive(result.root_pid), false);
+  if (result.containment.atomic_child_pid !== null) {
+    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  }
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+}
+
+async function runStdinTimeoutCase() {
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'root'],
+    stdinText: 'x'.repeat(1024 * 1024),
+    timeoutMs: 750,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+  });
+  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+  assert.equal(result.timed_out, true);
+  assert(result.stdin_errors.length >= 1);
+  assert.equal(result.cleanup.required, true);
+  assert.equal(result.cleanup.verified, true);
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+}
+
 async function runInterruptionCase() {
   const events = [];
   const abortController = new AbortController();
@@ -503,6 +548,8 @@ const windowsCases = process.platform === 'win32' ? {
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
+  stdinEarlyExit: await runStdinEarlyExitCase(),
+  stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
@@ -552,6 +599,19 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.throwingStartedCallback.cleanup_partition_verified,
         event_sink_failure_contained: windowsCases.throwingStartedCallback.event_sink_failure_contained,
         event_error_count: windowsCases.throwingStartedCallback.event_errors.length,
+      },
+      stdin_early_exit: {
+        status: windowsCases.stdinEarlyExit.status,
+        cleanup_verified: windowsCases.stdinEarlyExit.cleanup.verified,
+        cleanup_partition_verified: windowsCases.stdinEarlyExit.cleanup_partition_verified,
+        stdin_error_count: windowsCases.stdinEarlyExit.stdin_errors.length,
+      },
+      stdin_timeout: {
+        status: windowsCases.stdinTimeout.status,
+        timed_out: windowsCases.stdinTimeout.timed_out,
+        cleanup_verified: windowsCases.stdinTimeout.cleanup.verified,
+        cleanup_partition_verified: windowsCases.stdinTimeout.cleanup_partition_verified,
+        stdin_error_count: windowsCases.stdinTimeout.stdin_errors.length,
       },
       interruption: {
         status: windowsCases.interruption.status,

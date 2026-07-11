@@ -9,6 +9,8 @@ if (mode === 'complete') {
   process.stdout.write(`${JSON.stringify({ fixture: 'complete', ok: true })}\n`);
   process.stderr.write('fixture stderr visible\n');
   setTimeout(() => process.exit(0), 50);
+} else if (mode === 'exit-immediately') {
+  process.exit(0);
 } else if (mode === 'root') {
   process.title = 'managed-worker-root';
   const child = spawn(process.execPath, [fixturePath, 'child'], {

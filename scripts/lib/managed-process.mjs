@@ -444,6 +444,15 @@ export async function runManagedProcess(options) {
   const eventFailurePromise = new Promise((resolve) => {
     resolveEventFailure = resolve;
   });
+  const stdinErrors = [];
+  /** @type {{kind: 'stdin-failed', message: string} | null} */
+  let stdinFailureOutcome = null;
+  /** @type {(value: {kind: 'stdin-failed', message: string}) => void} */
+  let resolveStdinFailure = () => {};
+  /** @type {Promise<{kind: 'stdin-failed', message: string}>} */
+  const stdinFailurePromise = new Promise((resolve) => {
+    resolveStdinFailure = resolve;
+  });
   const emit = (event) => {
     try {
       eventSink(event);
@@ -472,6 +481,7 @@ export async function runManagedProcess(options) {
       stdout_line_count: 0,
       stderr_line_count: 0,
       event_errors: eventErrors,
+      stdin_errors: stdinErrors,
       observation_verified: false,
       observation_errors: [platformSupport.reason],
       containment: {
@@ -583,6 +593,17 @@ export async function runManagedProcess(options) {
     windowsHide: true,
   });
 
+  const handleStdinError = (error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    stdinErrors.push(message);
+    if (stdinFailureOutcome === null) {
+      stdinFailureOutcome = { kind: 'stdin-failed', message };
+      resolveStdinFailure(stdinFailureOutcome);
+    }
+    emit({ type: 'worker.stdin_error', timestamp: new Date().toISOString(), message });
+  };
+  child.stdin.on('error', handleStdinError);
+
   const stdoutCount = captureLines(child.stdout, 'stdout', emit);
   const stderrCount = captureLines(child.stderr, 'stderr', emit, (line) => {
     if (line === WINDOWS_JOB_ASSIGNED_MARKER) {
@@ -642,6 +663,7 @@ export async function runManagedProcess(options) {
       stdout_line_count: stdoutCount(),
       stderr_line_count: stderrCount(),
       event_errors: eventErrors,
+      stdin_errors: stdinErrors,
       observation_verified: false,
       observation_errors: [message],
       containment: { ...containment, verified: false },
@@ -680,8 +702,12 @@ export async function runManagedProcess(options) {
     timeout_ms: options.timeoutMs,
   });
 
-  if (options.stdinText !== undefined) child.stdin.end(options.stdinText);
-  else child.stdin.end();
+  try {
+    if (options.stdinText !== undefined) child.stdin.end(options.stdinText);
+    else child.stdin.end();
+  } catch (error) {
+    handleStdinError(error);
+  }
 
   /** @type {Promise<ProcessInfo[]> | null} */
   let observeInFlight = null;
@@ -725,18 +751,20 @@ export async function runManagedProcess(options) {
   const readinessOutcome = elapsedGuardOutcome() ?? await Promise.race([
     timeoutPromise,
     abortPromise,
+    stdinFailurePromise,
     closePromise,
     atomicIdentityReadyPromise,
   ]);
   let initialOutcome = readinessOutcome;
   if (readinessOutcome.kind === 'atomic-identity-ready') {
-    initialOutcome = elapsedGuardOutcome() ?? eventFailureOutcome;
+    initialOutcome = elapsedGuardOutcome() ?? eventFailureOutcome ?? stdinFailureOutcome;
     if (initialOutcome === null) {
       const initialObservation = observeNow().then(() => null, () => null);
       initialOutcome = await Promise.race([
         timeoutPromise,
         abortPromise,
         eventFailurePromise,
+        stdinFailurePromise,
         closePromise,
         initialObservation,
       ]);
@@ -752,10 +780,11 @@ export async function runManagedProcess(options) {
     poll.unref();
   }
 
-  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? eventFailureOutcome ?? await Promise.race([
+  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? eventFailureOutcome ?? stdinFailureOutcome ?? await Promise.race([
     timeoutPromise,
     abortPromise,
     eventFailurePromise,
+    stdinFailurePromise,
     closePromise,
   ]);
   if (poll) clearInterval(poll);
@@ -807,6 +836,16 @@ export async function runManagedProcess(options) {
       observed,
       observeNow,
       reason: 'interrupted',
+      graceMs: terminationGraceMs,
+      verifyMs: verificationTimeoutMs,
+    });
+  } else if (outcome && outcome.kind === 'stdin-failed') {
+    status = 'stdin_failed';
+    await stopRootWrapper();
+    cleanup = await terminateObservedTree({
+      observed,
+      observeNow,
+      reason: 'stdin-failed',
       graceMs: terminationGraceMs,
       verifyMs: verificationTimeoutMs,
     });
@@ -869,6 +908,7 @@ export async function runManagedProcess(options) {
     stdout_line_count: stdoutCount(),
     stderr_line_count: stderrCount(),
     event_errors: eventErrors,
+    stdin_errors: stdinErrors,
     observation_verified: observationVerified,
     observation_errors: [...observationErrors],
     containment,

@@ -49,6 +49,7 @@ The wrapper writes one JSON object per line to stdout. Event types are:
 - `worker.atomic_child`
 - `worker.stdout`
 - `worker.stderr`
+- `worker.stdin_error`
 - `worker.timeout`
 - `worker.interrupted`
 - `worker.observation_error`
@@ -71,7 +72,7 @@ On supported Windows hosts, the supervisor also records root and descendant proc
 - executable name
 - process start time
 
-Windows obtains general process metadata from `Get-CimInstance Win32_Process`; the atomically created real worker identity comes directly from the native creation handle. The absolute timeout deadline and interrupt listener are armed before spawn and before any event callback. All process-table queries require the registered atomic identity, and every query has a separate finite command timeout. `worker.observation_started` records the ordering evidence. A delayed synchronous event callback cannot convert an expired invocation into success; after control returns, the absolute deadline forces timeout cleanup. A throwing event sink is captured as `event_dispatch_failed`, recorded in `event_errors`, and routed through wrapper-first verified cleanup instead of escaping the supervisor. On timeout or interruption, the exact spawned wrapper is stopped even if metadata observation is delayed or unavailable. Metadata polling remains evidence and defense in depth; successful cleanup still requires observable proof, while Job membership closes the worker process tree when the wrapper exits.
+Windows obtains general process metadata from `Get-CimInstance Win32_Process`; the atomically created real worker identity comes directly from the native creation handle. The absolute timeout deadline and interrupt listener are armed before spawn and before any event callback. All process-table queries require the registered atomic identity, and every query has a separate finite command timeout. `worker.observation_started` records the ordering evidence. A delayed synchronous event callback cannot convert an expired invocation into success; after control returns, the absolute deadline forces timeout cleanup. A throwing event sink is captured as `event_dispatch_failed`, recorded in `event_errors`, and routed through wrapper-first verified cleanup instead of escaping the supervisor. Stdin stream errors are captured in `stdin_errors`; an error that wins before another terminal guard returns `stdin_failed`, while timeout or interruption remains primary when already selected. On timeout or interruption, the exact spawned wrapper is stopped even if metadata observation is delayed or unavailable. Metadata polling remains evidence and defense in depth; successful cleanup still requires observable proof, while Job membership closes the worker process tree when the wrapper exits.
 
 The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused Windows parent PID from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or root is also rejected as stale parent-pid metadata.
 
@@ -79,7 +80,7 @@ The first root observation must not depend on a mutable executable label. It con
 
 Normal completion succeeds only when the real worker exits with code 0, process observation succeeds, and Windows Job Object containment is verified through successful assignment and a zero-active-process drain marker. Other platforms cannot produce a successful managed-worker result.
 
-Windows timeout, interruption, and event-dispatch-failure cleanup:
+Windows timeout, interruption, event-dispatch-failure, and stdin-failure cleanup:
 
 1. Stop the exact spawned wrapper so its kill-on-close Job handle terminates every atomically assigned member even when process-table observation is unavailable.
 2. Refresh the observed process tree through a command-bounded query.
@@ -87,7 +88,7 @@ Windows timeout, interruption, and event-dispatch-failure cleanup:
 4. For any remaining targeted residual, signal deepest observed descendants before parents.
 5. Wait for the grace period and re-observe until every tracked identity is gone or the verification deadline expires.
 
-The final result contains root and descendant pids, line counts, timeout/interruption flags, exit information, event delivery errors, observation errors, containment mode and verification status, cleanup targets, confirmed-gone pids, identity mismatches, alive pids, unknown pids, and cleanup verification status. On every cleanup result, the wrapper root, the atomically created worker, and every other observed descendant must appear exactly once across confirmed gone, identity mismatch, alive after cleanup, or unknown after cleanup. An observation failure places unobservable identities in `unknown_after_cleanup`, never `alive_after_cleanup`, and keeps cleanup unverified.
+The final result contains root and descendant pids, line counts, timeout/interruption flags, exit information, event delivery errors, stdin errors, observation errors, containment mode and verification status, cleanup targets, confirmed-gone pids, identity mismatches, alive pids, unknown pids, and cleanup verification status. On every cleanup result, the wrapper root, the atomically created worker, and every other observed descendant must appear exactly once across confirmed gone, identity mismatch, alive after cleanup, or unknown after cleanup. An observation failure places unobservable identities in `unknown_after_cleanup`, never `alive_after_cleanup`, and keeps cleanup unverified.
 
 Exit codes are 0 for verified normal completion, 124 for timeout, 130 for interruption, and 1 for wrapper, worker, event-dispatch, observation, residual-process, or cleanup failure.
 
@@ -98,7 +99,7 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses deterministic Node fixtures that create root, child, grandchild, detached-child, and immediate-parent-exit cases. It validates the built-in fan-out flag, normal output capture, timeout cleanup, interruption cleanup, Windows Job Object inheritance, verified drain after a real parent exits before polling can observe its child, exact terminal classification including unknown observer-failure state, `worker.atomic_child` before `worker.observation_started` ordering with `atomic_child_registered: true`, a blocking `worker.started` callback that cannot bypass the absolute timeout outcome, and a throwing `worker.started` callback that returns `event_dispatch_failed` only after verified wrapper and atomic-child cleanup. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider. It does not claim command re-entry enforcement.
+`worker:test` uses deterministic Node fixtures that create root, child, grandchild, detached-child, and immediate-parent-exit cases. It validates the built-in fan-out flag, normal output capture, timeout cleanup, interruption cleanup, Windows Job Object inheritance, verified drain after a real parent exits before polling can observe its child, exact terminal classification including unknown observer-failure state, `worker.atomic_child` before `worker.observation_started` ordering with `atomic_child_registered: true`, a blocking `worker.started` callback that cannot bypass the absolute timeout outcome, a throwing `worker.started` callback that returns `event_dispatch_failed` only after verified wrapper and atomic-child cleanup, and 1 MiB stdin cases that cover early worker exit plus timeout while a write remains pending without losing the structured result. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider. It does not claim command re-entry enforcement.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 

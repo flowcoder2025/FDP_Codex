@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-11T10:45:14Z",
+  "updated_at": "2026-07-11T11:02:16Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -246,6 +246,12 @@
           "fork_context": false,
           "reviewed_head": "2e12847c6b55f186327d6faec009d23b9bbcf365",
           "result": "fail-one-p1-event-sink-exception-process-leak-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f50ca-691b-71d2-8ba4-05926af4d070",
+          "fork_context": false,
+          "reviewed_head": "87f3797da7024183515e794bb215c935e230d6b6",
+          "result": "fail-two-p2-stdin-error-and-false-smoke-state-remediated-one-p3-comment-superseded-awaiting-fresh-review"
         }
       ]
     },
@@ -335,6 +341,8 @@
           "atomic_identity_before_observation": "passed-timeout-interruption-and-observer-hang-event-order",
           "pre_spawn_absolute_deadline": "passed-blocking-started-callback-forces-timeout-outcome",
           "event_sink_exception_cleanup": "passed-throwing-started-callback-wrapper-and-atomic-child-gone",
+          "stdin_early_exit_cleanup": "passed-1mib-write-eof-structured-result",
+          "stdin_timeout_cleanup": "passed-1mib-pending-write-timeout-structured-result",
           "observer_failure_classification": "passed-unobservable-identities-unknown-never-alive"
         },
         "post_merge_validation": {
@@ -350,7 +358,8 @@
           "observation_verified": true,
           "containment_mode": "windows-job-object",
           "containment_verified": true,
-          "observed_descendant_count": 0
+          "observed_descendant_count": 1,
+          "atomic_child_registered": true
         },
         "live_model_smoke": {
           "public_repository_preflight": {
@@ -517,9 +526,9 @@
       "id": "KI-CX-WORKER-004",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "Windows lifecycle could attach an unrelated child after parent PID reuse, miss a fast detached child, start timeout or interruption too late, wait indefinitely on stalled observation, leak a worker through a hard-killed creation-to-assignment window, omit known identities from cleanup evidence, label unobservable dead identities as alive, or let an event sink exception escape before cleanup",
-      "defer_reason": "pre-spawn absolute deadline and interruption setup, event-sink exception containment, parent identity filtering, native atomic-worker identity tracking, atomic Windows Job Object creation, wrapper hard-kill containment, bounded observation commands, and truthful unknown classification pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
-      "repayment_condition": "the wrapper, atomic worker, and all other observed descendants each receive exactly one gone, identity-mismatch, alive, or unknown classification; observer failure uses unknown and remains unverified; throwing event callbacks return only after verified cleanup; pre-spawn deadlines, parent identity filtering, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
+      "trigger": "Windows lifecycle could attach an unrelated child after parent PID reuse, miss a fast detached child, start timeout or interruption too late, wait indefinitely on stalled observation, leak a worker through a hard-killed creation-to-assignment window, omit known identities from cleanup evidence, label unobservable dead identities as alive, let an event sink exception escape before cleanup, or crash on a pending stdin write error",
+      "defer_reason": "pre-spawn absolute deadline and interruption setup, event-sink and stdin exception containment, parent identity filtering, native atomic-worker identity tracking, atomic Windows Job Object creation, wrapper hard-kill containment, bounded observation commands, and truthful unknown classification pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
+      "repayment_condition": "the wrapper, atomic worker, and all other observed descendants each receive exactly one gone, identity-mismatch, alive, or unknown classification; observer failure uses unknown and remains unverified; throwing event callbacks and failed stdin writes return only after structured verified cleanup; pre-spawn deadlines, parent identity filtering, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
       "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
       "status": "open",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
@@ -566,7 +575,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak; exact head bf31953 then failed with two P1 lifecycle gaps and one P2 KI overstatement; the 4720c45 review request used an invalid expanded SHA and the actual head review returned one P1 cleanup-evidence race plus two P2 contract findings; exact head 46fd0fe then failed with one P2 blocked-outcome merge-contract conflict and one P3 cleanup-partition coverage gap; exact head 63abaac then failed with two P2 atomic-child-classification and stale-residual-evidence findings; exact head e0c2fae then failed with one P2 atomic-identity ordering overstatement; exact head c6fcb67 then failed with two P2 pre-spawn-deadline and cleanup-classification findings; exact head 2e12847 then failed with one P1 event-sink exception process leak",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak; exact head bf31953 then failed with two P1 lifecycle gaps and one P2 KI overstatement; the 4720c45 review request used an invalid expanded SHA and the actual head review returned one P1 cleanup-evidence race plus two P2 contract findings; exact head 46fd0fe then failed with one P2 blocked-outcome merge-contract conflict and one P3 cleanup-partition coverage gap; exact head 63abaac then failed with two P2 atomic-child-classification and stale-residual-evidence findings; exact head e0c2fae then failed with one P2 atomic-identity ordering overstatement; exact head c6fcb67 then failed with two P2 pre-spawn-deadline and cleanup-classification findings; exact head 2e12847 then failed with one P1 event-sink exception process leak; exact head 87f3797 then failed with two P2 stdin-error and false-smoke-state findings plus one disposed P3 stale-comment finding",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",
