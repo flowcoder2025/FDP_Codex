@@ -2,7 +2,11 @@
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
-import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
+import {
+  managedProcessPlatformSupport,
+  mergeObservedTree,
+  runManagedProcess,
+} from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
 
@@ -15,7 +19,7 @@ function isProcessAlive(pid) {
   }
 }
 
-function runInvocationConfinementCase() {
+function runBuiltinFanoutFlagCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
     sandbox: 'read-only',
@@ -34,6 +38,36 @@ function runInvocationConfinementCase() {
   return { multi_agent_disabled: true };
 }
 
+function runPlatformSupportCase() {
+  assert.deepEqual(managedProcessPlatformSupport('win32'), {
+    supported: true,
+    mode: 'windows-job-object',
+    reason: null,
+  });
+  const posix = managedProcessPlatformSupport('linux');
+  assert.equal(posix.supported, false);
+  assert.equal(posix.mode, 'unsupported-fail-closed');
+  assert.match(posix.reason, /not implemented for platform linux/);
+  return { windows: 'supported', posix: posix.mode };
+}
+
+async function runUnsupportedPlatformCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'fast-orphan-root'],
+    timeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'unsupported_platform');
+  assert.equal(result.ok, false);
+  assert.equal(result.root_pid, null);
+  assert.equal(result.containment.mode, 'unsupported-fail-closed');
+  assert.equal(result.containment.verified, false);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'worker.result');
+  return result;
+}
 function runTemporalIdentityCase() {
   const rootPid = 50000;
   const root = {
@@ -173,26 +207,18 @@ async function runOrphanContainmentCase() {
     verificationTimeoutMs: 5000,
     onEvent: (event) => events.push(event),
   });
-  if (process.platform === 'win32') {
-    assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
-    assert.equal(result.ok, true);
-    assert.equal(result.containment.mode, 'windows-job-object');
-    assert.equal(result.containment.verified, true);
-    const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
-      && event.payload?.fixture === 'orphan-root');
-    assert(fixtureEvent?.payload?.child_pid);
-    assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
-  } else {
-    assert.equal(result.status, 'residual_processes');
-    assert.equal(result.ok, false);
-    assert.equal(result.cleanup.reason, 'residual-processes-after-root-exit');
-    assert.equal(result.cleanup.verified, true);
-  }
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.equal(result.containment.mode, 'windows-job-object');
+  assert.equal(result.containment.verified, true);
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'orphan-root');
+  assert(fixtureEvent?.payload?.child_pid);
+  assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
   return result;
 }
 
 async function runFastParentExitCase() {
-  if (process.platform !== 'win32') return { skipped: true };
   const events = [];
   const result = await runManagedProcess({
     command: process.execPath,
@@ -215,43 +241,56 @@ async function runFastParentExitCase() {
   return result;
 }
 
-const invocationConfinement = runInvocationConfinementCase();
+const builtinFanoutFlag = runBuiltinFanoutFlagCase();
+const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
-const normal = await runNormalCase();
-const timeout = await runTimeoutCase();
-const interruption = await runInterruptionCase();
-const orphanContainment = await runOrphanContainmentCase();
-const fastParentExit = await runFastParentExitCase();
+const windowsCases = process.platform === 'win32' ? {
+  normal: await runNormalCase(),
+  timeout: await runTimeoutCase(),
+  interruption: await runInterruptionCase(),
+  orphanContainment: await runOrphanContainmentCase(),
+  fastParentExit: await runFastParentExitCase(),
+} : null;
+const unsupportedPlatform = process.platform === 'win32'
+  ? null
+  : await runUnsupportedPlatformCase();
 
 console.log(JSON.stringify({
   ok: true,
   cases: {
-    invocation_confinement: invocationConfinement,
+    builtin_fanout_flag: builtinFanoutFlag,
+    platform_support: platformSupport,
     temporal_identity: temporalIdentity,
-    normal: {
-      status: normal.status,
-      stdout_line_count: normal.stdout_line_count,
-      stderr_line_count: normal.stderr_line_count,
+    unsupported_platform: unsupportedPlatform && {
+      status: unsupportedPlatform.status,
+      containment_mode: unsupportedPlatform.containment.mode,
     },
-    timeout: {
-      status: timeout.status,
-      observed_descendant_count: timeout.observed_descendant_pids.length,
-      cleanup_verified: timeout.cleanup.verified,
-    },
-    interruption: {
-      status: interruption.status,
-      observed_descendant_count: interruption.observed_descendant_pids.length,
-      cleanup_verified: interruption.cleanup.verified,
-    },
-    orphan_containment: {
-      status: orphanContainment.status,
-      containment_mode: orphanContainment.containment.mode,
-      containment_verified: orphanContainment.containment.verified,
-    },
-    fast_parent_exit: fastParentExit.skipped ? fastParentExit : {
-      status: fastParentExit.status,
-      containment_mode: fastParentExit.containment.mode,
-      containment_verified: fastParentExit.containment.verified,
+    windows_lifecycle: windowsCases && {
+      normal: {
+        status: windowsCases.normal.status,
+        stdout_line_count: windowsCases.normal.stdout_line_count,
+        stderr_line_count: windowsCases.normal.stderr_line_count,
+      },
+      timeout: {
+        status: windowsCases.timeout.status,
+        observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,
+        cleanup_verified: windowsCases.timeout.cleanup.verified,
+      },
+      interruption: {
+        status: windowsCases.interruption.status,
+        observed_descendant_count: windowsCases.interruption.observed_descendant_pids.length,
+        cleanup_verified: windowsCases.interruption.cleanup.verified,
+      },
+      orphan_containment: {
+        status: windowsCases.orphanContainment.status,
+        containment_mode: windowsCases.orphanContainment.containment.mode,
+        containment_verified: windowsCases.orphanContainment.containment.verified,
+      },
+      fast_parent_exit: {
+        status: windowsCases.fastParentExit.status,
+        containment_mode: windowsCases.fastParentExit.containment.mode,
+        containment_verified: windowsCases.fastParentExit.containment.verified,
+      },
     },
   },
 }, null, 2));

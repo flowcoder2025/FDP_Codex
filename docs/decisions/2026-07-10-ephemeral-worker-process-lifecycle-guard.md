@@ -22,7 +22,7 @@ The wrapper emits JSONL lifecycle, stdout, stderr, timeout, interruption, observ
 
 ## Process Ownership
 
-On Windows, the supervisor creates the real worker suspended, assigns it to a kill-on-close Job Object, and resumes it only after assignment. Normal completion requires the Job Object to report zero active processes after termination, covering descendants whose parent exits before a metadata poll can observe them. POSIX uses a dedicated process group. The supervisor also records pids, parent pids, executable names, and start times as evidence; identity checks prevent a reused pid from being treated as the original worker.
+On Windows, the supervisor creates the real worker suspended, assigns it to a kill-on-close Job Object, and resumes it only after assignment. Normal completion requires the Job Object to report zero active processes after termination, covering descendants whose parent exits before a metadata poll can observe them. Other platforms fail closed before spawning because equivalent containment is not implemented. The supervisor also records pids, parent pids, executable names, and start times as evidence; identity checks prevent a reused pid from being treated as the original worker.
 
 On timeout or interruption, descendants are terminated before their parents. The supervisor then re-observes the tracked identities until none remain or the verification deadline expires. A cleanup that cannot be observed or verified is a failure, not a successful fallback.
 

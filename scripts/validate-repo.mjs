@@ -3922,7 +3922,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('27 metadata-only ledger entries')
     && proofRecord.includes('contains_chunk_bodies: false');
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
-    && managedProcess.includes("'ps', ['-eo', 'pid=,ppid=,pgid=,lstart=,comm=']")
+    && managedProcess.includes('managedProcessPlatformSupport')
+    && managedProcess.includes("mode: 'unsupported-fail-closed'")
+    && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.includes('started_at')
     && managedProcess.includes('process.kill(entry.pid, signal)')
     && managedProcess.includes("type: 'worker.timeout'")
@@ -3976,26 +3978,32 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
-    && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true
+    && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.platform_support?.windows === 'supported'
+    && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
-    && testResult?.cases?.normal?.status === 'completed'
-    && testResult?.cases?.normal?.stdout_line_count === 1
-    && testResult?.cases?.normal?.stderr_line_count === 1
-    && testResult?.cases?.timeout?.status === 'timed_out'
-    && testResult?.cases?.timeout?.observed_descendant_count >= 2
-    && testResult?.cases?.timeout?.cleanup_verified === true
-    && testResult?.cases?.interruption?.status === 'interrupted'
-    && testResult?.cases?.interruption?.observed_descendant_count >= 2
-    && testResult?.cases?.interruption?.cleanup_verified === true
-    && testResult?.cases?.orphan_containment?.containment_mode === (process.platform === 'win32' ? 'windows-job-object' : 'posix-process-group')
-    && testResult?.cases?.orphan_containment?.containment_verified === true
-    && (process.platform !== 'win32'
-      || (testResult?.cases?.fast_parent_exit?.status === 'completed'
-        && testResult?.cases?.fast_parent_exit?.containment_mode === 'windows-job-object'
-        && testResult?.cases?.fast_parent_exit?.containment_verified === true))
+    && (process.platform === 'win32'
+      ? (testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.normal?.stdout_line_count === 1
+        && testResult?.cases?.windows_lifecycle?.normal?.stderr_line_count === 1
+        && testResult?.cases?.windows_lifecycle?.timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.timeout?.observed_descendant_count >= 2
+        && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.interruption?.observed_descendant_count >= 2
+        && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
+      : (testResult?.cases?.unsupported_platform?.status === 'unsupported_platform'
+        && testResult?.cases?.unsupported_platform?.containment_mode === 'unsupported-fail-closed'
+        && testResult?.cases?.windows_lifecycle === null))
     && lifecycleTest.includes("fixturePath, 'fast-orphan-root'")
+    && lifecycleTest.includes("assert.equal(result.status, 'unsupported_platform')")
     && lifecycleTest.includes('containment.verified')
     && fixture.includes("mode === 'grandchild'")
     && fixture.includes("mode === 'fast-orphan-root'");
@@ -4008,6 +4016,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('terminate matched descendants before parents')
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
+    && autonomy.includes('fail closed before spawning a worker')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
@@ -4016,6 +4025,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('default timeout is 120 seconds')
     && decision.includes('pids, parent pids, executable names, and start times')
     && decision.includes('kill-on-close Job Object')
+    && decision.includes('Other platforms fail closed before spawning')
     && decision.includes('descendants are terminated before their parents')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
@@ -4038,8 +4048,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('command re-entry confinement as an open KI')
     && spec.includes('Windows Job Object')
     && spec.includes('zero-active-process drain marker')
+    && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
     && spec.includes('visible controller');
-  checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
+  checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
     && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
     && record.includes('PSC: P1')
@@ -4079,6 +4090,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
     && guard.containment?.windows === 'job-object-suspended-assignment-kill-on-close'
+    && guard.containment?.posix === 'unsupported-fail-closed-before-spawn'
+    && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
     && guard.containment?.normal_completion_requires_verified_drain === true
     && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
@@ -4168,14 +4181,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('No destructive filesystem or git operation occurred');
   checks.worker_proof_implementation = codexInvocation.includes('export function buildEphemeralWorkerArgs')
     && codexInvocation.includes("'--disable', 'multi_agent'")
-    && lifecycleTest.includes('function runInvocationConfinementCase()')
+    && lifecycleTest.includes('function runBuiltinFanoutFlagCase()')
+    && lifecycleTest.includes('function runPlatformSupportCase()')
     && lifecycleTest.includes('multi_agent_disabled: true')
     && !lifecycleTest.includes('runExecPolicyContractCase')
     && !codexInvocation.includes('forbiddenReentryCases')
     && !codexInvocation.includes('verifyManagedWorkerExecPolicy')
     && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
     && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
-    && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
+    && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed';
   checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
     && proofRecord.includes('PSC: P1')
     && proofRecord.includes('WTC: AUTO')

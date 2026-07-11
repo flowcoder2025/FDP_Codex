@@ -24,17 +24,19 @@ const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
 const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
 
-function buildSpawnInvocation(options) {
-  if (process.platform !== 'win32') {
-    return {
-      command: options.command,
-      args: options.args || [],
-      cwd: options.cwd,
-      env: options.env,
-      containmentMode: 'posix-process-group',
-    };
+export function managedProcessPlatformSupport(platform = process.platform) {
+  if (platform === 'win32') {
+    return { supported: true, mode: 'windows-job-object', reason: null };
   }
 
+  return {
+    supported: false,
+    mode: 'unsupported-fail-closed',
+    reason: 'managed worker process containment is not implemented for platform ' + platform,
+  };
+}
+
+function buildSpawnInvocation(options) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   return {
     command: path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
@@ -400,6 +402,44 @@ export async function runManagedProcess(options) {
   }
 
   const emit = options.onEvent || (() => {});
+  const platformSupport = managedProcessPlatformSupport();
+  if (!platformSupport.supported) {
+    const result = {
+      schema_version: 1,
+      kind: 'managed-worker-result',
+      status: 'unsupported_platform',
+      ok: false,
+      root_pid: null,
+      observed_descendant_pids: [],
+      timed_out: false,
+      interrupted: false,
+      exit_code: null,
+      signal: null,
+      stdout_line_count: 0,
+      stderr_line_count: 0,
+      observation_verified: false,
+      observation_errors: [platformSupport.reason],
+      containment: {
+        mode: platformSupport.mode,
+        assigned: false,
+        drained: false,
+        verified: false,
+        errors: [platformSupport.reason],
+      },
+      cleanup: {
+        required: false,
+        reason: null,
+        requested_pids: [],
+        confirmed_gone_pids: [],
+        identity_mismatch_pids: [],
+        alive_after_cleanup: [],
+        verified: false,
+        errors: [],
+      },
+    };
+    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+    return result;
+  }
   const pollIntervalMs = options.pollIntervalMs ?? 500;
   const terminationGraceMs = options.terminationGraceMs ?? 500;
   const verificationTimeoutMs = options.verificationTimeoutMs ?? 5000;
@@ -411,8 +451,8 @@ export async function runManagedProcess(options) {
   const invocation = buildSpawnInvocation(options);
   const containment = {
     mode: invocation.containmentMode,
-    assigned: process.platform !== 'win32',
-    drained: process.platform !== 'win32',
+    assigned: false,
+    drained: false,
     verified: false,
     errors: [],
   };
@@ -420,7 +460,7 @@ export async function runManagedProcess(options) {
   const child = spawn(invocation.command, invocation.args, {
     cwd: invocation.cwd,
     env: invocation.env,
-    detached: process.platform !== 'win32',
+    detached: false,
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
@@ -489,7 +529,7 @@ export async function runManagedProcess(options) {
   observed.set(rootPid, {
     pid: rootPid,
     ppid: process.pid,
-    pgid: process.platform === 'win32' ? null : rootPid,
+    pgid: null,
     name: path.basename(invocation.command),
     started_at: null,
   });
@@ -627,7 +667,7 @@ export async function runManagedProcess(options) {
   containment.verified = containment.assigned
     && (containment.drained || (cleanup.required && cleanup.verified))
     && containment.errors.length === 0;
-  if (process.platform === 'win32' && status === 'completed' && !containment.verified) {
+  if (status === 'completed' && !containment.verified) {
     status = 'containment_failed';
   }
   const descendantPids = [...observed.keys()].filter((pid) => pid !== rootPid).sort((a, b) => a - b);

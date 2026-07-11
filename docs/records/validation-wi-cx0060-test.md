@@ -14,7 +14,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - WTC: AUTO
 - Risk: R2
 - ESC: E1+E2+E3+E5+E6
-- Primary evaluator stance: falsify provider trust, clean-context reconstruction, final-result delivery, nested-agent confinement, process cleanup, and target handoff truthfulness.
+- Primary evaluator stance: falsify provider trust, clean-context reconstruction, final-result delivery, built-in fan-out disabling, command-boundary claims, process cleanup, and target handoff truthfulness.
 - Validator stance: require built-in fan-out disabling, package-manager prohibition, controller-owned validation, a completed live dogfood result, verified zero residual processes, repository CI, and a separate blind adversarial review before merge.
 
 ## Context Evidence
@@ -53,7 +53,7 @@ Prove the trusted managed ephemeral worker end to end against the separate Layer
 - `scripts/run-ephemeral-worker.mjs` uses that centralized argument builder.
 - `scripts/test-ephemeral-worker-lifecycle.mjs` asserts the built-in fan-out flag exactly once and validates process lifecycle containment.
 - No active project-local command rule is installed. `docs/specifications/managed-worker-exec-policy.rules` is a non-active design fixture; command re-entry remains unenforced while Windows process lifetime is separately contained by a kill-on-close Job Object.
-- `npm.cmd run worker:test`: passed invocation confinement, temporal stale-row exclusion, normal completion, timeout cleanup, interruption cleanup, and residual cleanup.
+- `npm.cmd run worker:test`: passed the built-in fan-out flag check, unsupported-platform fail-closed contract, temporal stale-row exclusion, and Windows normal, timeout, interruption, residual, orphan, and fast-parent-exit lifecycle cases.
 - `npm.cmd run worker:smoke-local`: passed the real builder argument path with `--disable multi_agent`, read-only sandbox, cwd, ephemeral/json flags, and `--help` substituted for the final stdin prompt marker; no model request occurred.
 - KI-CX-DOGFOOD-002 / Issue #62 records the generated target handoff false green without mixing target state into Layer 1.
 
@@ -95,6 +95,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - After interruption, a fresh controller session loaded the project rule and blocked controller-owned `npm` and `codex` commands. FDP_Codex removed the active rule from Layer 1 and generated targets, retained only a non-active design fixture, and expanded KI-CX-WORKER-003 / Issue #61 to cover the missing worker-only command boundary.
 - With the active project rule absent, `npm.cmd run typecheck`, `npm.cmd run worker:test`, `npm.cmd run worker:smoke-local`, `npm.cmd run ci:check`, all targeted `node --check` commands, and `git diff --check` passed from the visible controller.
 - Verification agent `019f4df3-0ccf-7f92-954c-02e7a2aa6f69` failed before inspection at the account usage limit and produced no verdict; it is not PASS evidence.
+- Reviewer `019f501f-d6b1-7d90-83d3-eefff9308330` inspected exact head `6d447816ed1ba42f7ca15e5812b48e32ff8c9891` with `fork_context: false` and returned FAIL: P1 POSIX detached-descendant escape, P2 stale worker-validation ownership in the live handoff, and P3 confinement wording beyond test coverage.
+- Remediation fails closed before process spawn on unsupported platforms, asserts the platform support contract, restores controller-owned validation in current and historical handoff summaries, and renames the test evidence to the built-in fan-out flag plus Windows process-lifecycle containment. A fresh exact-head review remains required.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 

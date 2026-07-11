@@ -82,7 +82,10 @@
       "audit_command": "npm run audit:control-plane",
       "github_pr_label_baseline_from": 33,
       "control_issue": 56,
-      "historical_ki_issue_range": [46, 55],
+      "historical_ki_issue_range": [
+        46,
+        55
+      ],
       "runner_tasks_archived": 32,
       "retired_runner_visible_tasks": 0,
       "residual_worktree_directories": 0,
@@ -99,12 +102,23 @@
       "specification": "docs/specifications/independent-review-evidence.md",
       "audit_command": "npm run audit:independent-review",
       "pr_baseline_from": 58,
-      "required_risks": ["R1", "R2", "R3"],
-      "required_evaluators": ["E2", "E3"],
+      "required_risks": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "required_evaluators": [
+        "E2",
+        "E3"
+      ],
       "required_surface": "separate-clean-context",
       "multi_agent_fork_context": false,
       "head_change_invalidates_review": true,
-      "blocking_findings": ["P0", "P1", "P2"],
+      "blocking_findings": [
+        "P0",
+        "P1",
+        "P2"
+      ],
       "pass_label": "pr:independent-review-passed",
       "required_check": "independent-review",
       "status_publisher": "scripts/publish-independent-review-status.mjs",
@@ -178,6 +192,12 @@
           "agent_id": "019f4df3-0ccf-7f92-954c-02e7a2aa6f69",
           "fork_context": false,
           "result": "usage-limit-before-inspection-no-verdict"
+        },
+        {
+          "agent_id": "019f501f-d6b1-7d90-83d3-eefff9308330",
+          "fork_context": false,
+          "reviewed_head": "6d447816ed1ba42f7ca15e5812b48e32ff8c9891",
+          "result": "fail-one-p1-posix-escape-one-p2-handoff-ownership-one-p3-terminology-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -186,15 +206,32 @@
       "controller_task_count": 1,
       "worker_surface": "codex-cli-ephemeral",
       "worker_sandbox": "workspace-write",
-      "controller_git_ownership": ["branch", "stage", "commit", "push", "pr", "merge"],
-      "controller_validation_ownership": ["repository-supplied-scripts", "canonical-validation"],
-      "worker_ownership": ["reconstruct", "edit"],
+      "controller_git_ownership": [
+        "branch",
+        "stage",
+        "commit",
+        "push",
+        "pr",
+        "merge"
+      ],
+      "controller_validation_ownership": [
+        "repository-supplied-scripts",
+        "canonical-validation"
+      ],
+      "worker_ownership": [
+        "reconstruct",
+        "edit"
+      ],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
       "runtime_status": "managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
-        "observed_process_ids": [61312, 40280, 60288],
+        "observed_process_ids": [
+          61312,
+          40280,
+          60288
+        ],
         "process_ids_confirmed_terminated": true,
         "repayment_wi": "WI-CX0059-fix"
       },
@@ -203,7 +240,10 @@
         "supervisor": "scripts/run-ephemeral-worker.mjs",
         "specification": "docs/specifications/ephemeral-worker-runner.md",
         "default_timeout_ms": 120000,
-        "allowed_sandboxes": ["read-only", "workspace-write"],
+        "allowed_sandboxes": [
+          "read-only",
+          "workspace-write"
+        ],
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
         "nested_agent_confinement": {
@@ -220,10 +260,15 @@
           "known_issue": "KI-CX-WORKER-003",
           "github_issue_number": 61
         },
-        "process_identity": ["pid", "parent_pid", "process_group_id_on_posix", "executable_name", "process_start_time"],
+        "process_identity": [
+          "pid",
+          "parent_pid",
+          "executable_name",
+          "process_start_time"
+        ],
         "containment": {
           "windows": "job-object-suspended-assignment-kill-on-close",
-          "posix": "dedicated-process-group",
+          "posix": "unsupported-fail-closed-before-spawn",
           "normal_completion_requires_verified_drain": true
         },
         "deterministic_cases": {
@@ -234,7 +279,8 @@
           "interruption_descendant_cleanup": "passed-repeated-5",
           "residual_after_root_exit_cleanup": "passed-repeated-5",
           "windows_orphan_job_containment": "passed-repeated-5",
-          "windows_fast_parent_exit_containment": "passed-repeated-5"
+          "windows_fast_parent_exit_containment": "passed-repeated-5",
+          "posix_platform_guard": "static-contract-passed-live-posix-pending-ci"
         },
         "post_merge_validation": {
           "trigger_commit": "b905fc6cd0db825dcf91edbaa19688ba2a0d44ec",
@@ -263,7 +309,10 @@
             "result": "timed-out-after-target-validation",
             "thread_id": "019f4d18-0d31-7d03-9962-817fb2c11e44",
             "target_head": "a2702ab4fd370f37af1e804cb6b7e4977ea98f6a",
-            "target_validations": ["validate:passed", "validate:wi-fcd0002:passed"],
+            "target_validations": [
+              "validate:passed",
+              "validate:wi-fcd0002:passed"
+            ],
             "final_result_emitted": false,
             "failure": "unsupported nested collaboration wait",
             "cleanup_verified": true,
@@ -428,7 +477,7 @@
       "severity": "Medium",
       "owner": "H1 / execution platform",
       "trigger": "the public-repository preflight passed, but the exact post-fix local dogfood retry was policy-rejected even after current explicit user approval",
-      "defer_reason": "process lifecycle, public command-path trust, and deterministic confinement are proven without bypassing the local target disclosure boundary",
+      "defer_reason": "Windows process lifecycle, public command-path trust, and the built-in fan-out flag are proven without bypassing the local target disclosure boundary; command re-entry and POSIX worker execution are not claimed",
       "repayment_condition": "the execution platform establishes a trusted model destination and permits the managed repository-backed dogfood proof",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation, generalized unattended model worker use, or runner reactivation",
       "status": "open",
@@ -440,7 +489,7 @@
       "severity": "High",
       "owner": "CODEX",
       "trigger": "the first dogfood run timed out after unsupported collaboration; a later project-local deny rule also blocked the visible controller because trusted project rules load for every task",
-      "defer_reason": "built-in fan-out disabling and OS process containment pass, but command re-entry is not runtime-confined; the attempted project rule also blocked the visible controller, and the live final-result proof remains blocked by provider Issue #55",
+      "defer_reason": "built-in fan-out disabling, Windows Job Object containment, and unsupported-platform fail-closed behavior pass, but command re-entry is not runtime-confined; the attempted project rule also blocked the visible controller, and the live final-result proof remains blocked by provider Issue #55",
       "repayment_condition": "provide a worker-only command re-entry boundary that does not restrict the visible controller, then complete a repository-backed read-only dogfood run with final output and verified zero residuals",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement",
       "status": "open",
@@ -463,7 +512,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

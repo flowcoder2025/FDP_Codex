@@ -26,7 +26,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - WTC: AUTO
 - Risk: R2
 - ESC: E1+E2+E3+E5+E6
-- Primary evaluator stance: attempt to falsify provider trust, clean-context reconstruction, final-result delivery, worker confinement, process cleanup, and target handoff truthfulness.
+- Primary evaluator stance: attempt to falsify provider trust, clean-context reconstruction, final-result delivery, built-in fan-out disabling, command-boundary claims, process cleanup, and target handoff truthfulness.
 - Validator stance: require built-in fan-out disabling, no active project rule that restricts the controller, controller-owned repository CI, a completed live dogfood result, zero residual processes, and a separate current-head independent review before merge.
 
 ## Verification Plan
@@ -47,7 +47,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - The first dogfood attempt independently reconstructed target head `a2702ab4fd370f37af1e804cb6b7e4977ea98f6a` and both target validators passed.
 - That attempt found the target handoff still instructed the controller to commit although the worktree was clean and the commit already existed. KI-CX-DOGFOOD-002 / Issue #62 records the false-green target handoff.
 - The worker then entered an unsupported collaboration wait, timed out at 180 seconds, and emitted no final JSON. Cleanup removed every matched process and verified zero residuals. KI-CX-WORKER-003 / Issue #61 records this failure.
-- The runner adds `--disable multi_agent` and uses OS process containment. Command re-entry is not runtime-confined; the visible controller owns validation and generalized worker use remains blocked.
+- The runner adds `--disable multi_agent` and uses verified Windows Job Object containment. Unsupported platforms fail before spawn. Command re-entry is not runtime-confined; the visible controller owns validation and generalized worker use remains blocked.
 - The user explicitly approved the disclosed local target transmission. The exact post-fix retry was still rejected before execution because the configured external model destination is not established as trusted and approval cannot override that rule. No workaround was attempted.
 - Two separate `fork_context: false` read-only pre-publication reviewers returned no verdict within bounded waits and were stopped. Neither result was treated as PASS. KI-CX-REVIEW-002 / Issue #63 records reviewer-surface availability.
 - A later clean-context reviewer returned FAIL on head `b63bbca2552d6fe071812c279143a046683d0ac1` with two P2 findings: overstated live-proof state and a false-positive provider-workaround boundary check. Both findings were remediated, but the changed head still requires a fresh review.
@@ -58,6 +58,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - Reviewer `019f4dc3-db87-7043-b699-b1d1c4145217` returned FAIL on head `b46b0b745db4f9bde2dcd031e5e11d5d8b54d7cf`: polling could miss a child after a fast parent exit, the Issue #64 hard-stop wording contradicted `repaid-on-merge`, and three exec-policy messages suggested forbidden package scripts. Windows Job Object containment and KI wording were repaired.
 - Reviewer `019f4ddd-f42b-76f2-b00c-4ef1abab51aa` started with `fork_context: false` on head `311c582` but was lost without a verdict when the task was interrupted; it is not PASS evidence.
 - After the task interruption, a fresh controller session loaded the trusted project rule and blocked controller-owned `npm` and `codex` commands. The active `.codex/rules` file and runtime-enforcement claims were removed; a non-active design fixture remains, and KI-CX-WORKER-003 now owns the missing worker-only command boundary.
+- Reviewer `019f501f-d6b1-7d90-83d3-eefff9308330` returned FAIL on exact head `6d447816ed1ba42f7ca15e5812b48e32ff8c9891`: POSIX could lose a detached fast-exit descendant, the live handoff still assigned validation to workers, and two labels overstated confinement. Unsupported platforms now fail before spawn, controller-owned validation is restored throughout the handoff, and the labels now name only the built-in fan-out flag or Windows process lifecycle. The changed candidate requires a fresh review.
 
 ## Open Known Issues
 

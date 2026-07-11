@@ -4,7 +4,7 @@ Status: implemented-v1.
 
 ## Purpose
 
-Run one ephemeral Codex CLI worker with observable output, a finite deadline, and verified process-lifetime containment through a Windows Job Object or POSIX process group.
+Run one ephemeral Codex CLI worker on Windows with observable output, a finite deadline, and verified process-lifetime containment through a Job Object. Other platforms fail closed before a worker process is spawned.
 
 ## Command
 
@@ -39,7 +39,7 @@ Project-local `.codex/rules` cannot supply a worker-only fix because Codex loads
 
 The official Codex rules documentation states that Codex scans `rules/` under every active config layer at startup and loads trusted project-local rules. The `codex exec` command exposes `--ignore-rules` to skip user and project rules, but it does not expose a flag that injects one worker-only rule file. See https://learn.chatgpt.com/docs/agent-configuration/rules#create-a-rules-file and https://learn.chatgpt.com/docs/developer-commands#codex-exec.
 
-Process-lifetime containment is separate and remains enforced by the Windows Job Object or POSIX process group. The controller remains responsible for repository validation and any independent reviewer required by repository policy.
+Process-lifetime containment is separate and is currently implemented only by the Windows Job Object. Unsupported platforms return an `unsupported_platform` result before spawning a worker. The controller remains responsible for repository validation and any independent reviewer required by repository policy.
 
 ## Event Stream
 
@@ -60,21 +60,20 @@ Codex JSONL stdout is parsed and nested under the `payload` field. Non-JSON stdo
 
 On Windows, the supervisor starts the real worker suspended, assigns it to a Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and resumes it only after assignment succeeds. Descendants inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
 
-On POSIX, the direct child starts in a dedicated process group. On both platforms, the supervisor also records root and descendant process identities for evidence and targeted cleanup:
+On supported Windows hosts, the supervisor also records root and descendant process identities for evidence and targeted cleanup:
 
 - pid
 - parent pid
 - executable name
 - process start time
-- process group id on POSIX
 
-Windows obtains process metadata from `Get-CimInstance Win32_Process`. POSIX obtains metadata from `ps -eo pid=,ppid=,pgid=,lstart=,comm=`. Metadata polling remains evidence and defense in depth; Windows cleanup completeness comes from the Job Object membership and drain proof rather than polling alone.
+Windows obtains process metadata from `Get-CimInstance Win32_Process`. Metadata polling remains evidence and defense in depth; cleanup completeness comes from the Job Object membership and drain proof rather than polling alone.
 
-The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid and, on POSIX, the dedicated process group id before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused Windows parent PID from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or process-group root is also rejected as stale parent-pid metadata.
+The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused Windows parent PID from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or root is also rejected as stale parent-pid metadata.
 
 ## Completion And Cleanup
 
-Normal completion succeeds only when the real worker exits with code 0, process observation succeeds, and platform containment is verified. On Windows this requires successful Job Object assignment and a zero-active-process drain marker; on POSIX it requires the dedicated process-group observation and cleanup contract.
+Normal completion succeeds only when the real worker exits with code 0, process observation succeeds, and Windows Job Object containment is verified through successful assignment and a zero-active-process drain marker. Other platforms cannot produce a successful managed-worker result.
 
 Timeout and interruption cleanup:
 
