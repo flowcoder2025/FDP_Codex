@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
  *   confirmed_gone_pids: number[],
  *   identity_mismatch_pids: number[],
  *   alive_after_cleanup: number[],
+ *   unknown_after_cleanup: number[],
  *   verified: boolean,
  *   errors: string[]
  * }} CleanupResult
@@ -297,13 +298,15 @@ async function terminateObservedTree(options) {
       requested_pids: [...options.observed.keys()].sort((a, b) => a - b),
       confirmed_gone_pids: [],
       identity_mismatch_pids: [],
-      alive_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
+      alive_after_cleanup: [],
+      unknown_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
       verified: false,
       errors,
     };
   }
 
   let classified = classifyObserved(options.observed, table);
+  let classificationUnknown = false;
   const requested = classified.alive
     .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed))
     .map((entry) => entry.pid);
@@ -319,9 +322,10 @@ async function terminateObservedTree(options) {
     classified = classifyObserved(options.observed, table);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
+    classificationUnknown = true;
   }
 
-  if (classified.alive.length > 0) {
+  if (!classificationUnknown && classified.alive.length > 0) {
     const forceSignal = process.platform === 'win32' ? 'SIGTERM' : 'SIGKILL';
     const forceEntries = classified.alive
       .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed));
@@ -337,8 +341,23 @@ async function terminateObservedTree(options) {
       if (classified.alive.length === 0) break;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
+      classificationUnknown = true;
       break;
     }
+  }
+
+  if (classificationUnknown) {
+    return {
+      required: true,
+      reason: options.reason,
+      requested_pids: [...requested].sort((a, b) => a - b),
+      confirmed_gone_pids: [],
+      identity_mismatch_pids: [],
+      alive_after_cleanup: [],
+      unknown_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
+      verified: false,
+      errors,
+    };
   }
 
   const aliveAfter = classified.alive.map((entry) => entry.pid).sort((a, b) => a - b);
@@ -353,6 +372,7 @@ async function terminateObservedTree(options) {
     confirmed_gone_pids: confirmedGone,
     identity_mismatch_pids: mismatchPids,
     alive_after_cleanup: aliveAfter,
+    unknown_after_cleanup: [],
     verified: aliveAfter.length === 0 && errors.length === 0,
     errors,
   };
@@ -447,6 +467,7 @@ export async function runManagedProcess(options) {
         confirmed_gone_pids: [],
         identity_mismatch_pids: [],
         alive_after_cleanup: [],
+        unknown_after_cleanup: [],
         verified: false,
         errors: [],
       },
@@ -505,6 +526,32 @@ export async function runManagedProcess(options) {
     resolveAtomicIdentityReady({ kind: 'atomic-identity-ready' });
   };
 
+  const timeoutDeadlineAt = Date.now() + options.timeoutMs;
+  /** @type {NodeJS.Timeout | undefined} */
+  let timeoutHandle;
+  const timeoutPromise = new Promise((resolve) => {
+    timeoutHandle = setTimeout(() => resolve({ kind: 'timeout' }), options.timeoutMs);
+  });
+
+  /** @type {(() => void) | null} */
+  let removeAbortListener = null;
+  const abortPromise = new Promise((resolve) => {
+    if (!options.signal) return;
+    const onAbort = () => resolve({ kind: 'interrupted', reason: options.signal?.reason });
+    if (options.signal.aborted) onAbort();
+    else {
+      options.signal.addEventListener('abort', onAbort, { once: true });
+      removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
+    }
+  });
+  const elapsedGuardOutcome = () => {
+    if (options.signal?.aborted) {
+      return { kind: 'interrupted', reason: options.signal.reason };
+    }
+    if (Date.now() >= timeoutDeadlineAt) return { kind: 'timeout' };
+    return null;
+  };
+
   const child = spawn(invocation.command, invocation.args, {
     cwd: invocation.cwd,
     env: invocation.env,
@@ -554,6 +601,8 @@ export async function runManagedProcess(options) {
   });
 
   if (!spawnResult.ok || !child.pid) {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (removeAbortListener) removeAbortListener();
     const message = 'error' in spawnResult && spawnResult.error instanceof Error
       ? spawnResult.error.message
       : 'child process did not provide a pid';
@@ -580,6 +629,7 @@ export async function runManagedProcess(options) {
         confirmed_gone_pids: [],
         identity_mismatch_pids: [],
         alive_after_cleanup: [],
+        unknown_after_cleanup: [],
         verified: false,
         errors: [],
       },
@@ -649,39 +699,24 @@ export async function runManagedProcess(options) {
     return observeInFlight;
   };
 
-  /** @type {NodeJS.Timeout | undefined} */
-  let timeoutHandle;
-  const timeoutPromise = new Promise((resolve) => {
-    timeoutHandle = setTimeout(() => resolve({ kind: 'timeout' }), options.timeoutMs);
-  });
-
-  /** @type {(() => void) | null} */
-  let removeAbortListener = null;
-  const abortPromise = new Promise((resolve) => {
-    if (!options.signal) return;
-    const onAbort = () => resolve({ kind: 'interrupted', reason: options.signal?.reason });
-    if (options.signal.aborted) onAbort();
-    else {
-      options.signal.addEventListener('abort', onAbort, { once: true });
-      removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
-    }
-  });
-
-  const readinessOutcome = await Promise.race([
-    atomicIdentityReadyPromise,
-    closePromise,
+  const readinessOutcome = elapsedGuardOutcome() ?? await Promise.race([
     timeoutPromise,
     abortPromise,
+    closePromise,
+    atomicIdentityReadyPromise,
   ]);
   let initialOutcome = readinessOutcome;
   if (readinessOutcome.kind === 'atomic-identity-ready') {
-    const initialObservation = observeNow().then(() => null, () => null);
-    initialOutcome = await Promise.race([
-      closePromise,
-      timeoutPromise,
-      abortPromise,
-      initialObservation,
-    ]);
+    initialOutcome = elapsedGuardOutcome();
+    if (initialOutcome === null) {
+      const initialObservation = observeNow().then(() => null, () => null);
+      initialOutcome = await Promise.race([
+        timeoutPromise,
+        abortPromise,
+        closePromise,
+        initialObservation,
+      ]);
+    }
   }
 
   /** @type {NodeJS.Timeout | null} */
@@ -693,10 +728,10 @@ export async function runManagedProcess(options) {
     poll.unref();
   }
 
-  const outcome = initialOutcome ?? await Promise.race([
-    closePromise,
+  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? await Promise.race([
     timeoutPromise,
     abortPromise,
+    closePromise,
   ]);
   if (poll) clearInterval(poll);
   if (timeoutHandle) clearTimeout(timeoutHandle);
@@ -716,6 +751,7 @@ export async function runManagedProcess(options) {
     confirmed_gone_pids: [],
     identity_mismatch_pids: [],
     alive_after_cleanup: [],
+    unknown_after_cleanup: [],
     verified: true,
     errors: [],
   };

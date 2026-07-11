@@ -30,6 +30,7 @@ function assertObservedCleanupPartition(result) {
     ...result.cleanup.confirmed_gone_pids,
     ...result.cleanup.identity_mismatch_pids,
     ...result.cleanup.alive_after_cleanup,
+    ...result.cleanup.unknown_after_cleanup,
   ].sort((a, b) => a - b);
 
   assert.equal(
@@ -50,6 +51,13 @@ function assertAtomicIdentityBeforeObservation(events, result) {
   assert.equal(observation.atomic_child_registered, true);
   assert.equal(observation.atomic_child_pid, result.containment.atomic_child_pid);
   return true;
+}
+
+function busyWait(milliseconds) {
+  const deadline = Date.now() + milliseconds;
+  while (Date.now() < deadline) {
+    // Deliberately block to prove user event handlers cannot bypass the absolute deadline outcome.
+  }
 }
 
 function runBuiltinFanoutFlagCase() {
@@ -211,6 +219,40 @@ async function runTimeoutCase() {
   };
 }
 
+async function runStartedCallbackDeadlineCase() {
+  let callbackBlocked = false;
+  const startedAt = Date.now();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 500,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+    onEvent: (event) => {
+      if (event.type === 'worker.started' && !callbackBlocked) {
+        callbackBlocked = true;
+        busyWait(1500);
+      }
+    },
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(callbackBlocked, true);
+  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+  assert.equal(result.timed_out, true);
+  assert.equal(result.ok, false);
+  assert(elapsedMs >= 1500 && elapsedMs < 5000);
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return {
+    ...result,
+    elapsed_ms: elapsedMs,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    deadline_outcome_preserved: true,
+  };
+}
+
 async function runInterruptionCase() {
   const events = [];
   const abortController = new AbortController();
@@ -331,6 +373,9 @@ async function runObservationHangTimeoutCase() {
     assert(Number.isInteger(result.containment.atomic_child_pid));
     assert.equal(isProcessAlive(result.root_pid), false);
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+    assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
+    assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
     const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
@@ -372,6 +417,9 @@ async function runObservationHangInterruptionCase() {
     assert(Number.isInteger(result.containment.atomic_child_pid));
     assert.equal(isProcessAlive(result.root_pid), false);
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+    assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
+    assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
     const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
@@ -417,6 +465,7 @@ const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
   normal: await runNormalCase(),
   timeout: await runTimeoutCase(),
+  startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
@@ -453,6 +502,13 @@ console.log(JSON.stringify({
           .includes(windowsCases.timeout.containment.atomic_child_pid),
         atomic_identity_before_observation: windowsCases.timeout.atomic_identity_before_observation,
       },
+      started_callback_deadline: {
+        status: windowsCases.startedCallbackDeadline.status,
+        timed_out: windowsCases.startedCallbackDeadline.timed_out,
+        elapsed_ms: windowsCases.startedCallbackDeadline.elapsed_ms,
+        deadline_outcome_preserved: windowsCases.startedCallbackDeadline.deadline_outcome_preserved,
+        cleanup_partition_verified: windowsCases.startedCallbackDeadline.cleanup_partition_verified,
+      },
       interruption: {
         status: windowsCases.interruption.status,
         observed_descendant_count: windowsCases.interruption.observed_descendant_pids.length,
@@ -484,6 +540,10 @@ console.log(JSON.stringify({
           .includes(windowsCases.observationHangTimeout.containment.atomic_child_pid),
         atomic_identity_before_observation:
           windowsCases.observationHangTimeout.atomic_identity_before_observation,
+        alive_after_cleanup_count:
+          windowsCases.observationHangTimeout.cleanup.alive_after_cleanup.length,
+        unknown_after_cleanup_count:
+          windowsCases.observationHangTimeout.cleanup.unknown_after_cleanup.length,
       },
       observation_hang_interruption: {
         status: windowsCases.observationHangInterruption.status,
@@ -495,6 +555,10 @@ console.log(JSON.stringify({
           .includes(windowsCases.observationHangInterruption.containment.atomic_child_pid),
         atomic_identity_before_observation:
           windowsCases.observationHangInterruption.atomic_identity_before_observation,
+        alive_after_cleanup_count:
+          windowsCases.observationHangInterruption.cleanup.alive_after_cleanup.length,
+        unknown_after_cleanup_count:
+          windowsCases.observationHangInterruption.cleanup.unknown_after_cleanup.length,
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,
