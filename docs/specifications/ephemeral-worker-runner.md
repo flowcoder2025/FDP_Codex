@@ -77,14 +77,13 @@ The first root observation must not depend on a mutable executable label. It con
 
 Normal completion succeeds only when the real worker exits with code 0, process observation succeeds, and Windows Job Object containment is verified through successful assignment and a zero-active-process drain marker. Other platforms cannot produce a successful managed-worker result.
 
-Timeout and interruption cleanup:
+Windows timeout and interruption cleanup:
 
-1. Refresh the observed process tree.
-2. Match current processes against observed identities.
-3. Signal deepest descendants before parents.
-4. Wait for the grace period.
-5. Force remaining matched processes where the platform supports a distinct force signal.
-6. Re-observe until every matched identity is gone or the verification deadline expires.
+1. Stop the exact spawned wrapper so its kill-on-close Job handle terminates every atomically assigned member even when process-table observation is unavailable.
+2. Refresh the observed process tree through a command-bounded query.
+3. Match current processes against observed identities.
+4. For any remaining targeted residual, signal deepest observed descendants before parents.
+5. Wait for the grace period and re-observe until every tracked identity is gone or the verification deadline expires.
 
 The final result contains root and descendant pids, line counts, timeout/interruption flags, exit information, observation errors, containment mode and verification status, cleanup targets, confirmed-gone pids, identity mismatches, residual pids, and cleanup verification status.
 

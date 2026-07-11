@@ -343,11 +343,14 @@ async function terminateObservedTree(options) {
 
   const aliveAfter = classified.alive.map((entry) => entry.pid).sort((a, b) => a - b);
   const mismatchPids = [...new Set(classified.identityMismatches)].sort((a, b) => a - b);
+  const confirmedGone = [...options.observed.keys()]
+    .filter((pid) => !aliveAfter.includes(pid) && !mismatchPids.includes(pid))
+    .sort((a, b) => a - b);
   return {
     required: true,
     reason: options.reason,
     requested_pids: [...requested].sort((a, b) => a - b),
-    confirmed_gone_pids: requested.filter((pid) => !aliveAfter.includes(pid)).sort((a, b) => a - b),
+    confirmed_gone_pids: confirmedGone,
     identity_mismatch_pids: mismatchPids,
     alive_after_cleanup: aliveAfter,
     verified: aliveAfter.length === 0 && errors.length === 0,

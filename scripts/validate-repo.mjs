@@ -3934,6 +3934,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("type: 'worker.interrupted'")
     && managedProcess.includes('worker.${streamName}')
     && managedProcess.includes('alive_after_cleanup')
+    && managedProcess.includes('const confirmedGone = [...options.observed.keys()]')
+    && managedProcess.includes('!mismatchPids.includes(pid)')
     && managedProcess.includes('shell: false')
     && managedProcess.includes('residual-processes-after-root-exit')
     && managedProcess.includes('const observationVerified = observationSucceeded')
@@ -4039,7 +4041,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && pkg.dependencies === undefined;
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
     && autonomy.includes('must run through `scripts/run-ephemeral-worker.mjs`')
-    && autonomy.includes('terminate matched descendants before parents')
+    && autonomy.includes('stops the exact wrapper first so Job-handle close terminates all atomically assigned members')
+    && autonomy.includes('Targeted residual cleanup after a normal root exit signals deepest observed descendants before parents')
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('fail closed before spawning a worker')
@@ -4058,7 +4061,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('assigns the suspended worker to the Job Object atomically')
     && decision.includes('armed before the first process-table query')
     && decision.includes('each query has its own finite timeout')
-    && decision.includes('descendants are terminated before their parents')
+    && decision.includes('the exact wrapper is stopped first')
+    && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
     && decision.includes('KI-CX-PROVIDER-001 records that separate provider trust boundary');
