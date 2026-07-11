@@ -198,6 +198,12 @@
           "fork_context": false,
           "reviewed_head": "6d447816ed1ba42f7ca15e5812b48e32ff8c9891",
           "result": "fail-one-p1-posix-escape-one-p2-handoff-ownership-one-p3-terminology-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f503a-d883-70e3-888f-e5f456f1869c",
+          "fork_context": false,
+          "reviewed_head": "faa06a3d1b8a23e8787dce6f02d8ae577be7df6e",
+          "result": "fail-one-p1-job-assignment-failure-suspended-process-leak-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -280,7 +286,8 @@
           "residual_after_root_exit_cleanup": "passed-repeated-5",
           "windows_orphan_job_containment": "passed-repeated-5",
           "windows_fast_parent_exit_containment": "passed-repeated-5",
-          "posix_platform_guard": "static-contract-passed-live-posix-pending-ci"
+          "posix_platform_guard": "static-contract-passed-live-posix-pending-ci",
+          "windows_assignment_failure_cleanup": "passed-real-suspended-pid-terminated-and-confirmed-gone"
         },
         "post_merge_validation": {
           "trigger_commit": "b905fc6cd0db825dcf91edbaa19688ba2a0d44ec",
@@ -462,12 +469,11 @@
       "id": "KI-CX-WORKER-004",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "Windows polling could both attach an unrelated child after parent PID reuse and miss a detached child when the real parent exited before the next poll",
-      "defer_reason": "the implementation and repeated local verification are complete, but policy keeps the Issue open through PR validation, merge, and post-merge audit",
-      "repayment_condition": "parent identity filtering and Windows Job Object containment pass reused-PID and fast-parent-exit coverage, the related PR merges, post-merge control-plane audit passes, and Issue #64 closes with that evidence",
+      "trigger": "Windows polling could attach an unrelated child after parent PID reuse, miss a detached child after a fast parent exit, or leak a suspended worker after a Job Object assignment failure following process creation",
+      "defer_reason": "parent identity filtering, Windows Job Object containment, and assignment-failure cleanup pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
+      "repayment_condition": "parent identity filtering, Windows Job Object containment, and assignment-failure cleanup pass reused-PID, fast-parent-exit, and forced-assignment-failure coverage; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
       "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
-      "status": "repaid-on-merge",
-      "repaid_by": "WI-CX0060-test",
+      "status": "open",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
       "github_issue_number": 64,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/64"
@@ -512,7 +518,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

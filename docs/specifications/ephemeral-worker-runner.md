@@ -58,7 +58,7 @@ Codex JSONL stdout is parsed and nested under the `payload` field. Non-JSON stdo
 
 ## Process Tracking
 
-On Windows, the supervisor starts the real worker suspended, assigns it to a Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and resumes it only after assignment succeeds. Descendants inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
+On Windows, the supervisor starts the real worker suspended, assigns it to a Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and resumes it only after assignment succeeds. If assignment fails after process creation, the supervisor terminates the still-suspended unassigned process and waits for its exit before returning failure. Descendants of an assigned worker inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
 
 On supported Windows hosts, the supervisor also records root and descendant process identities for evidence and targeted cleanup:
 

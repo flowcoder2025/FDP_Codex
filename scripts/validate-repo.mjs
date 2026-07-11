@@ -3950,6 +3950,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('CREATE_SUSPENDED')
     && windowsJobRunner.includes('AssignProcessToJobObject')
     && windowsJobRunner.includes('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
+    && windowsJobRunner.includes('TerminateUnassignedProcess(processInfo)')
+    && windowsJobRunner.includes('TerminateProcess(processInfo.hProcess, 125)')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_UNASSIGNED_CLEANED:')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
@@ -3996,6 +3999,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.assignment_failure?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.assignment_failure?.cleaned_pid > 0
+        && testResult?.cases?.windows_lifecycle?.assignment_failure?.containment_assigned === false
+        && testResult?.cases?.windows_lifecycle?.assignment_failure?.containment_verified === false
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
@@ -4004,6 +4011,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle === null))
     && lifecycleTest.includes("fixturePath, 'fast-orphan-root'")
     && lifecycleTest.includes("assert.equal(result.status, 'unsupported_platform')")
+    && lifecycleTest.includes('FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE')
+    && lifecycleTest.includes("assert.equal(isProcessAlive(cleanedPid), false)")
     && lifecycleTest.includes('containment.verified')
     && fixture.includes("mode === 'grandchild'")
     && fixture.includes("mode === 'fast-orphan-root'");
@@ -4017,6 +4026,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('fail closed before spawning a worker')
+    && autonomy.includes('terminate the still-suspended unassigned process and verify its exit')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
@@ -4026,6 +4036,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('pids, parent pids, executable names, and start times')
     && decision.includes('kill-on-close Job Object')
     && decision.includes('Other platforms fail closed before spawning')
+    && decision.includes('still-suspended unassigned process is terminated and waited to exit')
     && decision.includes('descendants are terminated before their parents')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
@@ -4049,6 +4060,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('Windows Job Object')
     && spec.includes('zero-active-process drain marker')
     && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
+    && spec.includes('terminates the still-suspended unassigned process and waits for its exit')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
     && spec.includes('rejected as stale parent-pid metadata');
@@ -4094,6 +4106,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
     && guard.containment?.normal_completion_requires_verified_drain === true
     && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
+    && String(guard.deterministic_cases?.windows_assignment_failure_cleanup).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
@@ -4152,17 +4165,17 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalKi.repayment_condition.includes('temporal descendant filtering')
     && temporalKi.hard_stop.includes('before dogfood continuation')
     && temporalKi.evidence === temporalRecordPath;
-  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'repaid-on-merge'
+  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'open'
     && reusedParentKi.severity === 'High'
     && reusedParentKi.owner === 'CODEX'
-    && reusedParentKi.repaid_by === 'WI-CX0060-test'
     && reusedParentKi.github_issue_number === 64
     && reusedParentKi.trigger.includes('parent PID reuse')
     && reusedParentKi.trigger.includes('detached child')
+    && reusedParentKi.trigger.includes('Job Object assignment failure')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
+    && reusedParentKi.repayment_condition.includes('assignment-failure cleanup')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
-    && !reusedParentKi.hard_stop.includes('PR readiness')
     && reusedParentKi.evidence === proofRecordPath;
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)

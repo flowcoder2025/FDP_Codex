@@ -58,13 +58,14 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - Reviewer `019f4dc3-db87-7043-b699-b1d1c4145217` returned FAIL on head `b46b0b745db4f9bde2dcd031e5e11d5d8b54d7cf`: polling could miss a child after a fast parent exit, the Issue #64 hard-stop wording contradicted `repaid-on-merge`, and three exec-policy messages suggested forbidden package scripts. Windows Job Object containment and KI wording were repaired.
 - Reviewer `019f4ddd-f42b-76f2-b00c-4ef1abab51aa` started with `fork_context: false` on head `311c582` but was lost without a verdict when the task was interrupted; it is not PASS evidence.
 - After the task interruption, a fresh controller session loaded the trusted project rule and blocked controller-owned `npm` and `codex` commands. The active `.codex/rules` file and runtime-enforcement claims were removed; a non-active design fixture remains, and KI-CX-WORKER-003 now owns the missing worker-only command boundary.
-- Reviewer `019f501f-d6b1-7d90-83d3-eefff9308330` returned FAIL on exact head `6d447816ed1ba42f7ca15e5812b48e32ff8c9891`: POSIX could lose a detached fast-exit descendant, the live handoff still assigned validation to workers, and two labels overstated confinement. Unsupported platforms now fail before spawn, controller-owned validation is restored throughout the handoff, and the labels now name only the built-in fan-out flag or Windows process lifecycle. The changed candidate requires a fresh review.
+- Reviewer `019f501f-d6b1-7d90-83d3-eefff9308330` returned FAIL on exact head `6d447816ed1ba42f7ca15e5812b48e32ff8c9891`: POSIX could lose a detached fast-exit descendant, the live handoff still assigned validation to workers, and two labels overstated confinement. Unsupported platforms now fail before spawn, controller-owned validation is restored throughout the handoff, and the labels now name only the built-in fan-out flag or Windows process lifecycle.
+- Reviewer `019f503a-d883-70e3-888f-e5f456f1869c` returned FAIL on exact head `faa06a3d1b8a23e8787dce6f02d8ae577be7df6e`: Job Object assignment failure after process creation could leave the real worker suspended and unassigned. The remediation terminates that process, waits for exit, emits its cleaned PID, and verifies the PID is gone in a forced-failure regression. The changed candidate requires a fresh review.
 
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.
 - KI-CX-WORKER-003 / Issue #61 remains open until the post-fix worker returns a final result and controller-owned validation plus cleanup complete.
-- KI-CX-WORKER-004 / Issue #64 remains open as `repaid-on-merge` through PR validation, merge, and post-merge audit.
+- KI-CX-WORKER-004 / Issue #64 remains `open` through fresh independent review, PR validation, merge, and post-merge audit.
 - KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
 - KI-CX-REVIEW-002 / Issue #63 remains open and blocks validation, PR readiness, and merge until a bounded clean-context reviewer returns a current-head verdict.
 - KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.

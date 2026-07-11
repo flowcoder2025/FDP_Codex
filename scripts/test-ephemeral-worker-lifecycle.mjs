@@ -218,6 +218,39 @@ async function runOrphanContainmentCase() {
   return result;
 }
 
+async function runAssignmentFailureCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: { FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE: '1' },
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    verificationTimeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.containment.assigned, false);
+  assert.equal(result.containment.verified, false);
+  assert(result.containment.errors.some((error) => (
+    error.includes('Forced AssignProcessToJobObject failure after verified cleanup')
+  )));
+  const cleanupEvent = events.find((event) => (
+    event.type === 'worker.stderr'
+      && typeof event.payload === 'string'
+      && event.payload.startsWith('FDP_JOB_RUNNER_UNASSIGNED_CLEANED:')
+  ));
+  assert(cleanupEvent);
+  const cleanedPid = Number.parseInt(cleanupEvent.payload.split(':')[1], 10);
+  assert(Number.isInteger(cleanedPid) && cleanedPid > 0);
+  assert.equal(isProcessAlive(cleanedPid), false);
+  assert.equal(events.some((event) => (
+    event.type === 'worker.stdout' && event.payload?.fixture === 'complete'
+  )), false);
+  return { ...result, cleaned_pid: cleanedPid };
+}
+
 async function runFastParentExitCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -249,6 +282,7 @@ const windowsCases = process.platform === 'win32' ? {
   timeout: await runTimeoutCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
+  assignmentFailure: await runAssignmentFailureCase(),
   fastParentExit: await runFastParentExitCase(),
 } : null;
 const unsupportedPlatform = process.platform === 'win32'
@@ -285,6 +319,12 @@ console.log(JSON.stringify({
         status: windowsCases.orphanContainment.status,
         containment_mode: windowsCases.orphanContainment.containment.mode,
         containment_verified: windowsCases.orphanContainment.containment.verified,
+      },
+      assignment_failure: {
+        status: windowsCases.assignmentFailure.status,
+        cleaned_pid: windowsCases.assignmentFailure.cleaned_pid,
+        containment_assigned: windowsCases.assignmentFailure.containment.assigned,
+        containment_verified: windowsCases.assignmentFailure.containment.verified,
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,

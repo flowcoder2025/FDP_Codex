@@ -147,6 +147,9 @@ public static class FdpWindowsJobRunner
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool TerminateJobObject(IntPtr hJob, uint uExitCode);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetStdHandle(int nStdHandle);
 
@@ -156,6 +159,21 @@ public static class FdpWindowsJobRunner
     private static void ThrowLastError(string operation)
     {
         throw new Win32Exception(Marshal.GetLastWin32Error(), operation);
+    }
+
+    private static void TerminateUnassignedProcess(PROCESS_INFORMATION processInfo)
+    {
+        if (!TerminateProcess(processInfo.hProcess, 125))
+        {
+            ThrowLastError("TerminateProcess after AssignProcessToJobObject failure");
+        }
+
+        if (WaitForSingleObject(processInfo.hProcess, 5000) != WAIT_OBJECT_0)
+        {
+            ThrowLastError("WaitForSingleObject after AssignProcessToJobObject failure");
+        }
+
+        Console.Error.WriteLine("FDP_JOB_RUNNER_UNASSIGNED_CLEANED:" + processInfo.dwProcessId);
     }
 
     private static string QuoteArgument(string value)
@@ -278,9 +296,17 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("CreateProcess");
             }
 
-            if (!AssignProcessToJobObject(job, processInfo.hProcess))
+            var forceAssignmentFailure =
+                Environment.GetEnvironmentVariable("FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE") == "1";
+            if (forceAssignmentFailure || !AssignProcessToJobObject(job, processInfo.hProcess))
             {
-                ThrowLastError("AssignProcessToJobObject");
+                var assignmentError = forceAssignmentFailure ? 0 : Marshal.GetLastWin32Error();
+                TerminateUnassignedProcess(processInfo);
+                if (forceAssignmentFailure)
+                {
+                    throw new InvalidOperationException("Forced AssignProcessToJobObject failure after verified cleanup.");
+                }
+                throw new Win32Exception(assignmentError, "AssignProcessToJobObject");
             }
 
             Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED");
