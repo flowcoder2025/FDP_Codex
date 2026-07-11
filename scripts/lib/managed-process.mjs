@@ -434,7 +434,28 @@ export async function runManagedProcess(options) {
     throw new Error('timeoutMs must be a positive integer');
   }
 
-  const emit = options.onEvent || (() => {});
+  const eventSink = options.onEvent || (() => {});
+  const eventErrors = [];
+  /** @type {{kind: 'event-dispatch-failed', message: string} | null} */
+  let eventFailureOutcome = null;
+  /** @type {(value: {kind: 'event-dispatch-failed', message: string}) => void} */
+  let resolveEventFailure = () => {};
+  /** @type {Promise<{kind: 'event-dispatch-failed', message: string}>} */
+  const eventFailurePromise = new Promise((resolve) => {
+    resolveEventFailure = resolve;
+  });
+  const emit = (event) => {
+    try {
+      eventSink(event);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      eventErrors.push(message);
+      if (eventFailureOutcome === null) {
+        eventFailureOutcome = { kind: 'event-dispatch-failed', message };
+        resolveEventFailure(eventFailureOutcome);
+      }
+    }
+  };
   const platformSupport = managedProcessPlatformSupport();
   if (!platformSupport.supported) {
     const result = {
@@ -450,6 +471,7 @@ export async function runManagedProcess(options) {
       signal: null,
       stdout_line_count: 0,
       stderr_line_count: 0,
+      event_errors: eventErrors,
       observation_verified: false,
       observation_errors: [platformSupport.reason],
       containment: {
@@ -619,6 +641,7 @@ export async function runManagedProcess(options) {
       signal: null,
       stdout_line_count: stdoutCount(),
       stderr_line_count: stderrCount(),
+      event_errors: eventErrors,
       observation_verified: false,
       observation_errors: [message],
       containment: { ...containment, verified: false },
@@ -707,12 +730,13 @@ export async function runManagedProcess(options) {
   ]);
   let initialOutcome = readinessOutcome;
   if (readinessOutcome.kind === 'atomic-identity-ready') {
-    initialOutcome = elapsedGuardOutcome();
+    initialOutcome = elapsedGuardOutcome() ?? eventFailureOutcome;
     if (initialOutcome === null) {
       const initialObservation = observeNow().then(() => null, () => null);
       initialOutcome = await Promise.race([
         timeoutPromise,
         abortPromise,
+        eventFailurePromise,
         closePromise,
         initialObservation,
       ]);
@@ -728,9 +752,10 @@ export async function runManagedProcess(options) {
     poll.unref();
   }
 
-  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? await Promise.race([
+  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? eventFailureOutcome ?? await Promise.race([
     timeoutPromise,
     abortPromise,
+    eventFailurePromise,
     closePromise,
   ]);
   if (poll) clearInterval(poll);
@@ -785,6 +810,16 @@ export async function runManagedProcess(options) {
       graceMs: terminationGraceMs,
       verifyMs: verificationTimeoutMs,
     });
+  } else if (outcome && outcome.kind === 'event-dispatch-failed') {
+    status = 'event_dispatch_failed';
+    await stopRootWrapper();
+    cleanup = await terminateObservedTree({
+      observed,
+      observeNow,
+      reason: 'event-dispatch-failed',
+      graceMs: terminationGraceMs,
+      verifyMs: verificationTimeoutMs,
+    });
   } else if (outcome && outcome.kind === 'exit') {
     exitCode = outcome.code;
     exitSignal = outcome.signal;
@@ -833,6 +868,7 @@ export async function runManagedProcess(options) {
     signal: exitSignal,
     stdout_line_count: stdoutCount(),
     stderr_line_count: stderrCount(),
+    event_errors: eventErrors,
     observation_verified: observationVerified,
     observation_errors: [...observationErrors],
     containment,

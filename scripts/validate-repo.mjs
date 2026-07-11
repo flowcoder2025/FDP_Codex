@@ -3943,7 +3943,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('shell: false')
     && managedProcess.includes('residual-processes-after-root-exit')
     && managedProcess.includes('const observationVerified = observationSucceeded')
-    && managedProcess.includes('containment.verified');
+    && managedProcess.includes('containment.verified')
+    && managedProcess.includes("eventFailureOutcome = { kind: 'event-dispatch-failed'")
+    && managedProcess.includes("status = 'event_dispatch_failed'")
+    && managedProcess.includes("reason: 'event-dispatch-failed'")
+    && managedProcess.includes('event_errors: eventErrors');
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
     && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid)')
@@ -4022,6 +4026,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.elapsed_ms < 5000
         && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.deadline_outcome_preserved === true
         && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.status === 'event_dispatch_failed'
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_sink_failure_contained === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_error_count >= 1
         && testResult?.cases?.windows_lifecycle?.interruption?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.interruption?.observed_descendant_count >= 2
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
@@ -4068,6 +4077,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('...result.cleanup.unknown_after_cleanup')
     && lifecycleTest.includes('function runStartedCallbackDeadlineCase()')
     && lifecycleTest.includes('busyWait(1500)')
+    && lifecycleTest.includes('function runThrowingStartedCallbackCase()')
+    && lifecycleTest.includes("throw new Error('intentional event sink failure')")
+    && lifecycleTest.includes("assert.equal(result.status, 'event_dispatch_failed'")
     && lifecycleTest.includes("assert.equal(result.status, 'timed_out'")
     && lifecycleTest.includes('result.cleanup.unknown_after_cleanup.includes(result.root_pid)')
     && lifecycleTest.includes('function assertAtomicIdentityBeforeObservation(events, result)')
@@ -4096,6 +4108,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('no supervisor acknowledgement is required for resume')
     && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
     && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before spawn')
+    && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
     && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
@@ -4112,6 +4125,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('without waiting for a supervisor acknowledgement')
     && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
     && decision.includes('absolute timeout deadline and interrupt listener are armed before spawn')
+    && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4145,6 +4159,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
     && spec.includes('assigned to the kill-on-close Job Object atomically at process creation')
     && spec.includes('armed before spawn and before any event callback')
+    && spec.includes('throwing event sink is captured as `event_dispatch_failed`')
+    && spec.includes('event delivery errors')
     && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
@@ -4193,6 +4209,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
     && String(guard.deterministic_cases?.windows_observation_hang_timeout).startsWith('passed')
     && String(guard.deterministic_cases?.windows_observation_hang_interruption).startsWith('passed')
+    && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
@@ -4260,10 +4277,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('stalled observation')
     && reusedParentKi.trigger.includes('creation-to-assignment window')
     && reusedParentKi.trigger.includes('label unobservable dead identities as alive')
+    && reusedParentKi.trigger.includes('event sink exception escape before cleanup')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
     && reusedParentKi.repayment_condition.includes('gone, identity-mismatch, alive, or unknown classification')
+    && reusedParentKi.repayment_condition.includes('throwing event callbacks return only after verified cleanup')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;

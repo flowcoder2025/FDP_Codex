@@ -253,6 +253,42 @@ async function runStartedCallbackDeadlineCase() {
   };
 }
 
+async function runThrowingStartedCallbackCase() {
+  let callbackThrew = false;
+  let atomicChildPid = null;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 2000,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+    onEvent: (event) => {
+      if (event.type === 'worker.atomic_child') atomicChildPid = event.pid;
+      if (event.type === 'worker.started' && !callbackThrew) {
+        callbackThrew = true;
+        throw new Error('intentional event sink failure');
+      }
+    },
+  });
+  assert.equal(callbackThrew, true);
+  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.cleanup.required, true);
+  assert.equal(result.cleanup.reason, 'event-dispatch-failed');
+  assert.equal(result.cleanup.verified, true);
+  assert(result.event_errors.includes('intentional event sink failure'));
+  assert.equal(atomicChildPid, result.containment.atomic_child_pid);
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(atomicChildPid), false);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return {
+    ...result,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    event_sink_failure_contained: true,
+  };
+}
+
 async function runInterruptionCase() {
   const events = [];
   const abortController = new AbortController();
@@ -466,6 +502,7 @@ const windowsCases = process.platform === 'win32' ? {
   normal: await runNormalCase(),
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
+  throwingStartedCallback: await runThrowingStartedCallbackCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
@@ -508,6 +545,13 @@ console.log(JSON.stringify({
         elapsed_ms: windowsCases.startedCallbackDeadline.elapsed_ms,
         deadline_outcome_preserved: windowsCases.startedCallbackDeadline.deadline_outcome_preserved,
         cleanup_partition_verified: windowsCases.startedCallbackDeadline.cleanup_partition_verified,
+      },
+      throwing_started_callback: {
+        status: windowsCases.throwingStartedCallback.status,
+        cleanup_verified: windowsCases.throwingStartedCallback.cleanup.verified,
+        cleanup_partition_verified: windowsCases.throwingStartedCallback.cleanup_partition_verified,
+        event_sink_failure_contained: windowsCases.throwingStartedCallback.event_sink_failure_contained,
+        event_error_count: windowsCases.throwingStartedCallback.event_errors.length,
       },
       interruption: {
         status: windowsCases.interruption.status,
