@@ -11,7 +11,9 @@ using System.Threading;
 public static class FdpWindowsJobRunner
 {
     private const uint CREATE_SUSPENDED = 0x00000004;
+    private const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
+    private static readonly IntPtr PROC_THREAD_ATTRIBUTE_JOB_LIST = new IntPtr(0x0002000D);
     private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
     private const int JobObjectBasicAccountingInformation = 1;
     private const int JobObjectExtendedLimitInformation = 9;
@@ -41,6 +43,13 @@ public static class FdpWindowsJobRunner
         public IntPtr hStdInput;
         public IntPtr hStdOutput;
         public IntPtr hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct STARTUPINFOEX
+    {
+        public STARTUPINFO StartupInfo;
+        public IntPtr lpAttributeList;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -129,11 +138,28 @@ public static class FdpWindowsJobRunner
         uint dwCreationFlags,
         IntPtr lpEnvironment,
         string lpCurrentDirectory,
-        ref STARTUPINFO lpStartupInfo,
+        ref STARTUPINFOEX lpStartupInfo,
         out PROCESS_INFORMATION lpProcessInformation);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+    private static extern bool InitializeProcThreadAttributeList(
+        IntPtr lpAttributeList,
+        int dwAttributeCount,
+        int dwFlags,
+        ref UIntPtr lpSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool UpdateProcThreadAttribute(
+        IntPtr lpAttributeList,
+        uint dwFlags,
+        IntPtr attribute,
+        IntPtr lpValue,
+        UIntPtr cbSize,
+        IntPtr lpPreviousValue,
+        IntPtr lpReturnSize);
+
+    [DllImport("kernel32.dll")]
+    private static extern void DeleteProcThreadAttributeList(IntPtr lpAttributeList);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern uint ResumeThread(IntPtr hThread);
@@ -147,9 +173,6 @@ public static class FdpWindowsJobRunner
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool TerminateJobObject(IntPtr hJob, uint uExitCode);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
-
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetStdHandle(int nStdHandle);
 
@@ -159,21 +182,6 @@ public static class FdpWindowsJobRunner
     private static void ThrowLastError(string operation)
     {
         throw new Win32Exception(Marshal.GetLastWin32Error(), operation);
-    }
-
-    private static void TerminateUnassignedProcess(PROCESS_INFORMATION processInfo)
-    {
-        if (!TerminateProcess(processInfo.hProcess, 125))
-        {
-            ThrowLastError("TerminateProcess after AssignProcessToJobObject failure");
-        }
-
-        if (WaitForSingleObject(processInfo.hProcess, 5000) != WAIT_OBJECT_0)
-        {
-            ThrowLastError("WaitForSingleObject after AssignProcessToJobObject failure");
-        }
-
-        Console.Error.WriteLine("FDP_JOB_RUNNER_UNASSIGNED_CLEANED:" + processInfo.dwProcessId);
     }
 
     private static string QuoteArgument(string value)
@@ -252,6 +260,10 @@ public static class FdpWindowsJobRunner
         limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         var limitsSize = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
         var limitsPointer = Marshal.AllocHGlobal(limitsSize);
+        var attributeListSize = UIntPtr.Zero;
+        IntPtr attributeList = IntPtr.Zero;
+        IntPtr jobListValue = IntPtr.Zero;
+        var attributeListInitialized = false;
         PROCESS_INFORMATION processInfo = new PROCESS_INFORMATION();
 
         try
@@ -266,6 +278,28 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("SetInformationJobObject");
             }
 
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref attributeListSize);
+            attributeList = Marshal.AllocHGlobal(checked((int)attributeListSize.ToUInt64()));
+            if (!InitializeProcThreadAttributeList(attributeList, 1, 0, ref attributeListSize))
+            {
+                ThrowLastError("InitializeProcThreadAttributeList");
+            }
+            attributeListInitialized = true;
+
+            jobListValue = Marshal.AllocHGlobal(IntPtr.Size);
+            Marshal.WriteIntPtr(jobListValue, job);
+            if (!UpdateProcThreadAttribute(
+                attributeList,
+                0,
+                PROC_THREAD_ATTRIBUTE_JOB_LIST,
+                jobListValue,
+                (UIntPtr)IntPtr.Size,
+                IntPtr.Zero,
+                IntPtr.Zero))
+            {
+                ThrowLastError("UpdateProcThreadAttribute(PROC_THREAD_ATTRIBUTE_JOB_LIST)");
+            }
+
             var commandLine = new StringBuilder();
             commandLine.Append(QuoteArgument(command));
             foreach (var argument in arguments)
@@ -274,12 +308,13 @@ public static class FdpWindowsJobRunner
                 commandLine.Append(QuoteArgument(argument));
             }
 
-            var startupInfo = new STARTUPINFO();
-            startupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFO));
-            startupInfo.dwFlags = STARTF_USESTDHANDLES;
-            startupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-            startupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-            startupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            var startupInfo = new STARTUPINFOEX();
+            startupInfo.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
+            startupInfo.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+            startupInfo.StartupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+            startupInfo.StartupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+            startupInfo.StartupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            startupInfo.lpAttributeList = attributeList;
 
             if (!CreateProcess(
                 command,
@@ -287,7 +322,7 @@ public static class FdpWindowsJobRunner
                 IntPtr.Zero,
                 IntPtr.Zero,
                 true,
-                CREATE_SUSPENDED,
+                CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
                 IntPtr.Zero,
                 workingDirectory,
                 ref startupInfo,
@@ -296,20 +331,12 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("CreateProcess");
             }
 
-            var forceAssignmentFailure =
-                Environment.GetEnvironmentVariable("FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE") == "1";
-            if (forceAssignmentFailure || !AssignProcessToJobObject(job, processInfo.hProcess))
-            {
-                var assignmentError = forceAssignmentFailure ? 0 : Marshal.GetLastWin32Error();
-                TerminateUnassignedProcess(processInfo);
-                if (forceAssignmentFailure)
-                {
-                    throw new InvalidOperationException("Forced AssignProcessToJobObject failure after verified cleanup.");
-                }
-                throw new Win32Exception(assignmentError, "AssignProcessToJobObject");
-            }
-
             Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED");
+            Console.Error.WriteLine("FDP_JOB_RUNNER_ATOMIC_CHILD:" + processInfo.dwProcessId);
+            if (Environment.GetEnvironmentVariable("FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE") == "1")
+            {
+                Thread.Sleep(Timeout.Infinite);
+            }
             if (ResumeThread(processInfo.hThread) == UInt32.MaxValue)
             {
                 ThrowLastError("ResumeThread");
@@ -348,6 +375,18 @@ public static class FdpWindowsJobRunner
             if (processInfo.hProcess != IntPtr.Zero)
             {
                 CloseHandle(processInfo.hProcess);
+            }
+            if (jobListValue != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(jobListValue);
+            }
+            if (attributeListInitialized)
+            {
+                DeleteProcThreadAttributeList(attributeList);
+            }
+            if (attributeList != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(attributeList);
             }
             Marshal.FreeHGlobal(limitsPointer);
             CloseHandle(job);

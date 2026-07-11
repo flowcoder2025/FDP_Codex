@@ -204,6 +204,12 @@
           "fork_context": false,
           "reviewed_head": "faa06a3d1b8a23e8787dce6f02d8ae577be7df6e",
           "result": "fail-one-p1-job-assignment-failure-suspended-process-leak-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f5048-a6dd-72b0-9f46-9e1bb1ac4c82",
+          "fork_context": false,
+          "reviewed_head": "bf3195302796bb1ee825ed8ace3893e0a50a6e12",
+          "result": "fail-two-p1-observer-timeout-and-creation-assignment-window-one-p2-ki-overstatement-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -273,7 +279,7 @@
           "process_start_time"
         ],
         "containment": {
-          "windows": "job-object-suspended-assignment-kill-on-close",
+          "windows": "job-object-atomic-create-kill-on-close",
           "posix": "unsupported-fail-closed-before-spawn",
           "normal_completion_requires_verified_drain": true
         },
@@ -287,7 +293,9 @@
           "windows_orphan_job_containment": "passed-repeated-5",
           "windows_fast_parent_exit_containment": "passed-repeated-5",
           "posix_platform_guard": "static-contract-passed-live-posix-pending-ci",
-          "windows_assignment_failure_cleanup": "passed-real-suspended-pid-terminated-and-confirmed-gone"
+          "windows_atomic_wrapper_kill_containment": "passed-real-wrapper-hard-kill-atomic-child-confirmed-gone",
+          "windows_observation_hang_timeout": "passed-timeout-armed-before-observation-query-bounded-wrapper-and-child-gone",
+          "windows_observation_hang_interruption": "passed-interrupt-armed-before-observation-query-bounded-wrapper-and-child-gone"
         },
         "post_merge_validation": {
           "trigger_commit": "b905fc6cd0db825dcf91edbaa19688ba2a0d44ec",
@@ -469,9 +477,9 @@
       "id": "KI-CX-WORKER-004",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "Windows polling could attach an unrelated child after parent PID reuse, miss a detached child after a fast parent exit, or leak a suspended worker after a Job Object assignment failure following process creation",
-      "defer_reason": "parent identity filtering, Windows Job Object containment, and assignment-failure cleanup pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
-      "repayment_condition": "parent identity filtering, Windows Job Object containment, and assignment-failure cleanup pass reused-PID, fast-parent-exit, and forced-assignment-failure coverage; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
+      "trigger": "Windows lifecycle could attach an unrelated child after parent PID reuse, miss a detached child after fast parent exit, wait indefinitely on unbounded process-table observation before arming timeout, or leak a worker through the creation-to-assignment window if the wrapper was hard-killed",
+      "defer_reason": "parent identity filtering, atomic Windows Job Object creation, wrapper hard-kill containment, bounded observation commands, and timeout-before-observation pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
+      "repayment_condition": "parent identity filtering, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
       "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
       "status": "open",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
@@ -518,7 +526,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak; exact head bf31953 then failed with two P1 lifecycle gaps and one P2 KI overstatement",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

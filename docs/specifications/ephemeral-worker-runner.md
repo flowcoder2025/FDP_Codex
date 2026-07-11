@@ -58,7 +58,9 @@ Codex JSONL stdout is parsed and nested under the `payload` field. Non-JSON stdo
 
 ## Process Tracking
 
-On Windows, the supervisor starts the real worker suspended, assigns it to a Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and resumes it only after assignment succeeds. If assignment fails after process creation, the supervisor terminates the still-suspended unassigned process and waits for its exit before returning failure. Descendants of an assigned worker inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
+On Windows 10 or newer, the supervisor builds a `STARTUPINFOEX` attribute list containing `PROC_THREAD_ATTRIBUTE_JOB_LIST` and passes `EXTENDED_STARTUPINFO_PRESENT` to `CreateProcess`. The real worker is therefore assigned to the kill-on-close Job Object atomically at process creation rather than in a later API call. The worker remains suspended until the supervisor records the assigned child PID and resumes it. If the wrapper is forcibly terminated after creation, closing its Job handle terminates the atomically assigned child. Descendants inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
+
+The Windows API basis is the Microsoft documentation for `InitializeProcThreadAttributeList` and `UpdateProcThreadAttribute`; the latter defines `PROC_THREAD_ATTRIBUTE_JOB_LIST` as a list of Job handles assigned to the child process at creation. See https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-initializeprocthreadattributelist and https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute.
 
 On supported Windows hosts, the supervisor also records root and descendant process identities for evidence and targeted cleanup:
 
@@ -67,7 +69,7 @@ On supported Windows hosts, the supervisor also records root and descendant proc
 - executable name
 - process start time
 
-Windows obtains process metadata from `Get-CimInstance Win32_Process`. Metadata polling remains evidence and defense in depth; cleanup completeness comes from the Job Object membership and drain proof rather than polling alone.
+Windows obtains process metadata from `Get-CimInstance Win32_Process`. The wrapper timeout and interrupt race is armed before the first query, and every query has a separate finite command timeout. On timeout or interruption, the exact spawned wrapper is stopped even if metadata observation is delayed or unavailable. Metadata polling remains evidence and defense in depth; successful cleanup still requires observable proof, while Job membership closes the worker process tree when the wrapper exits.
 
 The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused Windows parent PID from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or root is also rejected as stale parent-pid metadata.
 

@@ -3923,6 +3923,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('contains_chunk_bodies: false');
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
     && managedProcess.includes('managedProcessPlatformSupport')
+    && managedProcess.includes('DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS')
+    && managedProcess.includes('const initialOutcome = await Promise.race')
+    && managedProcess.includes('await stopRootWrapper()')
     && managedProcess.includes("mode: 'unsupported-fail-closed'")
     && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.includes('started_at')
@@ -3948,11 +3951,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("containmentMode: 'windows-job-object'")
     && managedProcess.includes('containment.drained')
     && windowsJobRunner.includes('CREATE_SUSPENDED')
-    && windowsJobRunner.includes('AssignProcessToJobObject')
     && windowsJobRunner.includes('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
-    && windowsJobRunner.includes('TerminateUnassignedProcess(processInfo)')
-    && windowsJobRunner.includes('TerminateProcess(processInfo.hProcess, 125)')
-    && windowsJobRunner.includes('FDP_JOB_RUNNER_UNASSIGNED_CLEANED:')
+    && windowsJobRunner.includes('PROC_THREAD_ATTRIBUTE_JOB_LIST')
+    && windowsJobRunner.includes('EXTENDED_STARTUPINFO_PRESENT')
+    && windowsJobRunner.includes('InitializeProcThreadAttributeList')
+    && windowsJobRunner.includes('UpdateProcThreadAttribute')
+    && !windowsJobRunner.includes('AssignProcessToJobObject')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_ATOMIC_CHILD:')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
@@ -3999,10 +4004,19 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
-        && testResult?.cases?.windows_lifecycle?.assignment_failure?.status === 'containment_failed'
-        && testResult?.cases?.windows_lifecycle?.assignment_failure?.cleaned_pid > 0
-        && testResult?.cases?.windows_lifecycle?.assignment_failure?.containment_assigned === false
-        && testResult?.cases?.windows_lifecycle?.assignment_failure?.containment_verified === false
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.wrapper_pid > 0
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_assigned === true
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_verified === false
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.elapsed_ms < 5000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.timed_out === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < 5000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.interrupted === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_pid > 0
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
@@ -4011,8 +4025,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle === null))
     && lifecycleTest.includes("fixturePath, 'fast-orphan-root'")
     && lifecycleTest.includes("assert.equal(result.status, 'unsupported_platform')")
-    && lifecycleTest.includes('FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE')
-    && lifecycleTest.includes("assert.equal(isProcessAlive(cleanedPid), false)")
+    && lifecycleTest.includes('FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE')
+    && lifecycleTest.includes('FDP_JOB_TEST_OBSERVATION_DELAY_MS')
+    && lifecycleTest.includes('function runObservationHangInterruptionCase()')
+    && lifecycleTest.includes("assert.equal(isProcessAlive(confirmedAtomicChildPid), false)")
+    && lifecycleTest.includes("assert.equal(isProcessAlive(result.containment.atomic_child_pid), false)")
     && lifecycleTest.includes('containment.verified')
     && fixture.includes("mode === 'grandchild'")
     && fixture.includes("mode === 'fast-orphan-root'");
@@ -4026,7 +4043,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('fail closed before spawning a worker')
-    && autonomy.includes('terminate the still-suspended unassigned process and verify its exit')
+    && autonomy.includes('assigned at creation through `STARTUPINFOEX` and `PROC_THREAD_ATTRIBUTE_JOB_LIST`')
+    && autonomy.includes('armed before the first process observation')
+    && autonomy.includes('each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
@@ -4036,7 +4055,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('pids, parent pids, executable names, and start times')
     && decision.includes('kill-on-close Job Object')
     && decision.includes('Other platforms fail closed before spawning')
-    && decision.includes('still-suspended unassigned process is terminated and waited to exit')
+    && decision.includes('assigns the suspended worker to the Job Object atomically')
+    && decision.includes('armed before the first process-table query')
+    && decision.includes('each query has its own finite timeout')
     && decision.includes('descendants are terminated before their parents')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
@@ -4060,7 +4081,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('Windows Job Object')
     && spec.includes('zero-active-process drain marker')
     && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
-    && spec.includes('terminates the still-suspended unassigned process and waits for its exit')
+    && spec.includes('assigned to the kill-on-close Job Object atomically at process creation')
+    && spec.includes('armed before the first query')
+    && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
     && spec.includes('rejected as stale parent-pid metadata');
@@ -4101,12 +4124,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.timeout_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
-    && guard.containment?.windows === 'job-object-suspended-assignment-kill-on-close'
+    && guard.containment?.windows === 'job-object-atomic-create-kill-on-close'
     && guard.containment?.posix === 'unsupported-fail-closed-before-spawn'
     && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
     && guard.containment?.normal_completion_requires_verified_drain === true
     && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
-    && String(guard.deterministic_cases?.windows_assignment_failure_cleanup).startsWith('passed')
+    && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
+    && String(guard.deterministic_cases?.windows_observation_hang_timeout).startsWith('passed')
+    && String(guard.deterministic_cases?.windows_observation_hang_interruption).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
@@ -4171,9 +4196,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.github_issue_number === 64
     && reusedParentKi.trigger.includes('parent PID reuse')
     && reusedParentKi.trigger.includes('detached child')
-    && reusedParentKi.trigger.includes('Job Object assignment failure')
+    && reusedParentKi.trigger.includes('unbounded process-table observation')
+    && reusedParentKi.trigger.includes('creation-to-assignment window')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
-    && reusedParentKi.repayment_condition.includes('assignment-failure cleanup')
+    && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
+    && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;

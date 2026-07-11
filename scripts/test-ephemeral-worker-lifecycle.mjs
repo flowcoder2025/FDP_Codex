@@ -167,7 +167,10 @@ async function runTimeoutCase() {
   assert.equal(result.cleanup.reason, 'timeout');
   assert.equal(result.cleanup.verified, true);
   assert.deepEqual(result.cleanup.alive_after_cleanup, []);
-  assert(result.cleanup.confirmed_gone_pids.includes(result.root_pid));
+  assert(
+    result.cleanup.confirmed_gone_pids.includes(result.root_pid)
+      || result.cleanup.identity_mismatch_pids.includes(result.root_pid),
+  );
   return result;
 }
 
@@ -218,37 +221,108 @@ async function runOrphanContainmentCase() {
   return result;
 }
 
-async function runAssignmentFailureCase() {
+async function runAtomicWrapperKillCase() {
   const events = [];
+  let wrapperPid = null;
+  let atomicChildPid = null;
+  let wrapperKilled = false;
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'complete'],
-    env: { FDP_JOB_TEST_FORCE_ASSIGNMENT_FAILURE: '1' },
+    env: { FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE: '1' },
     timeoutMs: 5000,
     pollIntervalMs: 100,
     verificationTimeoutMs: 5000,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      events.push(event);
+      if (event.type === 'worker.started') wrapperPid = event.root_pid;
+      if (event.type === 'worker.atomic_child') {
+        atomicChildPid = event.pid;
+        assert(Number.isInteger(wrapperPid) && wrapperPid > 0);
+        process.kill(wrapperPid, 'SIGTERM');
+        wrapperKilled = true;
+      }
+    },
   });
+  assert.equal(wrapperKilled, true);
   assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, false);
-  assert.equal(result.containment.assigned, false);
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, false);
   assert.equal(result.containment.verified, false);
-  assert(result.containment.errors.some((error) => (
-    error.includes('Forced AssignProcessToJobObject failure after verified cleanup')
-  )));
-  const cleanupEvent = events.find((event) => (
-    event.type === 'worker.stderr'
-      && typeof event.payload === 'string'
-      && event.payload.startsWith('FDP_JOB_RUNNER_UNASSIGNED_CLEANED:')
-  ));
-  assert(cleanupEvent);
-  const cleanedPid = Number.parseInt(cleanupEvent.payload.split(':')[1], 10);
-  assert(Number.isInteger(cleanedPid) && cleanedPid > 0);
-  assert.equal(isProcessAlive(cleanedPid), false);
+  assert.equal(result.containment.atomic_child_pid, atomicChildPid);
+  const confirmedWrapperPid = Number(wrapperPid);
+  const confirmedAtomicChildPid = Number(atomicChildPid);
+  assert(Number.isInteger(confirmedWrapperPid) && confirmedWrapperPid > 0);
+  assert(Number.isInteger(confirmedAtomicChildPid) && confirmedAtomicChildPid > 0);
+  assert.equal(isProcessAlive(confirmedWrapperPid), false);
+  assert.equal(isProcessAlive(confirmedAtomicChildPid), false);
   assert.equal(events.some((event) => (
     event.type === 'worker.stdout' && event.payload?.fixture === 'complete'
   )), false);
-  return { ...result, cleaned_pid: cleanedPid };
+  return { ...result, wrapper_pid: wrapperPid };
+}
+
+async function runObservationHangTimeoutCase() {
+  const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+  process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      timeoutMs: 750,
+      pollIntervalMs: 100,
+      terminationGraceMs: 100,
+      verificationTimeoutMs: 1000,
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, false);
+    assert.equal(result.timed_out, true);
+    assert(elapsedMs < 5000, `observation hang exceeded finite bound: ${elapsedMs}ms`);
+    assert(Number.isInteger(result.containment.atomic_child_pid));
+    assert.equal(isProcessAlive(result.root_pid), false);
+    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
+    return { ...result, elapsed_ms: elapsedMs };
+  } finally {
+    if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+    else process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = previousDelay;
+  }
+}
+
+async function runObservationHangInterruptionCase() {
+  const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+  process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
+  const abortController = new AbortController();
+  const abortTimer = setTimeout(() => abortController.abort('observer-hang-test'), 750);
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      timeoutMs: 10000,
+      pollIntervalMs: 100,
+      terminationGraceMs: 100,
+      verificationTimeoutMs: 1000,
+      signal: abortController.signal,
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, false);
+    assert.equal(result.interrupted, true);
+    assert(elapsedMs < 5000, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
+    assert(Number.isInteger(result.containment.atomic_child_pid));
+    assert.equal(isProcessAlive(result.root_pid), false);
+    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
+    return { ...result, elapsed_ms: elapsedMs };
+  } finally {
+    clearTimeout(abortTimer);
+    if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+    else process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = previousDelay;
+  }
 }
 
 async function runFastParentExitCase() {
@@ -282,7 +356,9 @@ const windowsCases = process.platform === 'win32' ? {
   timeout: await runTimeoutCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
-  assignmentFailure: await runAssignmentFailureCase(),
+  atomicWrapperKill: await runAtomicWrapperKillCase(),
+  observationHangTimeout: await runObservationHangTimeoutCase(),
+  observationHangInterruption: await runObservationHangInterruptionCase(),
   fastParentExit: await runFastParentExitCase(),
 } : null;
 const unsupportedPlatform = process.platform === 'win32'
@@ -320,11 +396,24 @@ console.log(JSON.stringify({
         containment_mode: windowsCases.orphanContainment.containment.mode,
         containment_verified: windowsCases.orphanContainment.containment.verified,
       },
-      assignment_failure: {
-        status: windowsCases.assignmentFailure.status,
-        cleaned_pid: windowsCases.assignmentFailure.cleaned_pid,
-        containment_assigned: windowsCases.assignmentFailure.containment.assigned,
-        containment_verified: windowsCases.assignmentFailure.containment.verified,
+      atomic_wrapper_kill: {
+        status: windowsCases.atomicWrapperKill.status,
+        wrapper_pid: windowsCases.atomicWrapperKill.wrapper_pid,
+        atomic_child_pid: windowsCases.atomicWrapperKill.containment.atomic_child_pid,
+        containment_assigned: windowsCases.atomicWrapperKill.containment.assigned,
+        containment_verified: windowsCases.atomicWrapperKill.containment.verified,
+      },
+      observation_hang_timeout: {
+        status: windowsCases.observationHangTimeout.status,
+        elapsed_ms: windowsCases.observationHangTimeout.elapsed_ms,
+        timed_out: windowsCases.observationHangTimeout.timed_out,
+        atomic_child_pid: windowsCases.observationHangTimeout.containment.atomic_child_pid,
+      },
+      observation_hang_interruption: {
+        status: windowsCases.observationHangInterruption.status,
+        elapsed_ms: windowsCases.observationHangInterruption.elapsed_ms,
+        interrupted: windowsCases.observationHangInterruption.interrupted,
+        atomic_child_pid: windowsCases.observationHangInterruption.containment.atomic_child_pid,
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,

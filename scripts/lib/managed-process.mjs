@@ -19,8 +19,10 @@ import { fileURLToPath } from 'node:url';
  */
 
 const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
+const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
 const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
 const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
+const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
 const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
 
@@ -74,6 +76,7 @@ function execFileText(command, args) {
     execFile(command, args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
+      timeout: DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS,
       windowsHide: true,
     }, (error, stdout, stderr) => {
       if (error) {
@@ -90,8 +93,15 @@ function execFileText(command, args) {
 async function listWindowsProcesses() {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const testDelayMs = Number.parseInt(
+    process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS || '',
+    10,
+  );
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    ...(Number.isInteger(testDelayMs) && testDelayMs > 0
+      ? [`Start-Sleep -Milliseconds ${testDelayMs}`]
+      : []),
     '$items = @(Get-CimInstance Win32_Process | ForEach-Object {',
     '  $started = if ($null -ne $_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString(\'o\') } else { $null }',
     '  [PSCustomObject]@{ pid = [int]$_.ProcessId; ppid = [int]$_.ParentProcessId; name = [string]$_.Name; started_at = $started }',
@@ -424,6 +434,7 @@ export async function runManagedProcess(options) {
         assigned: false,
         drained: false,
         verified: false,
+        atomic_child_pid: null,
         errors: [platformSupport.reason],
       },
       cleanup: {
@@ -454,6 +465,7 @@ export async function runManagedProcess(options) {
     assigned: false,
     drained: false,
     verified: false,
+    atomic_child_pid: null,
     errors: [],
   };
 
@@ -474,6 +486,16 @@ export async function runManagedProcess(options) {
     }
     if (line === WINDOWS_JOB_DRAINED_MARKER) {
       containment.drained = true;
+      return true;
+    }
+    if (line.startsWith(WINDOWS_JOB_ATOMIC_CHILD_PREFIX)) {
+      const pid = Number.parseInt(line.slice(WINDOWS_JOB_ATOMIC_CHILD_PREFIX.length), 10);
+      if (Number.isInteger(pid) && pid > 0) {
+        containment.atomic_child_pid = pid;
+        emit({ type: 'worker.atomic_child', timestamp: new Date().toISOString(), pid });
+      } else {
+        containment.errors.push(`invalid atomic child marker: ${line}`);
+      }
       return true;
     }
     if (line.startsWith(WINDOWS_JOB_ERROR_PREFIX)) {
@@ -568,17 +590,6 @@ export async function runManagedProcess(options) {
     return observeInFlight;
   };
 
-  try {
-    await observeNow();
-  } catch {
-    // A later observation may recover. Cleanup verification remains mandatory.
-  }
-
-  const poll = setInterval(() => {
-    void observeNow().catch(() => {});
-  }, pollIntervalMs);
-  poll.unref();
-
   /** @type {NodeJS.Timeout | undefined} */
   let timeoutHandle;
   const timeoutPromise = new Promise((resolve) => {
@@ -597,10 +608,38 @@ export async function runManagedProcess(options) {
     }
   });
 
-  const outcome = await Promise.race([closePromise, timeoutPromise, abortPromise]);
-  clearInterval(poll);
+  const initialObservation = observeNow().then(() => null, () => null);
+  const initialOutcome = await Promise.race([
+    closePromise,
+    timeoutPromise,
+    abortPromise,
+    initialObservation,
+  ]);
+
+  /** @type {NodeJS.Timeout | null} */
+  let poll = null;
+  if (initialOutcome === null) {
+    poll = setInterval(() => {
+      void observeNow().catch(() => {});
+    }, pollIntervalMs);
+    poll.unref();
+  }
+
+  const outcome = initialOutcome ?? await Promise.race([
+    closePromise,
+    timeoutPromise,
+    abortPromise,
+  ]);
+  if (poll) clearInterval(poll);
   if (timeoutHandle) clearTimeout(timeoutHandle);
   if (removeAbortListener) removeAbortListener();
+
+  const stopRootWrapper = async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill();
+      await Promise.race([closePromise, sleep(terminationGraceMs)]);
+    }
+  };
 
   let cleanup = {
     required: false,
@@ -622,6 +661,7 @@ export async function runManagedProcess(options) {
     timedOut = true;
     status = 'timed_out';
     emit({ type: 'worker.timeout', timestamp: new Date().toISOString(), root_pid: rootPid, timeout_ms: options.timeoutMs });
+    await stopRootWrapper();
     cleanup = await terminateObservedTree({
       observed,
       observeNow,
@@ -633,6 +673,7 @@ export async function runManagedProcess(options) {
     interrupted = true;
     status = 'interrupted';
     emit({ type: 'worker.interrupted', timestamp: new Date().toISOString(), root_pid: rootPid });
+    await stopRootWrapper();
     cleanup = await terminateObservedTree({
       observed,
       observeNow,
