@@ -41,6 +41,17 @@ function assertObservedCleanupPartition(result) {
   return true;
 }
 
+function assertAtomicIdentityBeforeObservation(events, result) {
+  const atomicChildIndex = events.findIndex((event) => event.type === 'worker.atomic_child');
+  const observationIndex = events.findIndex((event) => event.type === 'worker.observation_started');
+  assert(atomicChildIndex >= 0);
+  assert(observationIndex > atomicChildIndex);
+  const observation = events[observationIndex];
+  assert.equal(observation.atomic_child_registered, true);
+  assert.equal(observation.atomic_child_pid, result.containment.atomic_child_pid);
+  return true;
+}
+
 function runBuiltinFanoutFlagCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
@@ -174,6 +185,7 @@ async function runNormalCase() {
 }
 
 async function runTimeoutCase() {
+  const events = [];
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'root'],
@@ -181,6 +193,7 @@ async function runTimeoutCase() {
     pollIntervalMs: 100,
     terminationGraceMs: 100,
     verificationTimeoutMs: 5000,
+    onEvent: (event) => events.push(event),
   });
   assert.equal(result.status, 'timed_out');
   assert.equal(result.timed_out, true);
@@ -190,10 +203,16 @@ async function runTimeoutCase() {
   assert.equal(result.cleanup.verified, true);
   assert.deepEqual(result.cleanup.alive_after_cleanup, []);
   const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+  const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+  return {
+    ...result,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    atomic_identity_before_observation: atomicIdentityBeforeObservation,
+  };
 }
 
 async function runInterruptionCase() {
+  const events = [];
   const abortController = new AbortController();
   const timer = setTimeout(() => abortController.abort('test-interruption'), 1500);
   try {
@@ -205,6 +224,7 @@ async function runInterruptionCase() {
       terminationGraceMs: 100,
       verificationTimeoutMs: 5000,
       signal: abortController.signal,
+      onEvent: (event) => events.push(event),
     });
     assert.equal(result.status, 'interrupted');
     assert.equal(result.interrupted, true);
@@ -213,7 +233,12 @@ async function runInterruptionCase() {
     assert.equal(result.cleanup.verified, true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-    return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+    return {
+      ...result,
+      cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -284,6 +309,7 @@ async function runAtomicWrapperKillCase() {
 }
 
 async function runObservationHangTimeoutCase() {
+  const events = [];
   const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
   process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
   const startedAt = Date.now();
@@ -295,6 +321,7 @@ async function runObservationHangTimeoutCase() {
       pollIntervalMs: 100,
       terminationGraceMs: 100,
       verificationTimeoutMs: 1000,
+      onEvent: (event) => events.push(event),
     });
     const elapsedMs = Date.now() - startedAt;
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
@@ -306,10 +333,12 @@ async function runObservationHangTimeoutCase() {
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
     return {
       ...result,
       elapsed_ms: elapsedMs,
       cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
     };
   } finally {
     if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
@@ -318,6 +347,7 @@ async function runObservationHangTimeoutCase() {
 }
 
 async function runObservationHangInterruptionCase() {
+  const events = [];
   const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
   process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
   const abortController = new AbortController();
@@ -332,6 +362,7 @@ async function runObservationHangInterruptionCase() {
       terminationGraceMs: 100,
       verificationTimeoutMs: 1000,
       signal: abortController.signal,
+      onEvent: (event) => events.push(event),
     });
     const elapsedMs = Date.now() - startedAt;
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
@@ -343,10 +374,12 @@ async function runObservationHangInterruptionCase() {
     assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
     return {
       ...result,
       elapsed_ms: elapsedMs,
       cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
     };
   } finally {
     clearTimeout(abortTimer);
@@ -418,6 +451,7 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.timeout.cleanup_partition_verified,
         atomic_child_observed: windowsCases.timeout.observed_descendant_pids
           .includes(windowsCases.timeout.containment.atomic_child_pid),
+        atomic_identity_before_observation: windowsCases.timeout.atomic_identity_before_observation,
       },
       interruption: {
         status: windowsCases.interruption.status,
@@ -426,6 +460,7 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.interruption.cleanup_partition_verified,
         atomic_child_observed: windowsCases.interruption.observed_descendant_pids
           .includes(windowsCases.interruption.containment.atomic_child_pid),
+        atomic_identity_before_observation: windowsCases.interruption.atomic_identity_before_observation,
       },
       orphan_containment: {
         status: windowsCases.orphanContainment.status,
@@ -447,6 +482,8 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.observationHangTimeout.cleanup_partition_verified,
         atomic_child_observed: windowsCases.observationHangTimeout.observed_descendant_pids
           .includes(windowsCases.observationHangTimeout.containment.atomic_child_pid),
+        atomic_identity_before_observation:
+          windowsCases.observationHangTimeout.atomic_identity_before_observation,
       },
       observation_hang_interruption: {
         status: windowsCases.observationHangInterruption.status,
@@ -456,6 +493,8 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.observationHangInterruption.cleanup_partition_verified,
         atomic_child_observed: windowsCases.observationHangInterruption.observed_descendant_pids
           .includes(windowsCases.observationHangInterruption.containment.atomic_child_pid),
+        atomic_identity_before_observation:
+          windowsCases.observationHangInterruption.atomic_identity_before_observation,
       },
       fast_parent_exit: {
         status: windowsCases.fastParentExit.status,

@@ -475,6 +475,14 @@ export async function runManagedProcess(options) {
   let spawnedRootPid = null;
   /** @type {{pid: number, started_at: string} | null} */
   let atomicChildMarker = null;
+  let atomicIdentityRegistered = false;
+  let atomicChildEventEmitted = false;
+  /** @type {(value: {kind: 'atomic-identity-ready'}) => void} */
+  let resolveAtomicIdentityReady = () => {};
+  /** @type {Promise<{kind: 'atomic-identity-ready'}>} */
+  const atomicIdentityReadyPromise = new Promise((resolve) => {
+    resolveAtomicIdentityReady = resolve;
+  });
   const registerAtomicChildIdentity = () => {
     if (spawnedRootPid === null || atomicChildMarker === null) return;
     observed.set(atomicChildMarker.pid, {
@@ -484,6 +492,17 @@ export async function runManagedProcess(options) {
       name: path.basename(options.command),
       started_at: atomicChildMarker.started_at,
     });
+    atomicIdentityRegistered = true;
+    if (!atomicChildEventEmitted) {
+      emit({
+        type: 'worker.atomic_child',
+        timestamp: new Date().toISOString(),
+        pid: atomicChildMarker.pid,
+        started_at: atomicChildMarker.started_at,
+      });
+      atomicChildEventEmitted = true;
+    }
+    resolveAtomicIdentityReady({ kind: 'atomic-identity-ready' });
   };
 
   const child = spawn(invocation.command, invocation.args, {
@@ -515,12 +534,6 @@ export async function runManagedProcess(options) {
         containment.atomic_child_started_at = startedAt;
         atomicChildMarker = { pid, started_at: startedAt };
         registerAtomicChildIdentity();
-        emit({
-          type: 'worker.atomic_child',
-          timestamp: new Date().toISOString(),
-          pid,
-          started_at: startedAt,
-        });
       } else {
         containment.errors.push(`invalid atomic child marker: ${line}`);
       }
@@ -599,8 +612,24 @@ export async function runManagedProcess(options) {
 
   /** @type {Promise<ProcessInfo[]> | null} */
   let observeInFlight = null;
+  let observationAttempt = 0;
   const observeNow = () => {
     if (observeInFlight) return observeInFlight;
+    if (!atomicIdentityRegistered) {
+      const message = 'atomic child identity is not registered';
+      observationErrors.add(message);
+      emit({ type: 'worker.observation_error', timestamp: new Date().toISOString(), message });
+      return Promise.reject(new Error(message));
+    }
+    observationAttempt += 1;
+    emit({
+      type: 'worker.observation_started',
+      timestamp: new Date().toISOString(),
+      attempt: observationAttempt,
+      atomic_child_pid: containment.atomic_child_pid,
+      atomic_child_registered: containment.atomic_child_pid !== null
+        && observed.has(containment.atomic_child_pid),
+    });
     observeInFlight = listProcessTable()
       .then((table) => {
         mergeObservedTree(table, rootPid, observed);
@@ -638,13 +667,22 @@ export async function runManagedProcess(options) {
     }
   });
 
-  const initialObservation = observeNow().then(() => null, () => null);
-  const initialOutcome = await Promise.race([
+  const readinessOutcome = await Promise.race([
+    atomicIdentityReadyPromise,
     closePromise,
     timeoutPromise,
     abortPromise,
-    initialObservation,
   ]);
+  let initialOutcome = readinessOutcome;
+  if (readinessOutcome.kind === 'atomic-identity-ready') {
+    const initialObservation = observeNow().then(() => null, () => null);
+    initialOutcome = await Promise.race([
+      closePromise,
+      timeoutPromise,
+      abortPromise,
+      initialObservation,
+    ]);
+  }
 
   /** @type {NodeJS.Timeout | null} */
   let poll = null;

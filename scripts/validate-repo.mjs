@@ -3924,7 +3924,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
     && managedProcess.includes('managedProcessPlatformSupport')
     && managedProcess.includes('DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS')
-    && managedProcess.includes('const initialOutcome = await Promise.race')
+    && managedProcess.includes('const readinessOutcome = await Promise.race')
     && managedProcess.includes('await stopRootWrapper()')
     && managedProcess.includes("mode: 'unsupported-fail-closed'")
     && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
@@ -3963,6 +3963,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('atomicChild.StartTime.ToUniversalTime().ToString("o")')
     && managedProcess.includes('atomic_child_started_at')
     && managedProcess.includes('observed.set(atomicChildMarker.pid')
+    && managedProcess.includes('const atomicIdentityReadyPromise = new Promise')
+    && managedProcess.includes('if (!atomicIdentityRegistered)')
+    && managedProcess.includes("readinessOutcome.kind === 'atomic-identity-ready'")
+    && managedProcess.includes("type: 'worker.observation_started'")
+    && managedProcess.indexOf('atomicIdentityReadyPromise,') < managedProcess.indexOf('const initialObservation = observeNow()')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
@@ -4006,11 +4011,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.timeout?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.interruption?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.interruption?.observed_descendant_count >= 2
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.interruption?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
         && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.status === 'containment_failed'
@@ -4024,12 +4031,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_pid > 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.status === 'cleanup_failed'
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < 5000
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.interrupted === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_pid > 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
@@ -4042,6 +4051,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('FDP_JOB_TEST_OBSERVATION_DELAY_MS')
     && lifecycleTest.includes('function runObservationHangInterruptionCase()')
     && lifecycleTest.includes('function assertObservedCleanupPartition(result)')
+    && lifecycleTest.includes('function assertAtomicIdentityBeforeObservation(events, result)')
+    && lifecycleTest.includes("event.type === 'worker.observation_started'")
+    && lifecycleTest.includes('observationIndex > atomicChildIndex')
     && lifecycleTest.includes('observed_descendant_pids.includes(atomicChildPid)')
     && lifecycleTest.includes("assert.equal(isProcessAlive(confirmedAtomicChildPid), false)")
     && lifecycleTest.includes("assert.equal(isProcessAlive(result.containment.atomic_child_pid), false)")
@@ -4061,6 +4073,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('fail closed before spawning a worker')
     && autonomy.includes('assigned at creation through `STARTUPINFOEX` and `PROC_THREAD_ATTRIBUTE_JOB_LIST`')
     && autonomy.includes('creation marker must include the atomically created worker PID and start time')
+    && autonomy.includes('register the marker before any process-table query')
+    && autonomy.includes('no supervisor acknowledgement is required for resume')
     && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, or alive')
     && autonomy.includes('armed before the first process observation')
     && autonomy.includes('each process-table command must have its own timeout')
@@ -4074,9 +4088,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('kill-on-close Job Object')
     && decision.includes('Other platforms fail closed before spawning')
     && decision.includes('assigns the suspended worker to the Job Object atomically')
-    && decision.includes('reports the real worker PID and start time')
+    && decision.includes('writes the real worker PID and start time marker')
+    && decision.includes('registered that marker before any process-table query')
+    && decision.includes('without waiting for a supervisor acknowledgement')
     && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, or alive')
-    && decision.includes('armed before the first process-table query')
+    && decision.includes('armed before this readiness wait')
     && decision.includes('each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4084,7 +4100,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('repay KI-CX-WORKER-001')
     && decision.includes('KI-CX-PROVIDER-001 records that separate provider trust boundary');
   checks.worker_lifecycle_spec = spec.includes('Status: implemented-v1')
-    && spec.includes('inserts that identity into the observed set before process-table polling')
+    && spec.includes('does not start any process-table query until its stderr handler has registered that identity')
+    && spec.includes('without waiting for a supervisor acknowledgement')
+    && spec.includes('`worker.observation_started` records the ordering evidence')
     && spec.includes('every other observed descendant must appear exactly once')
     && spec.includes('prompt is required on stdin')
     && spec.includes('danger-full-access` is not accepted')
@@ -4105,7 +4123,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('zero-active-process drain marker')
     && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
     && spec.includes('assigned to the kill-on-close Job Object atomically at process creation')
-    && spec.includes('armed before the first query')
+    && spec.includes('armed before waiting for the marker')
     && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
