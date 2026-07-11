@@ -166,9 +166,24 @@ function runTemporalIdentityCase() {
   ], rootPid, reusedRootObserved);
   assert.equal(reusedRootObserved.has(50004), false);
 
+  const uninitializedRootObserved = new Map([[rootPid, {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'powershell.exe',
+    started_at: null,
+  }]]);
+  mergeObservedTree([
+    { pid: rootPid, ppid: 12345, pgid: rootPid, name: 'powershell.exe', started_at: '2026-07-10T12:00:00.000Z' },
+    { pid: 50005, ppid: rootPid, pgid: rootPid, name: 'unrelated-child', started_at: '2026-07-10T12:00:00.100Z' },
+  ], rootPid, uninitializedRootObserved);
+  assert.equal(uninitializedRootObserved.get(rootPid)?.started_at, null);
+  assert.equal(uninitializedRootObserved.has(50005), false);
+
   return {
     stale_excluded: true,
     reused_parent_identity_excluded: true,
+    uninitialized_root_reuse_excluded: true,
     descendant_count: observed.size - 1,
   };
 }

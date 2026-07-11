@@ -258,6 +258,12 @@
           "fork_context": false,
           "reviewed_head": "a50c85346f13030f5efe7ba9fa13cc950fc995d7",
           "result": "fail-one-p2-final-result-sink-false-success-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f50f4-0252-7ec1-8111-c3c4eb42c512",
+          "fork_context": false,
+          "reviewed_head": "17e410de9e6ed878bcc48417664891aa3d85f93c",
+          "result": "fail-one-p1-uninitialized-root-pid-reuse-remediated-awaiting-fresh-review"
         }
       ]
     },

@@ -3965,6 +3965,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
     && lifecycleTest.includes('assert.equal(observed.has(50003), true)')
     && managedProcess.includes('sameIdentity(parent, currentParent)')
+    && managedProcess.includes('expected.started_at === null')
+    && managedProcess.includes('expected.ppid === current.ppid')
     && managedProcess.includes("containmentMode: 'windows-job-object'")
     && managedProcess.includes('containment.drained')
     && windowsJobRunner.includes('CREATE_SUSPENDED')
@@ -4016,6 +4018,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
+    && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && (process.platform === 'win32'
       ? (testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'

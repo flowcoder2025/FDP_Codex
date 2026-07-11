@@ -159,6 +159,11 @@ export function listProcessTable() {
  */
 function sameIdentity(expected, current) {
   if (expected.pid !== current.pid) return false;
+  if (expected.started_at === null) {
+    return expected.ppid === current.ppid
+      && Boolean(expected.name && current.name)
+      && path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase();
+  }
   if (expected.started_at && current.started_at) return expected.started_at === current.started_at;
   if (expected.name && current.name) {
     return path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase();
