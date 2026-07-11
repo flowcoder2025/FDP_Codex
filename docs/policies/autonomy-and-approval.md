@@ -143,7 +143,7 @@ This split supersedes the retired Codex app worktree cron as the supported direc
 
 Supervised local ephemeral workers must run through `scripts/run-ephemeral-worker.mjs`. Direct unmanaged `codex exec --ephemeral` use is not allowed for unattended WI execution.
 
-Managed workers must not execute repository-supplied scripts or package managers. The visible controller runs canonical validation after worker exit. No package-script exception is allowed because a workspace-write worker can rewrite that script before execution.
+Managed workers are instructed not to execute repository-supplied scripts or package managers, and the visible controller runs canonical validation after worker exit. This is not runtime command confinement. Project-local command rules apply to the visible controller too, so they must not be installed as a worker-only control. Generalized managed-worker use remains blocked until a worker-specific command boundary exists.
 
 The managed wrapper must use a finite timeout, stream JSONL stdout and stderr observably, track the root and descendant process identities, contain Windows workers in a kill-on-close Job Object before resume, use a dedicated POSIX process group, terminate matched descendants before parents on timeout or interruption, and verify containment drain before controller fallback. An observation, containment, or cleanup result that cannot be verified is a failure.
 

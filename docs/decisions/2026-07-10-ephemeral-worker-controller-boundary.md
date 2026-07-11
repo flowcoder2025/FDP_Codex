@@ -14,7 +14,7 @@ The control task carries the accumulated goal, project identity, user decisions,
 
 The controller owns repository-supplied script execution and canonical validation in addition to branch creation, staging, commit, push, PR, merge, and approval handling. The worker owns repository reconstruction and worktree edits. A worker does not own remote configuration, publication, authority expansion, or the complete WI Git lifecycle.
 
-Amendment: WI-CX0060-test moves repository-supplied script execution and validation to the visible controller because a workspace-write worker could rewrite any allowed validation script into a nested process launcher.
+Amendment: WI-CX0060-test moves repository-supplied script execution and validation to the visible controller because a workspace-write worker could rewrite any allowed validation script into a nested process launcher. This ownership rule is not runtime command confinement; project-local deny rules also restrict the visible controller, so generalized worker use remains blocked until a worker-only boundary exists.
 
 ## Capability Boundary
 

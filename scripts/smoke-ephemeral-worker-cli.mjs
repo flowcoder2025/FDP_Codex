@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-import { buildEphemeralWorkerArgs, resolveCodexInvocation, verifyManagedWorkerExecPolicy } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
 import { runManagedProcess } from './lib/managed-process.mjs';
 
 const invocation = resolveCodexInvocation();
-const execPolicy = verifyManagedWorkerExecPolicy({ invocation, cwd: process.cwd() });
-process.stdout.write(`${JSON.stringify({ type: 'worker.exec_policy_verified', ...execPolicy })}\n`);
 const workerArgs = buildEphemeralWorkerArgs({
   argsPrefix: invocation.argsPrefix,
   sandbox: 'read-only',

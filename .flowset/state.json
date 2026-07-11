@@ -167,6 +167,17 @@
           "fork_context": false,
           "reviewed_head": "b46b0b745db4f9bde2dcd031e5e11d5d8b54d7cf",
           "result": "fail-one-p1-unobserved-descendant-one-p2-ki-hard-stop-one-p3-guidance-remediated"
+        },
+        {
+          "agent_id": "019f4ddd-f42b-76f2-b00c-4ef1abab51aa",
+          "fork_context": false,
+          "reviewed_head": "311c582eba00745dec4c49d5f740585fc2c90cf3",
+          "result": "no-verdict-agent-lost-on-task-interruption"
+        },
+        {
+          "agent_id": "019f4df3-0ccf-7f92-954c-02e7a2aa6f69",
+          "fork_context": false,
+          "result": "usage-limit-before-inspection-no-verdict"
         }
       ]
     },
@@ -180,7 +191,7 @@
       "worker_ownership": ["reconstruct", "edit"],
       "app_task_fanout": "forbidden",
       "decision_ref": "docs/decisions/2026-07-10-ephemeral-worker-controller-boundary.md",
-      "runtime_status": "managed-guard-confined-public-preflight-passed-dogfood-policy-blocked",
+      "runtime_status": "managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked",
       "last_attempt": {
         "result": "no-visible-events-partial-edit-residual-processes-cleaned",
         "observed_process_ids": [61312, 40280, 60288],
@@ -188,7 +199,7 @@
         "repayment_wi": "WI-CX0059-fix"
       },
       "managed_guard": {
-        "status": "confined-public-preflight-passed-dogfood-policy-blocked",
+        "status": "builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked",
         "supervisor": "scripts/run-ephemeral-worker.mjs",
         "specification": "docs/specifications/ephemeral-worker-runner.md",
         "default_timeout_ms": 120000,
@@ -196,18 +207,15 @@
         "event_stream": "jsonl-stdout-no-default-persistence",
         "prompt_transport": "stdin",
         "nested_agent_confinement": {
-          "status": "builtin-and-supported-exec-policy-gates-passed-live-proof-not-run-policy-blocked",
+          "status": "builtin-fanout-disabled-command-reentry-unenforced",
           "cli_flag": "--disable multi_agent",
-          "deterministic_test": "supported-contract-passed",
-          "exec_policy": {
-            "rule": ".codex/rules/fdp-managed-worker.rules",
-            "preflight": "passed-local-no-model-request",
-            "forbidden_case_count": 18,
-            "scope": "supported-direct-runtime-all-package-manager-and-shell-reentry-prefixes",
-            "package_script_control": "forbidden-inside-worker",
-            "validation_owner": "visible-controller",
-            "universal_os_process_isolation": false,
-            "target_migration_issue": 62
+          "deterministic_test": "builtin-fanout-flag-passed",
+          "command_reentry": {
+            "runtime_enforced": false,
+            "design_fixture": "docs/specifications/managed-worker-exec-policy.rules",
+            "active_project_rule": false,
+            "controller_validation_owner": "visible-controller",
+            "blocker": "project-local rules apply to the visible controller as well as managed workers"
           },
           "known_issue": "KI-CX-WORKER-003",
           "github_issue_number": 61
@@ -431,9 +439,9 @@
       "id": "KI-CX-WORKER-003",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "the first dogfood run completed target reconstruction and validation, then entered an unsupported collaboration wait and timed out before final output",
-      "defer_reason": "built-in fan-out disabling, supported exec-policy re-entry checks, and verified timeout cleanup pass, but this is not universal OS process isolation and the post-fix live final-result proof was rejected before execution by provider Issue #55",
-      "repayment_condition": "after the target carries the managed-worker exec policy, complete a repository-backed read-only dogfood run with final output and verified zero residuals",
+      "trigger": "the first dogfood run timed out after unsupported collaboration; a later project-local deny rule also blocked the visible controller because trusted project rules load for every task",
+      "defer_reason": "built-in fan-out disabling and OS process containment pass, but command re-entry is not runtime-confined; the attempted project rule also blocked the visible controller, and the live final-result proof remains blocked by provider Issue #55",
+      "repayment_condition": "provide a worker-only command re-entry boundary that does not restrict the visible controller, then complete a repository-backed read-only dogfood run with final output and verified zero residuals",
       "hard_stop": "before completing WI-CX0060-test, dogfood continuation beyond diagnosis, generalized unattended workers, or runner replacement",
       "status": "open",
       "github_issue_number": 61,
@@ -455,7 +463,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, and the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

@@ -38,7 +38,6 @@ if (!/^layer1:[a-z0-9.-]+$/.test(decisionRef)) throw new Error('decision-ref mus
 if (existsSync(outputRoot) && readdirSync(outputRoot).length > 0) throw new Error(`Refusing to overwrite non-empty output directory: ${outputRoot}`);
 
 const validatorSource = readFileSync(new URL('./validate-layer2-scaffold.mjs', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-const managedWorkerPolicySource = readFileSync(new URL('../.codex/rules/fdp-managed-worker.rules', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const files = new Map();
 const wi1 = `WI-${scopeCode}0001-docs`;
 const wi2 = `WI-${scopeCode}0002-test`;
@@ -78,7 +77,7 @@ add('AGENTS.md', lines([
   '- Keep Layer 1 provenance qualified with `layer1:<chunk_id>` references.',
   '- Record verification debt with risk, owner, repayment WI, hard stop, and defer reason.',
   '- Do not claim completion until the visible controller runs `npm run validate` and the WI-specific checks after worker exit.',
-  '- Managed workers require `.codex/rules/fdp-managed-worker.rules`; direct runtimes, package managers, and nested Codex execution are forbidden. The visible controller runs repository validation after the worker exits.',
+  '- Managed workers disable built-in multi-agent fan-out, but command re-entry is not runtime-confined by a project-local rule. Keep generalized worker use blocked and let the visible controller run repository validation after worker exit.',
   '- Push, merge, release, deployment, publication, dependencies, and destructive operations require explicit approval.',
 ]));
 
@@ -91,7 +90,7 @@ add('README.md', lines([
   '',
   '1. Read `AGENTS.md` and `docs/manifest.yaml`.',
   '2. Read `.flowset/current-wi.md`, `.flowset/fix_plan.md`, and `.flowset/handoff.md`.',
-  '3. Keep `.codex/rules/fdp-managed-worker.rules` active for managed worker sessions; workers must not run repository scripts.',
+  '3. Keep generalized managed-worker use blocked until a worker-only command policy can be loaded without restricting the visible controller.',
   '4. After the worker exits, run `npm run validate` from the visible controller.',
   '',
   'The next target WI is the fresh-context handoff continuation proof recorded in the fix plan.',
@@ -106,7 +105,13 @@ add('package.json', `${JSON.stringify({
   engines: { node: '>=20' },
 }, null, 2)}\n`);
 add('.gitignore', 'node_modules/\n');
-add('.codex/rules/fdp-managed-worker.rules', managedWorkerPolicySource);
+add('docs/policies/managed-worker-boundary.md', lines([
+  '# Managed Worker Boundary',
+  '',
+  'Project-local `.codex/rules` files apply to the visible controller as well as workers, so this target does not install a worker-only command rule there.',
+  '',
+  'Built-in multi-agent fan-out is disabled for managed worker invocations. Command re-entry confinement remains open and blocks generalized managed-worker use. The visible controller owns repository validation after worker exit.',
+]));
 
 add('.flowset/current-wi.md', lines([
   '# Current WI',
@@ -318,13 +323,14 @@ add('docs/index.md', lines([
   '',
   '- `docs/manifest.yaml`: target SSOT registry.',
   '- `docs/records/layer-1-provenance.md`: qualified generation provenance.',
+  '- `docs/policies/managed-worker-boundary.md`: truthful worker command-boundary limitation.',
   `- \`docs/records/validation-wi-${wi1.slice(3).toLowerCase()}.md\`: bootstrap validation evidence.`,
 ]));
 
 const chunkDefs = [
   ['public.readme', 'target-readme', 'README.md', 'public', 'live'],
   ['tool.package', 'target-tool-config', 'package.json', 'tool-config', 'live'],
-  ['policy.managed-worker-exec', 'target-managed-worker-exec-policy', '.codex/rules/fdp-managed-worker.rules', 'policy', 'implemented'],
+  ['policy.managed-worker-boundary', 'target-managed-worker-boundary', 'docs/policies/managed-worker-boundary.md', 'policy', 'blocked'],
   ['docs.index', 'target-doc-index', 'docs/index.md', 'index', 'live'],
   ['flow.current-wi', 'target-current-wi', '.flowset/current-wi.md', 'flow-state', 'validated'],
   ['flow.fix-plan', 'target-fix-plan', '.flowset/fix_plan.md', 'flow-state', 'live'],

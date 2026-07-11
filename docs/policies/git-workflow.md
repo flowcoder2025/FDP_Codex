@@ -146,7 +146,7 @@ If unrelated changes block safe work, record the blocker in handoff and stop.
 
 An ephemeral CLI worker running under `workspace-write` may reconstruct and edit a WI on a dedicated branch that the controller created before delegation. This is still branch-first work and is not an exception that permits implementation on `main`.
 
-The worker owns repository reconstruction and worktree edits. It must not execute repository-supplied scripts or package managers. The controller owns repository validation, branch creation, staged review, commit, push, PR, and merge. Before creating the commit, the controller must inspect the complete diff, verify that the worker stayed inside the approved WI, and run the relevant repository validation after worker exit.
+The worker owns repository reconstruction and worktree edits and is instructed not to execute repository-supplied scripts or package managers. This is not runtime command confinement. The controller owns repository validation, branch creation, staged review, commit, push, PR, and merge. Before creating the commit, the controller must inspect the complete diff, verify that the worker stayed inside the approved WI, and run the relevant repository validation after worker exit.
 
 Do not grant `danger-full-access` solely so an ephemeral worker can modify `.git`. A separately installed Codex app worktree automation may own Git operations only when its own approved contract and runtime capability evidence explicitly allow them.
 

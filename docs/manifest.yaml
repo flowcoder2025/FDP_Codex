@@ -1647,12 +1647,12 @@ chunks:
       - tooling
       - handoff
     body_carryover: forbidden
-  - id: policy.managed-worker-exec
-    title: Managed Worker Exec Policy
-    source: .codex/rules/fdp-managed-worker.rules
-    type: policy
+  - id: spec.managed-worker-exec-design
+    title: Managed Worker Exec Policy Design Fixture
+    source: docs/specifications/managed-worker-exec-policy.rules
+    type: specification
     layer: layer1
-    status: implemented
+    status: blocked
     loads_for:
       - automation-planning
       - command-execution

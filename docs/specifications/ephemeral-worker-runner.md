@@ -27,24 +27,25 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 - `--sandbox` defaults to `workspace-write` and accepts only `read-only` or `workspace-write`.
 - stdin must contain a non-empty UTF-8 prompt no larger than 1 MiB.
 - `CODEX_CLI_PATH` may identify an explicit Codex executable. On Windows, the npm-installed `codex.js` shim target is preferred when present.
-- The target must be trusted by Codex and contain `.codex/rules/fdp-managed-worker.rules`.
+- The target must be trusted by Codex. Generalized managed-worker use remains blocked while command re-entry confinement is unresolved.
 
 ## Agent Confinement
 
-The managed worker disables the Codex `multi_agent` feature at invocation. Before reading the prompt or making a model request, the wrapper also runs `codex execpolicy check` against the target's `.codex/rules/fdp-managed-worker.rules`. The preflight must verify that supported direct Codex, runtime, package-executor, and nested-shell re-entry forms resolve to `forbidden`; an absent rule or non-forbidden result fails closed.
+The managed worker disables the Codex `multi_agent` feature at invocation. This blocks built-in collaboration fan-out for that CLI process.
 
-A worker must finish its assigned task in its own ephemeral process and must not spawn nested agents or enter collaboration wait states. It may reconstruct and edit the target, but it must not execute repository-supplied scripts or package managers. The visible controller runs canonical validation only after the worker exits. This prevents a workspace-write worker from rewriting an allowed validation script into a nested Codex launcher.
+A worker is instructed to finish its assigned task in its own ephemeral process and leave repository validation to the visible controller. This instruction is not a runtime command boundary: direct runtime, package-manager, shell, or nested Codex re-entry remains technically possible.
 
-The CLI flag and exec-policy preflight enforce the supported command contract rather than relying on prompt wording. This is not a claim of universal command authorization: arbitrary renamed binaries or undeclared launchers remain outside this rule language's prefix-matching guarantee and therefore block unattended or generalized worker authority. Process-lifetime containment is a separate guarantee supplied by the Windows Job Object or POSIX process group.
+Project-local `.codex/rules` cannot supply a worker-only fix because Codex loads trusted project rules for the visible controller too. The attempted deny rule blocked controller-owned validation after a new session loaded it. FDP_Codex therefore keeps only a non-active design fixture at `docs/specifications/managed-worker-exec-policy.rules`, installs no project rule, and treats command re-entry confinement as an open KI that blocks generalized or unattended worker authority.
 
-The controller remains responsible for repository validation and any separate independent reviewer required by repository policy. Disabling nested agents inside an implementation worker does not weaken the independent-review gate.
+The official Codex rules documentation states that Codex scans `rules/` under every active config layer at startup and loads trusted project-local rules. The `codex exec` command exposes `--ignore-rules` to skip user and project rules, but it does not expose a flag that injects one worker-only rule file. See https://learn.chatgpt.com/docs/agent-configuration/rules#create-a-rules-file and https://learn.chatgpt.com/docs/developer-commands#codex-exec.
+
+Process-lifetime containment is separate and remains enforced by the Windows Job Object or POSIX process group. The controller remains responsible for repository validation and any independent reviewer required by repository policy.
 
 ## Event Stream
 
 The wrapper writes one JSON object per line to stdout. Event types are:
 
 - `worker.started`
-- `worker.exec_policy_verified`
 - `worker.stdout`
 - `worker.stderr`
 - `worker.timeout`
@@ -95,7 +96,7 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses deterministic Node fixtures that create root, child, grandchild, detached-child, and immediate-parent-exit cases. It validates the policy contract, normal output capture, timeout cleanup, interruption cleanup, Windows Job Object inheritance, and verified drain after a real parent exits before polling can observe its child. `worker:smoke-local` first executes the real `execpolicy check` preflight for direct, package-manager, and nested-shell re-entry cases, then builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider.
+`worker:test` uses deterministic Node fixtures that create root, child, grandchild, detached-child, and immediate-parent-exit cases. It validates the built-in fan-out flag, normal output capture, timeout cleanup, interruption cleanup, Windows Job Object inheritance, and verified drain after a real parent exits before polling can observe its child. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider. It does not claim command re-entry enforcement.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 

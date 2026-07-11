@@ -82,7 +82,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md',
   'docs/specifications/independent-review-evidence.md',
   'docs/specifications/ephemeral-worker-runner.md',
-  '.codex/rules/fdp-managed-worker.rules',
+  'docs/specifications/managed-worker-exec-policy.rules',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -278,7 +278,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0046-test',
   'decision.ephemeral-worker-process-lifecycle-guard',
   'spec.ephemeral-worker-runner',
-  'policy.managed-worker-exec',
+  'spec.managed-worker-exec-design',
   'tool.codex-invocation',
   'tool.managed-process',
   'tool.run-ephemeral-worker',
@@ -3167,7 +3167,7 @@ function validateLayer2ScaffoldGenerator() {
   const recordPath = 'docs/records/validation-wi-cx0055-feat.md';
   const generator = read(generatorPath);
   const scaffoldValidator = read(scaffoldValidatorPath);
-  const managedWorkerPolicy = read('.codex/rules/fdp-managed-worker.rules');
+  const managedWorkerPolicy = read('docs/specifications/managed-worker-exec-policy.rules');
   const spec = read('docs/specifications/layer-2-knowledge-scaffold.md');
   const pkg = JSON.parse(read('package.json'));
   const currentWi = read('.flowset/current-wi.md');
@@ -3230,13 +3230,13 @@ function validateLayer2ScaffoldGenerator() {
   checks.layer2_generator_scripts = generator.includes('Refusing to overwrite non-empty output directory')
     && generator.includes("add('.flowset/context-ledger.jsonl'")
     && generator.includes("add('docs/manifest.yaml'")
-    && generator.includes("add('.codex/rules/fdp-managed-worker.rules'")
+    && generator.includes("add('docs/policies/managed-worker-boundary.md'")
     && scaffoldValidator.includes('manifest_hash_failures')
     && scaffoldValidator.includes('forbiddenLedgerKeys')
     && scaffoldValidator.includes('verification_debt_registry')
     && scaffoldValidator.includes('layer1_provenance')
-    && scaffoldValidator.includes('managed_worker_exec_policy')
-    && managedWorkerPolicy.includes('Nested Codex execution is forbidden');
+    && scaffoldValidator.includes('managed_worker_boundary')
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path');
   checks.layer2_generator_command_surface = pkg.scripts?.['layer2:generate'] === 'node scripts/generate-layer2-scaffold.mjs'
     && pkg.scripts?.['layer2:validate'] === 'node scripts/validate-layer2-scaffold.mjs'
     && spec.includes('## Command Surface')
@@ -3247,7 +3247,7 @@ function validateLayer2ScaffoldGenerator() {
     && generated?.project_scope_code === 'SMK'
     && generated?.file_count >= 15
     && validated?.ok === true
-    && validated?.checks?.managed_worker_exec_policy === true
+    && validated?.checks?.managed_worker_boundary === true
     && Array.isArray(validated?.checks?.manifest_hash_failures)
     && validated.checks.manifest_hash_failures.length === 0
     && overwriteRejected;
@@ -3255,13 +3255,13 @@ function validateLayer2ScaffoldGenerator() {
     && manifest.includes(generatorPath)
     && manifest.includes('id: tool.validate-layer2-scaffold')
     && manifest.includes(scaffoldValidatorPath)
-    && manifest.includes('id: policy.managed-worker-exec')
-    && manifest.includes('.codex/rules/fdp-managed-worker.rules')
+    && manifest.includes('id: spec.managed-worker-exec-design')
+    && manifest.includes('docs/specifications/managed-worker-exec-policy.rules')
     && manifest.includes('id: record.validation-wi-cx0055-feat')
     && manifest.includes(recordPath)
     && docsIndex.includes(generatorPath)
     && docsIndex.includes(scaffoldValidatorPath)
-    && docsIndex.includes('.codex/rules/fdp-managed-worker.rules')
+    && docsIndex.includes('docs/specifications/managed-worker-exec-policy.rules')
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
   checks.layer2_generator_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
@@ -3516,7 +3516,7 @@ function validateEphemeralWorkerControllerBoundary() {
     && autonomy.includes('codex exec --ephemeral')
     && autonomy.includes('The controller owns repository-supplied script execution and canonical validation')
     && autonomy.includes('The worker owns repository reconstruction and worktree edits')
-    && autonomy.includes('Managed workers must not execute repository-supplied scripts or package managers')
+    && autonomy.includes('This is not runtime command confinement')
     && autonomy.includes('visible controller runs canonical validation after worker exit')
     && autonomy.includes('must not create user-owned Codex app tasks')
     && autonomy.includes('must not use `danger-full-access` solely to write Git metadata')
@@ -3524,7 +3524,8 @@ function validateEphemeralWorkerControllerBoundary() {
   checks.ephemeral_worker_git_policy = gitPolicy.includes('## Controller-Owned Git Boundary For Ephemeral Workers')
     && gitPolicy.includes('The controller owns repository validation, branch creation, staged review, commit, push, PR, and merge')
     && gitPolicy.includes('worker owns repository reconstruction and worktree edits')
-    && gitPolicy.includes('must not execute repository-supplied scripts or package managers')
+    && gitPolicy.includes('is instructed not to execute repository-supplied scripts or package managers')
+    && gitPolicy.includes('This is not runtime command confinement')
     && gitPolicy.includes('controller owns repository validation')
     && gitPolicy.includes('Do not grant `danger-full-access` solely')
     && gitPolicy.includes('not an exception that permits implementation on `main`');
@@ -3536,6 +3537,7 @@ function validateEphemeralWorkerControllerBoundary() {
     && decision.includes('worker owns repository reconstruction and worktree edits')
     && decision.includes('controller owns repository-supplied script execution and canonical validation')
     && decision.includes('workspace-write worker could rewrite any allowed validation script')
+    && decision.includes('project-local deny rules also restrict the visible controller')
     && decision.includes('must not use `danger-full-access` solely to write Git metadata')
     && decision.includes('without persistent app task fan-out')
     && decision.includes('repays KI-CX-DOGFOOD-001');
@@ -3807,7 +3809,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const managedProcess = read('scripts/lib/managed-process.mjs');
   const windowsJobRunner = read('scripts/windows-job-runner.ps1');
   const codexInvocation = read('scripts/lib/codex-invocation.mjs');
-  const managedWorkerPolicy = read('.codex/rules/fdp-managed-worker.rules');
+  const managedWorkerPolicy = read('docs/specifications/managed-worker-exec-policy.rules');
   const runner = read('scripts/run-ephemeral-worker.mjs');
   const localSmoke = read('scripts/smoke-ephemeral-worker-cli.mjs');
   const lifecycleTest = read('scripts/test-ephemeral-worker-lifecycle.mjs');
@@ -3874,7 +3876,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes(decisionPath)
     && manifest.includes('id: spec.ephemeral-worker-runner')
     && manifest.includes(specPath)
-    && manifest.includes('id: policy.managed-worker-exec')
+    && manifest.includes('id: spec.managed-worker-exec-design')
     && manifest.includes('id: tool.codex-invocation')
     && manifest.includes('id: tool.managed-process')
     && manifest.includes('id: tool.windows-job-runner')
@@ -3960,31 +3962,21 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && codexInvocation.includes("'--ephemeral'")
     && codexInvocation.includes("'--json'")
     && codexInvocation.includes("'--disable', 'multi_agent'")
-    && codexInvocation.includes('verifyManagedWorkerExecPolicy')
-    && codexInvocation.includes("'execpolicy'")
-    && codexInvocation.includes("decision !== 'forbidden'")
-    && managedWorkerPolicy.includes('Nested shell interpreters are forbidden')
-    && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
-    && managedWorkerPolicy.includes('"yarn.cmd"')
-    && managedWorkerPolicy.includes('visible controller')
-    && !managedWorkerPolicy.includes('Use declared package scripts instead')
-    && codexInvocation.includes("'npm.cmd', 'run', 'validate'")
-    && codexInvocation.includes("'npm.cmd', 'run', 'worker:run'")
-    && codexInvocation.includes("package_script_control: 'forbidden-inside-worker'")
-    && codexInvocation.includes("validation_owner: 'visible-controller'")
-    && runner.includes('verifyManagedWorkerExecPolicy')
-    && runner.includes('worker.exec_policy_verified')
     && codexInvocation.includes("'--sandbox'")
     && codexInvocation.includes("'-'")
+    && !codexInvocation.includes('execpolicy')
+    && !runner.includes('verifyManagedWorkerExecPolicy')
+    && !runner.includes('worker.exec_policy_verified')
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
+    && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
     && localSmoke.includes('buildEphemeralWorkerArgs')
-    && localSmoke.includes('verifyManagedWorkerExecPolicy')
     && localSmoke.includes('workerArgs.slice(0, -1)')
     && localSmoke.includes("'--help'")
+    && !localSmoke.includes('execpolicy')
     && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true
-    && testResult?.cases?.exec_policy_contract?.supported_reentry_families_forbidden === true
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
@@ -4038,16 +4030,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('130 for interruption')
     && spec.includes('npm run worker:test')
     && spec.includes('npm run worker:smoke-local')
-    && spec.includes('builds the real ephemeral worker argument list')
     && spec.includes('## Agent Confinement')
-    && spec.includes('must not spawn nested agents or enter collaboration wait states')
-    && spec.includes('rather than relying on prompt wording')
-    && spec.includes('codex execpolicy check')
-    && spec.includes('not a claim of universal command authorization')
+    && spec.includes('blocks built-in collaboration fan-out')
+    && spec.includes('not a runtime command boundary')
+    && spec.includes('Project-local `.codex/rules` cannot supply a worker-only fix')
+    && spec.includes('non-active design fixture')
+    && spec.includes('command re-entry confinement as an open KI')
     && spec.includes('Windows Job Object')
     && spec.includes('zero-active-process drain marker')
-    && spec.includes('must not execute repository-supplied scripts or package managers')
-    && spec.includes('visible controller runs canonical validation only after the worker exits');
+    && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
     && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
@@ -4071,13 +4062,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     'managed-guard-validated-provider-smoke-policy-blocked',
     'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
     'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
-    'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked',
+    'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
   ].includes(topology.runtime_status)
     && [
       'validated-provider-smoke-policy-blocked',
       'validated-temporal-identity-provider-smoke-policy-blocked',
       'confined-public-preflight-passed-dogfood-approval-blocked',
-      'confined-public-preflight-passed-dogfood-policy-blocked',
+      'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
     ].includes(guard.status)
     && guard.supervisor === 'scripts/run-ephemeral-worker.mjs'
     && guard.default_timeout_ms === 120000
@@ -4113,12 +4104,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_temporal_identity_state = [
     'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
     'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
-    'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked',
+    'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
   ].includes(topology.runtime_status)
     && [
       'validated-temporal-identity-provider-smoke-policy-blocked',
       'confined-public-preflight-passed-dogfood-approval-blocked',
-      'confined-public-preflight-passed-dogfood-policy-blocked',
+      'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
     ].includes(guard.status)
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
@@ -4179,14 +4170,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && codexInvocation.includes("'--disable', 'multi_agent'")
     && lifecycleTest.includes('function runInvocationConfinementCase()')
     && lifecycleTest.includes('multi_agent_disabled: true')
-    && lifecycleTest.includes('runExecPolicyContractCase')
-    && codexInvocation.includes('forbiddenReentryCases')
-    && managedWorkerPolicy.includes('Nested shell interpreters are forbidden')
-    && managedWorkerPolicy.includes('pattern = [["npm", "npm.cmd"]]')
-    && managedWorkerPolicy.includes('"yarn.cmd"')
-    && managedWorkerPolicy.includes('visible controller')
-    && !managedWorkerPolicy.includes('Use declared package scripts instead')
-    && testResult?.cases?.exec_policy_contract?.supported_reentry_families_forbidden === true
+    && !lifecycleTest.includes('runExecPolicyContractCase')
+    && !codexInvocation.includes('forbiddenReentryCases')
+    && !codexInvocation.includes('verifyManagedWorkerExecPolicy')
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
+    && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
     && testResult?.cases?.invocation_confinement?.multi_agent_disabled === true;
   checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
     && proofRecord.includes('PSC: P1')
@@ -4194,24 +4182,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('Risk: R2')
     && proofRecord.includes('ESC: E1+E2+E3+E5+E6')
     && proofRecord.includes('FDP_CODEX_PROVIDER_TRUST_SMOKE_OK')
-    && proofRecord.includes('019f4d18-0d31-7d03-9962-817fb2c11e44')
     && proofRecord.includes('alive_after_cleanup: []')
     && proofRecord.includes('even with explicit user approval')
-    && proofRecord.includes('019f4d43-2090-7711-ae34-05aaa264bf22')
-    && proofRecord.includes('019f4d4f-0a95-73b3-a77e-96d1c181c6fd')
-    && proofRecord.includes('Neither incomplete attempt was treated as PASS')
-    && proofRecord.includes('019f4d6b-f84f-7c30-b759-038b6183cf70')
-    && proofRecord.includes('returned FAIL with two P2 findings')
-    && proofRecord.includes('019f4d78-ea57-73d1-9843-dd2d473cea12')
-    && proofRecord.includes('two P2 live-GitHub drift findings plus one P3 CLI-smoke gap')
-    && proofRecord.includes('Issue #61 and Issue #63 titles and bodies were updated')
-    && proofRecord.includes('real builder argument path with `--disable multi_agent`')
-    && proofRecord.includes('019f4db0-018f-7db1-b8e4-81c8e1aa92fc')
-    && proofRecord.includes('two P1 and two P2 findings')
-    && proofRecord.includes('forbidding all npm, pnpm, Bun, Yarn, and Corepack execution')
-    && proofRecord.includes('repaid-on-merge')
-    && proofRecord.includes('audit:control-plane -- --phase working')
-    && proofRecord.includes('Issue #64 OPEN/expected-OPEN state');
+    && proofRecord.includes('019f4dc3-db87-7043-b699-b1d1c4145217')
+    && proofRecord.includes('fresh controller session loaded the project rule')
+    && proofRecord.includes('removed the active rule')
+    && proofRecord.includes('non-active design fixture')
+    && proofRecord.includes('kill-on-close Job Object')
+    && proofRecord.includes('fresh final-head reviewer');
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4222,17 +4200,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && state.current_wi?.status === 'blocked-external'
     && state.current_priority?.state === 'blocked-external'
     && state.current_priority?.owner_gate === 'H1';
-  checks.worker_proof_state = topology.runtime_status === 'managed-guard-confined-public-preflight-passed-dogfood-policy-blocked'
-    && guard.status === 'confined-public-preflight-passed-dogfood-policy-blocked'
-    && guard.nested_agent_confinement?.status === 'builtin-and-supported-exec-policy-gates-passed-live-proof-not-run-policy-blocked'
+  checks.worker_proof_state = topology.runtime_status === 'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked'
+    && guard.status === 'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked'
+    && guard.nested_agent_confinement?.status === 'builtin-fanout-disabled-command-reentry-unenforced'
     && guard.nested_agent_confinement?.cli_flag === '--disable multi_agent'
-    && guard.nested_agent_confinement?.deterministic_test === 'supported-contract-passed'
-    && guard.nested_agent_confinement?.exec_policy?.rule === '.codex/rules/fdp-managed-worker.rules'
-    && guard.nested_agent_confinement?.exec_policy?.preflight === 'passed-local-no-model-request'
-    && guard.nested_agent_confinement?.exec_policy?.forbidden_case_count === 18
-    && guard.nested_agent_confinement?.exec_policy?.package_script_control === 'forbidden-inside-worker'
-    && guard.nested_agent_confinement?.exec_policy?.validation_owner === 'visible-controller'
-    && guard.nested_agent_confinement?.exec_policy?.universal_os_process_isolation === false
+    && guard.nested_agent_confinement?.deterministic_test === 'builtin-fanout-flag-passed'
+    && guard.nested_agent_confinement?.command_reentry?.runtime_enforced === false
+    && guard.nested_agent_confinement?.command_reentry?.active_project_rule === false
+    && guard.nested_agent_confinement?.command_reentry?.design_fixture === 'docs/specifications/managed-worker-exec-policy.rules'
+    && guard.nested_agent_confinement?.command_reentry?.controller_validation_owner === 'visible-controller'
     && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_verified === true

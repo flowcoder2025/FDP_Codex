@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { buildEphemeralWorkerArgs, resolveCodexInvocation, verifyManagedWorkerExecPolicy } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
 import { runManagedProcess } from './lib/managed-process.mjs';
 
 const MAX_PROMPT_BYTES = 1024 * 1024;
@@ -72,8 +72,6 @@ async function main() {
     return;
   }
   const invocation = resolveCodexInvocation();
-  const execPolicy = verifyManagedWorkerExecPolicy({ invocation, cwd: args.cwd });
-  emitJson({ type: 'worker.exec_policy_verified', timestamp: new Date().toISOString(), ...execPolicy });
   const prompt = await readPrompt();
   const abortController = new AbortController();
   const onSigint = () => abortController.abort('SIGINT');

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildEphemeralWorkerArgs, MANAGED_WORKER_EXEC_POLICY } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
@@ -33,25 +32,6 @@ function runInvocationConfinementCase() {
   assert.deepEqual(args.slice(8), ['--sandbox', 'read-only', '-C', 'C:\\repo', '-']);
   assert.equal(args.filter((arg) => arg === 'multi_agent').length, 1);
   return { multi_agent_disabled: true };
-}
-
-function runExecPolicyContractCase() {
-  const policy = readFileSync(MANAGED_WORKER_EXEC_POLICY, 'utf8');
-  for (const token of [
-    'decision = "forbidden"',
-    '"codex.exe"',
-    '"node.exe"',
-    '"npm.cmd"',
-    '"powershell.exe"',
-    '"cmd.exe"',
-    '"python.exe"',
-    '"bash.exe"',
-    '"yarn.cmd"',
-    '"corepack"',
-  ]) {
-    assert(policy.includes(token), `managed worker exec-policy is missing ${token}`);
-  }
-  return { supported_reentry_families_forbidden: true };
 }
 
 function runTemporalIdentityCase() {
@@ -236,7 +216,6 @@ async function runFastParentExitCase() {
 }
 
 const invocationConfinement = runInvocationConfinementCase();
-const execPolicyContract = runExecPolicyContractCase();
 const temporalIdentity = runTemporalIdentityCase();
 const normal = await runNormalCase();
 const timeout = await runTimeoutCase();
@@ -248,7 +227,6 @@ console.log(JSON.stringify({
   ok: true,
   cases: {
     invocation_confinement: invocationConfinement,
-    exec_policy_contract: execPolicyContract,
     temporal_identity: temporalIdentity,
     normal: {
       status: normal.status,
