@@ -3951,7 +3951,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("stdinFailureOutcome = { kind: 'stdin-failed'")
     && managedProcess.includes("status = 'stdin_failed'")
     && managedProcess.includes("reason: 'stdin-failed'")
-    && managedProcess.includes('stdin_errors: stdinErrors');
+    && managedProcess.includes('stdin_errors: stdinErrors')
+    && managedProcess.includes("result.terminal_status_before_event_failure = result.status")
+    && managedProcess.includes("result.status = 'event_dispatch_failed'")
+    && managedProcess.includes('result.ok = false');
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
     && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid)')
@@ -4035,6 +4038,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_sink_failure_contained === true
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.status === 'event_dispatch_failed'
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.previous_status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.cleanup_required === false
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.final_result_failure_reclassified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.event_error_count >= 1
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.status === 'stdin_failed'
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_partition_verified === true
@@ -4093,6 +4102,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runThrowingStartedCallbackCase()')
     && lifecycleTest.includes("throw new Error('intentional event sink failure')")
     && lifecycleTest.includes("assert.equal(result.status, 'event_dispatch_failed'")
+    && lifecycleTest.includes('function runThrowingResultCallbackCase()')
+    && lifecycleTest.includes("intentional final result sink failure")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
     && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
@@ -4127,6 +4138,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before spawn')
     && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
     && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
+    && autonomy.includes('final `worker.result` sink itself fails')
     && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
@@ -4145,6 +4157,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('absolute timeout deadline and interrupt listener are armed before spawn')
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
+    && decision.includes('final `worker.result` delivery fails')
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4183,6 +4196,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('stdin errors')
     && spec.includes('`worker.stdin_error`')
     && spec.includes('1 MiB stdin cases')
+    && spec.includes('failure while delivering the final `worker.result`')
     && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
@@ -4232,6 +4246,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.windows_observation_hang_timeout).startsWith('passed')
     && String(guard.deterministic_cases?.windows_observation_hang_interruption).startsWith('passed')
     && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
+    && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_timeout_cleanup).startsWith('passed')
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
@@ -4305,6 +4320,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('label unobservable dead identities as alive')
     && reusedParentKi.trigger.includes('event sink exception escape before cleanup')
     && reusedParentKi.trigger.includes('pending stdin write error')
+    && reusedParentKi.trigger.includes('final-result delivery failure')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')

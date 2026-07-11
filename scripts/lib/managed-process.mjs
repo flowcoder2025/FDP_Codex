@@ -915,5 +915,10 @@ export async function runManagedProcess(options) {
     cleanup,
   };
   emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+  if (eventFailureOutcome !== null && result.status !== 'event_dispatch_failed') {
+    result.terminal_status_before_event_failure = result.status;
+    result.status = 'event_dispatch_failed';
+    result.ok = false;
+  }
   return result;
 }

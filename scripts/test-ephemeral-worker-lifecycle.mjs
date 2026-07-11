@@ -289,6 +289,27 @@ async function runThrowingStartedCallbackCase() {
   };
 }
 
+async function runThrowingResultCallbackCase() {
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    onEvent: (event) => {
+      if (event.type === 'worker.result') throw new Error('intentional final result sink failure');
+    },
+  });
+  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.terminal_status_before_event_failure, 'completed');
+  assert.equal(result.ok, false);
+  assert(result.event_errors.includes('intentional final result sink failure'));
+  assert.equal(result.containment.verified, true);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  return { ...result, previous_status: result.terminal_status_before_event_failure, final_result_failure_reclassified: true };
+}
+
 async function runStdinEarlyExitCase() {
   const result = await runManagedProcess({
     command: process.execPath,
@@ -548,6 +569,7 @@ const windowsCases = process.platform === 'win32' ? {
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
+  throwingResultCallback: await runThrowingResultCallbackCase(),
   stdinEarlyExit: await runStdinEarlyExitCase(),
   stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
@@ -599,6 +621,14 @@ console.log(JSON.stringify({
         cleanup_partition_verified: windowsCases.throwingStartedCallback.cleanup_partition_verified,
         event_sink_failure_contained: windowsCases.throwingStartedCallback.event_sink_failure_contained,
         event_error_count: windowsCases.throwingStartedCallback.event_errors.length,
+      },
+      throwing_result_callback: {
+        status: windowsCases.throwingResultCallback.status,
+        previous_status: windowsCases.throwingResultCallback.previous_status,
+        containment_verified: windowsCases.throwingResultCallback.containment.verified,
+        cleanup_required: windowsCases.throwingResultCallback.cleanup.required,
+        final_result_failure_reclassified: windowsCases.throwingResultCallback.final_result_failure_reclassified,
+        event_error_count: windowsCases.throwingResultCallback.event_errors.length,
       },
       stdin_early_exit: {
         status: windowsCases.stdinEarlyExit.status,
