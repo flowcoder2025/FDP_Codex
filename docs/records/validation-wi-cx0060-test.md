@@ -122,7 +122,7 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer `019f50da-84a4-7330-9215-516b8489d6c0` inspected exact head `a50c85346f13030f5efe7ba9fa13cc950fc995d7` with `fork_context: false` and returned FAIL with one P2: a final `worker.result` sink exception was recorded but the returned result remained `completed` and `ok: true`.
 - The remediation reclassifies final-result delivery failure to `event_dispatch_failed` and `ok: false`, preserves the prior terminal status and verified containment, and adds a deterministic final-result callback regression. The changed head requires fresh exact-head review.
 - Reviewer `019f50f4-0252-7ec1-8111-c3c4eb42c512` inspected exact head `17e410de9e6ed878bcc48417664891aa3d85f93c` with `fork_context: false` and returned FAIL with one P1: an uninitialized wrapper root could adopt a same-name reused PID under an unrelated parent.
-- Initial root identity now requires the current supervisor parent before name fallback, and a deterministic null-start same-name reuse regression rejects the unrelated root and child. Full CI passed; fresh exact-head review remains.
+- Initial root identity now requires the current supervisor parent before name fallback, and a deterministic null-start same-name reuse regression rejects the unrelated root and child. Policy, decision, KI state, and validator now enforce the same rule. Direct `worker:test`, full `ci:check`, local CLI smoke, and `git diff --check` passed; fresh exact-head review remains.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 

@@ -4142,6 +4142,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
     && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
     && autonomy.includes('final `worker.result` sink itself fails')
+    && autonomy.includes('uninitialized wrapper root may acquire its operating-system identity only when the live parent PID is the current supervisor')
     && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
@@ -4161,6 +4162,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
     && decision.includes('final `worker.result` delivery fails')
+    && decision.includes('uninitialized wrapper root accepts identity only when its live parent is the current supervisor')
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4286,6 +4288,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     ].includes(guard.status)
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
+    && String(guard.deterministic_cases?.uninitialized_root_reuse_exclusion).startsWith('passed')
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
     && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed-repeated-5'
@@ -4324,11 +4327,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('event sink exception escape before cleanup')
     && reusedParentKi.trigger.includes('pending stdin write error')
     && reusedParentKi.trigger.includes('final-result delivery failure')
+    && reusedParentKi.trigger.includes('same-name reused wrapper PID under an unrelated parent')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
     && reusedParentKi.repayment_condition.includes('gone, identity-mismatch, alive, or unknown classification')
     && reusedParentKi.repayment_condition.includes('throwing event callbacks and failed stdin writes return only after structured verified cleanup')
+    && reusedParentKi.repayment_condition.includes('supervisor-parent-gated initial root identity')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
