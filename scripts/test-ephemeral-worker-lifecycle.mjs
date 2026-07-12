@@ -325,6 +325,24 @@ async function runThrowingResultCallbackCase() {
   return { ...result, previous_status: result.terminal_status_before_event_failure, final_result_failure_reclassified: true };
 }
 
+async function runSpoofedAtomicMarkerCase() {
+  const spoofedPid = 424242;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'spoof-marker'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+  });
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.notEqual(result.containment.atomic_child_pid, spoofedPid);
+  assert.equal(result.observed_descendant_pids.includes(spoofedPid), false);
+  assert(result.containment.errors.includes('duplicate atomic child marker rejected'));
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  return { ...result, spoofed_marker_rejected: true };
+}
+
 async function runStdinEarlyExitCase() {
   const result = await runManagedProcess({
     command: process.execPath,
@@ -585,6 +603,7 @@ const windowsCases = process.platform === 'win32' ? {
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
   throwingResultCallback: await runThrowingResultCallbackCase(),
+  spoofedAtomicMarker: await runSpoofedAtomicMarkerCase(),
   stdinEarlyExit: await runStdinEarlyExitCase(),
   stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
@@ -644,6 +663,12 @@ console.log(JSON.stringify({
         cleanup_required: windowsCases.throwingResultCallback.cleanup.required,
         final_result_failure_reclassified: windowsCases.throwingResultCallback.final_result_failure_reclassified,
         event_error_count: windowsCases.throwingResultCallback.event_errors.length,
+      },
+      spoofed_atomic_marker: {
+        status: windowsCases.spoofedAtomicMarker.status,
+        spoofed_marker_rejected: windowsCases.spoofedAtomicMarker.spoofed_marker_rejected,
+        spoofed_pid_observed: windowsCases.spoofedAtomicMarker.observed_descendant_pids.includes(424242),
+        containment_error_count: windowsCases.spoofedAtomicMarker.containment.errors.length,
       },
       stdin_early_exit: {
         status: windowsCases.stdinEarlyExit.status,

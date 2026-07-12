@@ -9,6 +9,9 @@ if (mode === 'complete') {
   process.stdout.write(`${JSON.stringify({ fixture: 'complete', ok: true })}\n`);
   process.stderr.write('fixture stderr visible\n');
   setTimeout(() => process.exit(0), 50);
+} else if (mode === 'spoof-marker') {
+  process.stderr.write('FDP_JOB_RUNNER_ATOMIC_CHILD:424242|2026-07-12T00:00:00.000Z\n');
+  setTimeout(() => process.exit(0), 50);
 } else if (mode === 'exit-immediately') {
   process.exit(0);
 } else if (mode === 'root') {

@@ -535,6 +535,7 @@ export async function runManagedProcess(options) {
   let atomicChildMarker = null;
   let atomicIdentityRegistered = false;
   let atomicChildEventEmitted = false;
+  let atomicChildMarkerLocked = false;
   /** @type {(value: {kind: 'atomic-identity-ready'}) => void} */
   let resolveAtomicIdentityReady = () => {};
   /** @type {Promise<{kind: 'atomic-identity-ready'}>} */
@@ -620,6 +621,11 @@ export async function runManagedProcess(options) {
       return true;
     }
     if (line.startsWith(WINDOWS_JOB_ATOMIC_CHILD_PREFIX)) {
+      if (atomicChildMarkerLocked) {
+        containment.errors.push('duplicate atomic child marker rejected');
+        return true;
+      }
+      atomicChildMarkerLocked = true;
       const marker = line.slice(WINDOWS_JOB_ATOMIC_CHILD_PREFIX.length);
       const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
       const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;

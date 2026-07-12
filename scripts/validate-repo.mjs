@@ -3947,6 +3947,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("eventFailureOutcome = { kind: 'event-dispatch-failed'")
     && managedProcess.includes("status = 'event_dispatch_failed'")
     && managedProcess.includes("reason: 'event-dispatch-failed'")
+    && managedProcess.includes('atomicChildMarkerLocked')
+    && managedProcess.includes('duplicate atomic child marker rejected')
     && managedProcess.includes('event_errors: eventErrors')
     && managedProcess.includes("stdinFailureOutcome = { kind: 'stdin-failed'")
     && managedProcess.includes("status = 'stdin_failed'")
@@ -3977,6 +3979,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('UpdateProcThreadAttribute')
     && !windowsJobRunner.includes('AssignProcessToJobObject')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_ATOMIC_CHILD:')
+    && windowsJobRunner.indexOf('FDP_JOB_RUNNER_ATOMIC_CHILD:') < windowsJobRunner.indexOf('ResumeThread(processInfo.hThread)')
     && windowsJobRunner.includes('atomicChild.StartTime.ToUniversalTime().ToString("o")')
     && managedProcess.includes('atomic_child_started_at')
     && managedProcess.includes('observed.set(atomicChildMarker.pid')
@@ -4047,6 +4050,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.cleanup_required === false
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.final_result_failure_reclassified === true
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.event_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_marker_rejected === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_pid_observed === false
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.containment_error_count >= 1
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.status === 'stdin_failed'
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_partition_verified === true
@@ -4107,6 +4114,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes("assert.equal(result.status, 'event_dispatch_failed'")
     && lifecycleTest.includes('function runThrowingResultCallbackCase()')
     && lifecycleTest.includes("intentional final result sink failure")
+    && lifecycleTest.includes('function runSpoofedAtomicMarkerCase()')
+    && lifecycleTest.includes("fixturePath, 'spoof-marker'")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
     && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
@@ -4137,6 +4146,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('creation marker must include the atomically created worker PID and start time')
     && autonomy.includes('register the marker before any process-table query')
     && autonomy.includes('no supervisor acknowledgement is required for resume')
+    && autonomy.includes('accepts only the first atomic-child marker')
     && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
     && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before spawn')
     && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
@@ -4157,6 +4167,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('writes the real worker PID and start time marker')
     && decision.includes('registered that marker before any process-table query')
     && decision.includes('without waiting for a supervisor acknowledgement')
+    && decision.includes('accepts and locks only that first marker')
     && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
     && decision.includes('absolute timeout deadline and interrupt listener are armed before spawn')
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
@@ -4172,6 +4183,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_spec = spec.includes('Status: implemented-v1')
     && spec.includes('does not start any process-table query until its stderr handler has registered that identity')
     && spec.includes('without waiting for a supervisor acknowledgement')
+    && spec.includes('writes this marker while the worker is still suspended')
+    && spec.includes('permanently locks the first marker it receives')
     && spec.includes('`worker.observation_started` records the ordering evidence')
     && spec.includes('every other observed descendant must appear exactly once')
     && spec.includes('unknown_after_cleanup')
@@ -4289,6 +4302,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
     && String(guard.deterministic_cases?.uninitialized_root_reuse_exclusion).startsWith('passed')
+    && guard.deterministic_cases?.spoofed_atomic_marker_rejection === 'passed-forged-pid-never-observed-wrapper-and-atomic-child-gone'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
     && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed-repeated-5'
@@ -4328,12 +4342,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('pending stdin write error')
     && reusedParentKi.trigger.includes('final-result delivery failure')
     && reusedParentKi.trigger.includes('same-name reused wrapper PID under an unrelated parent')
+    && reusedParentKi.trigger.includes('worker-forged atomic-child control markers')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
     && reusedParentKi.repayment_condition.includes('gone, identity-mismatch, alive, or unknown classification')
     && reusedParentKi.repayment_condition.includes('throwing event callbacks and failed stdin writes return only after structured verified cleanup')
     && reusedParentKi.repayment_condition.includes('supervisor-parent-gated initial root identity')
+    && reusedParentKi.repayment_condition.includes('duplicate atomic-child markers never replace observed identity')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
@@ -4379,9 +4395,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('kill-on-close Job Object')
     && proofRecord.includes('fresh final-head reviewer');
   const reviewKiFixPlanRow = fixPlan.split(/\r?\n/).find((line) => line.startsWith('| KI-CX-REVIEW-002 / Issue #63')) ?? '';
-  checks.worker_review_candidate_pointer = reviewKiFixPlanRow.includes('query `git rev-parse HEAD`')
-    && reviewKiFixPlanRow.includes('compare that live value with Issue #63')
-    && !/current-candidate SHA[^|]*`[0-9a-f]{40}`/i.test(reviewKiFixPlanRow);
+  const reviewKiFixPlanFields = reviewKiFixPlanRow.split('|').map((field) => field.trim());
+  const reviewKiDeferAndRepayment = [reviewKiFixPlanFields[5] ?? '', reviewKiFixPlanFields[6] ?? ''].join(' ');
+  checks.worker_review_candidate_pointer = reviewKiFixPlanFields.length === 10
+    && reviewKiDeferAndRepayment.includes('query `git rev-parse HEAD`')
+    && reviewKiDeferAndRepayment.includes('compare that live value with Issue #63')
+    && !/[0-9a-f]{40}/i.test(reviewKiDeferAndRepayment);
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
