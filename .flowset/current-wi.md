@@ -103,6 +103,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Exact-head CI proved that neither 1 MiB nor 64 MiB input guarantees a pending stdin write because the PowerShell wrapper may continue draining stdin. The regression now injects a test-only stdin error immediately after timeout selection, deterministically proving the error is recorded while timeout remains primary and cleanup remains verified.
 
+- Reviewer 019f56c1-730b-7783-a855-7f906dd6a2d0 inspected exact head c72a559d1cb477faa810cb9fbd870f865ed7edef with fork_context: false and completed every required command. It returned FAIL with P1 separate controller StartTime and watchdog handle acquisition permitting PID-reuse rebinding, and P2 stdin specification overstatement. The wrapper now opens, verifies creation FILETIME on, and retains one native controller handle; the specification explicitly describes test-only post-timeout stdin error injection without claiming a real pending write. Fresh review remains.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

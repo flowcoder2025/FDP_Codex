@@ -18,6 +18,8 @@ public static class FdpWindowsJobRunner
     private const int JobObjectBasicAccountingInformation = 1;
     private const int JobObjectExtendedLimitInformation = 9;
     private const uint WAIT_OBJECT_0 = 0;
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x00001000;
+    private const uint SYNCHRONIZE = 0x00100000;
     private const int STD_INPUT_HANDLE = -10;
     private const int STD_OUTPUT_HANDLE = -11;
     private const int STD_ERROR_HANDLE = -12;
@@ -168,6 +170,17 @@ public static class FdpWindowsJobRunner
     private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
     [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessTimes(
+        IntPtr hProcess,
+        out System.Runtime.InteropServices.ComTypes.FILETIME lpCreationTime,
+        out System.Runtime.InteropServices.ComTypes.FILETIME lpExitTime,
+        out System.Runtime.InteropServices.ComTypes.FILETIME lpKernelTime,
+        out System.Runtime.InteropServices.ComTypes.FILETIME lpUserTime);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -182,6 +195,52 @@ public static class FdpWindowsJobRunner
     private static void ThrowLastError(string operation)
     {
         throw new Win32Exception(Marshal.GetLastWin32Error(), operation);
+    }
+
+    private static long FileTimeToLong(System.Runtime.InteropServices.ComTypes.FILETIME value)
+    {
+        return ((long)(uint)value.dwHighDateTime << 32) | (uint)value.dwLowDateTime;
+    }
+
+    private static IntPtr OpenVerifiedControllerProcess(int controllerPid, long controllerStartFileTime)
+    {
+        var controllerHandle = OpenProcess(
+            SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+            false,
+            checked((uint)controllerPid));
+        if (controllerHandle == IntPtr.Zero)
+        {
+            ThrowLastError("OpenProcess(controller)");
+        }
+
+        try
+        {
+            System.Runtime.InteropServices.ComTypes.FILETIME creationTime;
+            System.Runtime.InteropServices.ComTypes.FILETIME exitTime;
+            System.Runtime.InteropServices.ComTypes.FILETIME kernelTime;
+            System.Runtime.InteropServices.ComTypes.FILETIME userTime;
+            if (!GetProcessTimes(
+                controllerHandle,
+                out creationTime,
+                out exitTime,
+                out kernelTime,
+                out userTime))
+            {
+                ThrowLastError("GetProcessTimes(controller)");
+            }
+
+            if (FileTimeToLong(creationTime) != controllerStartFileTime)
+            {
+                throw new InvalidOperationException("Controller identity mismatch.");
+            }
+
+            return controllerHandle;
+        }
+        catch
+        {
+            CloseHandle(controllerHandle);
+            throw;
+        }
     }
 
     private static string QuoteArgument(string value)
@@ -267,18 +326,12 @@ public static class FdpWindowsJobRunner
         {
             throw new InvalidOperationException("Invalid controller PID.");
         }
-        var controller = Process.GetProcessById(controllerPid);
-        if (controller.StartTime.ToFileTimeUtc() != controllerStartFileTime)
-        {
-            controller.Dispose();
-            throw new InvalidOperationException("Controller identity mismatch.");
-        }
-        var controllerHandle = controller.Handle;
+        var controllerHandle = OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime);
 
         var job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero)
         {
-            controller.Dispose();
+            CloseHandle(controllerHandle);
             ThrowLastError("CreateJobObject");
         }
 
@@ -434,7 +487,7 @@ public static class FdpWindowsJobRunner
             }
             Marshal.FreeHGlobal(limitsPointer);
             CloseHandle(job);
-            controller.Dispose();
+            CloseHandle(controllerHandle);
         }
     }
 }

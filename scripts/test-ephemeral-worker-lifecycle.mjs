@@ -21,6 +21,7 @@ const workerCliPath = fileURLToPath(new URL('./run-ephemeral-worker.mjs', import
 const windowsJobRunnerPath = fileURLToPath(new URL('./windows-job-runner.ps1', import.meta.url));
 const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
+const windowsJobRunnerSource = readFileSync(windowsJobRunnerPath, 'utf8');
 const OBSERVATION_HANG_FINITE_BOUND_MS = 8000;
 const STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024;
 
@@ -245,6 +246,21 @@ function runBuiltinFanoutFlagCase() {
   assert.deepEqual(args.slice(8), ['--sandbox', 'read-only', '-C', 'C:\\repo', '-']);
   assert.equal(args.filter((arg) => arg === 'multi_agent').length, 1);
   return { multi_agent_disabled: true };
+}
+
+function runControllerSameHandleBindingCase() {
+  const openIndex = windowsJobRunnerSource.indexOf('var controllerHandle = OpenProcess(');
+  const timeIndex = windowsJobRunnerSource.indexOf('GetProcessTimes(', openIndex);
+  const returnIndex = windowsJobRunnerSource.indexOf('return controllerHandle;', timeIndex);
+  assert(openIndex >= 0);
+  assert(timeIndex > openIndex);
+  assert(returnIndex > timeIndex);
+  assert(windowsJobRunnerSource.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)'));
+  assert(!windowsJobRunnerSource.includes('Process.GetProcessById(controllerPid)'));
+  return {
+    same_native_handle_verified_and_retained: true,
+    managed_process_lookup_absent: true,
+  };
 }
 
 function runPlatformSupportCase() {
@@ -1347,6 +1363,7 @@ const wrapperStopFailures = await runWrapperStopFailureCases();
 const identityLookupCleanupClassification = runIdentityLookupCleanupClassificationCase();
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
+const controllerSameHandleBinding = runControllerSameHandleBindingCase();
 const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
   preSpawnAbort: await runPreSpawnAbortCase(),
@@ -1392,6 +1409,7 @@ console.log(JSON.stringify({
     identity_lookup_cleanup_classification: identityLookupCleanupClassification,
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
+    controller_same_handle_binding: controllerSameHandleBinding,
     temporal_identity: temporalIdentity,
     unsupported_platform: unsupportedPlatform && {
       status: unsupportedPlatform.status,

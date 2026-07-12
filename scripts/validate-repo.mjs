@@ -4054,8 +4054,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_ASSIGNED:" + controlToken')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_ERROR:$controlToken|')
-    && windowsJobRunner.includes('Process.GetProcessById(controllerPid)')
-    && windowsJobRunner.includes('controller.StartTime.ToFileTimeUtc() != controllerStartFileTime')
+    && windowsJobRunner.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)')
+    && windowsJobRunner.includes('var controllerHandle = OpenProcess(')
+    && windowsJobRunner.includes('GetProcessTimes(')
+    && windowsJobRunner.includes('FileTimeToLong(creationTime) != controllerStartFileTime')
+    && !windowsJobRunner.includes('Process.GetProcessById(controllerPid)')
     && windowsJobRunner.includes('Controller identity mismatch.')
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)")
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)")
@@ -4110,7 +4113,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.temporal_identity?.startless_descendant_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && (process.platform === 'win32'
-      ? (testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
+      ? (testResult?.cases?.controller_same_handle_binding?.same_native_handle_verified_and_retained === true
+        && testResult?.cases?.controller_same_handle_binding?.managed_process_lookup_absent === true
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.wrapper_spawned === false
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.worker_executed === false
         && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.status === 'controller_identity_failed'
@@ -4289,8 +4294,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('remove that token, controller PID, and controller creation FILETIME from its process environment before worker creation')
     && autonomy.includes('root, assignment, controller-watchdog, atomic-child, drain, and error marker must carry the matching token')
     && autonomy.includes('PID plus creation FILETIME')
-    && autonomy.includes('require both values to match the process it opens')
+    && autonomy.includes('open one native controller process handle')
     && autonomy.includes('retain that exact controller process handle')
+    && autonomy.includes('same native process handle')
     && autonomy.includes('background watchdog must terminate the Job and exit the wrapper')
     && autonomy.includes("Cleanup verification requires the exact wrapper's actual close event")
     && autonomy.includes('exit code or signal alone is insufficient')
@@ -4331,8 +4337,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('removes the token, controller PID, and controller creation FILETIME from the process environment before creating the worker')
     && decision.includes('root, assignment, controller-watchdog, atomic-child, drain, and error markers only when they carry that exact token')
     && decision.includes('PID plus creation FILETIME')
-    && decision.includes('requires both values to match the process it opens')
+    && decision.includes('opens one native controller process handle')
     && decision.includes('retains that exact controller process handle')
+    && decision.includes('same native process handle')
     && decision.includes('Cleanup can verify only after the exact wrapper close event is observed')
     && decision.includes('real CLI wrapper as a child process')
     && decision.includes('primary CLI exit classifications 124 and 130')
@@ -4375,9 +4382,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('unrecognized same-name worker stderr remains ordinary stderr')
     && spec.includes('forged drain followed by wrapper termination without verified containment')
     && spec.includes('PID plus creation FILETIME')
-    && spec.includes('requires both values to match the process it opens')
+    && spec.includes('same native process handle')
+    && spec.includes('opens one native controller process handle')
     && spec.includes('retains that exact handle')
     && spec.includes('records `controller_watchdog_armed` and `wrapper_closed`')
+    && spec.includes('same-native-handle open/FILETIME/retention source contract')
     && spec.includes('controller death before watchdog acquisition with no worker side effect')
     && spec.includes('controller-process hard kill after watchdog acquisition with wrapper and worker confirmed gone')
     && spec.includes('124 when timeout was the primary guard')
@@ -4420,7 +4429,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('event delivery errors')
     && spec.includes('stdin errors')
     && spec.includes('`worker.stdin_error`')
-    && spec.includes('1 MiB stdin cases')
+    && spec.includes('1 MiB early-exit stdin case')
+    && spec.includes('test-only post-timeout stdin error')
+    && spec.includes('without claiming a real pending write')
     && spec.includes('failure while delivering the final `worker.result`')
     && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
@@ -4525,6 +4536,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.spawn_failure_result_callback === 'passed-reclassified-event-dispatch-failed'
     && guard.deterministic_cases?.wrapper_stop_failure_paths === 'passed-kill-rejection-and-close-timeout-exposed'
     && guard.deterministic_cases?.identity_lookup_cleanup_classification === 'passed-kill-rejection-and-close-timeout-fail-closed'
+    && guard.deterministic_cases?.controller_same_handle_binding === 'passed-open-verify-retain-same-native-handle'
     && guard.deterministic_cases?.controller_identity_start_failure === 'passed-structured-result-no-wrapper'
     && guard.deterministic_cases?.controller_identity_result_failure === 'passed-structured-result-no-wrapper'
     && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
@@ -4590,7 +4602,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.repayment_condition.includes('initial root identity requires a native marker whose PID equals the exact spawned wrapper')
     && reusedParentKi.repayment_condition.includes('never uses parent or name fallback')
     && reusedParentKi.repayment_condition.includes('root, assignment, controller-watchdog, atomic-child, drain, and error markers require the exact per-invocation token')
-    && reusedParentKi.repayment_condition.includes('controller PID plus creation FILETIME must match before the exact handle is accepted')
+    && reusedParentKi.repayment_condition.includes('open one native controller handle, validate creation FILETIME from that same handle, retain it')
     && reusedParentKi.repayment_condition.includes('actual wrapper close event is mandatory before cleanup verification')
     && reusedParentKi.repayment_condition.includes('real CLI child-process tests prove timeout and interruption retain CLI exits 124 and 130')
     && reusedParentKi.repayment_condition.includes('token, controller PID, and controller creation FILETIME are removed from the wrapper environment before worker creation')

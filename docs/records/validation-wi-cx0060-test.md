@@ -161,6 +161,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - Exact-head CI showed that even 64 MiB does not guarantee pending backpressure because the PowerShell wrapper may drain stdin. The deterministic regression now injects a test-only stdin error immediately after timeout has won, then requires the error to be retained without changing timeout status and requires verified cleanup.
 
+- Reviewer 019f56c1-730b-7783-a855-7f906dd6a2d0 completed all required commands on exact head c72a559d1cb477faa810cb9fbd870f865ed7edef and returned FAIL: P1 controller creation-time validation and watchdog acquisition used separate handles; P2 the stdin specification still claimed a real pending write. Remediation uses OpenProcess plus GetProcessTimes on one retained native handle and qualifies stdin coverage as synthetic post-timeout precedence injection.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.
