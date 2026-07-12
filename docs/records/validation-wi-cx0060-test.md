@@ -147,6 +147,9 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer 019f565e-84d3-7561-8f56-412d05d31db9 inspected exact head b13dc495673e6cb27440df254fecc5799cc97d7e with fork_context: false and returned FAIL: P1 timeout or interruption during invocation environment materialization could occur after the prior final guard and still create a wrapper; P2 spawn-failure final-result sink failure remained spawn_failed; P3 kill rejection and close timeout lacked direct coverage.
 - The remediation performs another synchronous guard check immediately before spawn after environment materialization and handler preparation, centralizes final-result emission and reclassification for every terminal path, and adds deterministic environment-build timeout/interruption, spawn-failure sink, kill-rejection, and close-timeout cases. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
 
+- Reviewer 019f5671-4959-7d81-a1ed-2d663d716ecf inspected exact head 9707ba4e69fec51d3035c7135ddd42b2653c7040 with fork_context: false and returned FAIL: P2 lookup-helper kill rejection was discarded, and forced finalization occurred before the reviewer completed required exact-head commands and live Issue reads.
+- The remediation reuses exact-child stop evidence, classifies kill rejection as unverified even when close later occurs, preserves close-timeout unknown PID evidence, and directly tests both lookup-helper outcomes. Local typecheck and the full worker lifecycle suite pass; the next reviewer must run to full evidence completion.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

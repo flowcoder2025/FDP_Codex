@@ -3948,6 +3948,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('const controllerIdentityOutcome = await Promise.race([')
     && managedProcess.includes('controllerIdentityLookup.terminateAndWait()')
     && managedProcess.includes('controller identity lookup did not close after termination')
+    && managedProcess.includes('controller identity lookup termination request was rejected')
+    && managedProcess.includes('classifyControllerIdentityLookupCleanup')
     && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
@@ -4509,6 +4511,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.final_spawn_interrupt_guard === 'passed-no-wrapper-no-worker-after-invocation-materialization'
     && guard.deterministic_cases?.spawn_failure_result_callback === 'passed-reclassified-event-dispatch-failed'
     && guard.deterministic_cases?.wrapper_stop_failure_paths === 'passed-kill-rejection-and-close-timeout-exposed'
+    && guard.deterministic_cases?.identity_lookup_cleanup_classification === 'passed-kill-rejection-and-close-timeout-fail-closed'
     && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
     && guard.deterministic_cases?.control_environment_isolation === 'passed-token-pid-filetime-absent-in-real-worker'
     && guard.deterministic_cases?.exact_wrapper_close_required === 'passed-actual-close-event-required-no-exit-state-shortcut'

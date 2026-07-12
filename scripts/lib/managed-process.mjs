@@ -124,6 +124,32 @@ export async function stopExactWrapperForCleanup(options) {
   ]);
   return { alreadyExited, killAccepted, wrapperClosed };
 }
+
+/**
+ * @param {number | null} pid
+ * @param {{alreadyExited: boolean, killAccepted: boolean | null, wrapperClosed: boolean}} stopResult
+ */
+export function classifyControllerIdentityLookupCleanup(pid, stopResult) {
+  const required = !stopResult.alreadyExited;
+  const requestedPids = required && pid !== null ? [pid] : [];
+  const errors = [];
+  if (stopResult.killAccepted === false) {
+    errors.push('controller identity lookup termination request was rejected');
+  }
+  if (!stopResult.wrapperClosed) {
+    errors.push('controller identity lookup did not close after termination');
+  }
+  const verified = stopResult.wrapperClosed && stopResult.killAccepted !== false;
+  return {
+    required,
+    requested_pids: requestedPids,
+    confirmed_gone_pids: stopResult.wrapperClosed ? requestedPids : [],
+    unknown_after_cleanup: stopResult.wrapperClosed ? [] : requestedPids,
+    verified,
+    errors,
+  };
+}
+
 /**
  * @param {string} command
  * @param {string[]} args
@@ -155,21 +181,12 @@ function startExecFileText(command, args) {
     pid: childPid,
     result,
     terminateAndWait: async () => {
-      const wasRunning = child.exitCode === null && child.signalCode === null;
-      if (wasRunning) child.kill();
-      const closeVerified = await Promise.race([
-        closed,
-        sleep(DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS + 500).then(() => false),
-      ]);
-      const requestedPids = wasRunning && childPid !== null ? [childPid] : [];
-      return {
-        required: wasRunning,
-        requested_pids: requestedPids,
-        confirmed_gone_pids: closeVerified ? requestedPids : [],
-        unknown_after_cleanup: closeVerified ? [] : requestedPids,
-        verified: closeVerified,
-        errors: closeVerified ? [] : ['controller identity lookup did not close after termination'],
-      };
+      const stopResult = await stopExactWrapperForCleanup({
+        child,
+        closePromise: closed,
+        terminationGraceMs: DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS + 500,
+      });
+      return classifyControllerIdentityLookupCleanup(childPid, stopResult);
     },
   };
 }

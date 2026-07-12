@@ -93,6 +93,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f565e-84d3-7561-8f56-412d05d31db9 inspected exact head b13dc495673e6cb27440df254fecc5799cc97d7e with fork_context: false and returned FAIL with P1 cancellation between the prior final guard and spawn, P2 spawn-failure final-result delivery not being reclassified, and P3 missing kill-rejection and close-timeout coverage. A new guard now runs immediately before spawn after invocation environment materialization; one shared final-result publisher reclassifies sink failure on every return path; deterministic cases cover environment-build timeout and interruption, spawn-failure result-sink failure, kill rejection, and close timeout. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
 
+- Reviewer 019f5671-4959-7d81-a1ed-2d663d716ecf inspected exact head 9707ba4e69fec51d3035c7135ddd42b2653c7040 with fork_context: false and returned FAIL with P2 lookup-helper kill rejection being omitted plus incomplete reviewer command evidence after forced finalization. The lookup cleanup now records kill acceptance, marks rejection unverified even after close, and has direct rejection and close-timeout classification tests. Local typecheck and the full worker lifecycle suite pass; a fresh reviewer must complete every required command without early finalization.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

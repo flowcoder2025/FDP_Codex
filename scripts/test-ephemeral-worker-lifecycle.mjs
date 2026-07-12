@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import {
+  classifyControllerIdentityLookupCleanup,
   classifyProcessIdentity,
   managedProcessPlatformSupport,
   mergeObservedTree,
@@ -189,6 +190,32 @@ async function runWrapperStopFailureCases() {
   return {
     kill_rejection_exposed: true,
     close_timeout_exposed: true,
+  };
+}
+function runIdentityLookupCleanupClassificationCase() {
+  const killRejected = classifyControllerIdentityLookupCleanup(41001, {
+    alreadyExited: false,
+    killAccepted: false,
+    wrapperClosed: true,
+  });
+  assert.equal(killRejected.required, true);
+  assert.equal(killRejected.verified, false);
+  assert.deepEqual(killRejected.confirmed_gone_pids, [41001]);
+  assert(killRejected.errors.includes('controller identity lookup termination request was rejected'));
+
+  const closeTimedOut = classifyControllerIdentityLookupCleanup(41002, {
+    alreadyExited: false,
+    killAccepted: true,
+    wrapperClosed: false,
+  });
+  assert.equal(closeTimedOut.required, true);
+  assert.equal(closeTimedOut.verified, false);
+  assert.deepEqual(closeTimedOut.unknown_after_cleanup, [41002]);
+  assert(closeTimedOut.errors.includes('controller identity lookup did not close after termination'));
+
+  return {
+    kill_rejection_failed_closed: true,
+    close_timeout_failed_closed: true,
   };
 }
 function runBuiltinFanoutFlagCase() {
@@ -1239,6 +1266,7 @@ async function runFastParentExitCase() {
 const pidOnlySignalGuard = runPidOnlySignalGuardCase();
 const delayedWrapperClose = await runDelayedWrapperCloseCase();
 const wrapperStopFailures = await runWrapperStopFailureCases();
+const identityLookupCleanupClassification = runIdentityLookupCleanupClassificationCase();
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
@@ -1281,6 +1309,7 @@ console.log(JSON.stringify({
     pid_only_signal_guard: pidOnlySignalGuard,
     delayed_wrapper_close: delayedWrapperClose,
     wrapper_stop_failures: wrapperStopFailures,
+    identity_lookup_cleanup_classification: identityLookupCleanupClassification,
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
     temporal_identity: temporalIdentity,
