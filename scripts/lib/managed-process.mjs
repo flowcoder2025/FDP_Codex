@@ -200,6 +200,7 @@ export function mergeObservedTree(table, rootPid, observed) {
   const byPid = new Map(table.map((entry) => [entry.pid, entry]));
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
+  const unknownCandidatePids = new Set();
   const matchesSpawnedRoot = root
     && root.ppid === process.pid
     && (process.platform === 'win32' || root.pgid === rootPid);
@@ -221,20 +222,25 @@ export function mergeObservedTree(table, rootPid, observed) {
       const parent = observed.get(entry.ppid);
       const currentParent = byPid.get(entry.ppid);
       const observedRoot = observed.get(rootPid);
-      const belongsToObservedParent = parentPids.has(entry.ppid)
+      if (entry.pid === process.pid || observed.has(entry.pid)) continue;
+      const hasObservedParent = parentPids.has(entry.ppid)
         && parent !== undefined
         && currentParent !== undefined
-        && sameIdentity(parent, currentParent)
-        && isNotOlderThan(entry, parent);
-      const belongsToPosixGroup = process.platform !== 'win32'
-        && entry.pgid === rootPid
-        && isNotOlderThan(entry, observedRoot);
-      if (entry.pid === process.pid || (!belongsToObservedParent && !belongsToPosixGroup) || observed.has(entry.pid)) continue;
+        && sameIdentity(parent, currentParent);
+      const hasPosixGroup = process.platform !== 'win32' && entry.pgid === rootPid;
+      if (entry.started_at === null && (hasObservedParent || hasPosixGroup)) {
+        unknownCandidatePids.add(entry.pid);
+        continue;
+      }
+      const belongsToObservedParent = hasObservedParent && isNotOlderThan(entry, parent);
+      const belongsToPosixGroup = hasPosixGroup && isNotOlderThan(entry, observedRoot);
+      if (!belongsToObservedParent && !belongsToPosixGroup) continue;
       observed.set(entry.pid, entry);
       parentPids.add(entry.pid);
       changed = true;
     }
   }
+  return [...unknownCandidatePids].sort((a, b) => a - b);
 }
 
 /**
@@ -533,6 +539,7 @@ export async function runManagedProcess(options) {
   const observed = new Map();
   const observationErrors = new Set();
   let observationSucceeded = false;
+  let identityObservationIncomplete = false;
   const invocation = buildSpawnInvocation(options);
   const containment = {
     mode: invocation.containmentMode,
@@ -755,7 +762,11 @@ export async function runManagedProcess(options) {
     });
     observeInFlight = listProcessTable()
       .then((table) => {
-        mergeObservedTree(table, rootPid, observed);
+        const unknownCandidatePids = mergeObservedTree(table, rootPid, observed);
+        if (unknownCandidatePids.length > 0) {
+          identityObservationIncomplete = true;
+          throw new Error(`process start time unavailable for candidate pids: ${unknownCandidatePids.join(', ')}`);
+        }
         observationSucceeded = true;
         return table;
       })
@@ -918,6 +929,7 @@ export async function runManagedProcess(options) {
   }
 
   if (cleanup.required && !cleanup.verified) status = 'cleanup_failed';
+  if (status === 'completed' && identityObservationIncomplete) status = 'observation_failed';
   containment.verified = containment.assigned
     && (containment.drained || (cleanup.required && cleanup.verified))
     && containment.errors.length === 0;
@@ -926,6 +938,7 @@ export async function runManagedProcess(options) {
   }
   const descendantPids = [...observed.keys()].filter((pid) => pid !== rootPid).sort((a, b) => a - b);
   const observationVerified = observationSucceeded
+    && !identityObservationIncomplete
     && (!cleanup.required || cleanup.verified)
     && containment.verified;
   const ok = status === 'completed' && exitCode === 0 && observationVerified;

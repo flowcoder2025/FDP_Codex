@@ -188,6 +188,20 @@ function runTemporalIdentityCase() {
   ], rootPid, missingStartObserved);
   assert.equal(missingStartObserved.has(50006), false);
 
+  const startlessDescendantObserved = new Map([[rootPid, root]]);
+  const startlessUnknownPids = mergeObservedTree([
+    root,
+    {
+      pid: 50007,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'startless-descendant',
+      started_at: null,
+    },
+  ], rootPid, startlessDescendantObserved);
+  assert.deepEqual(startlessUnknownPids, [50007]);
+  assert.equal(startlessDescendantObserved.has(50007), false);
+
   const uninitializedRootObserved = new Map([[rootPid, {
     pid: rootPid,
     ppid: process.pid,
@@ -207,6 +221,8 @@ function runTemporalIdentityCase() {
     reused_parent_identity_excluded: true,
     known_start_missing_current_start_unknown: true,
     known_start_missing_current_start_child_excluded: true,
+    startless_descendant_unknown: true,
+    startless_descendant_excluded: true,
     uninitialized_root_reuse_excluded: true,
     descendant_count: observed.size - 1,
   };

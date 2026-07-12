@@ -3959,7 +3959,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('result.ok = false');
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
-    && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid)')
+    && managedProcess.includes('const hasObservedParent = parentPids.has(entry.ppid)')
+    && managedProcess.includes('const belongsToObservedParent = hasObservedParent && isNotOlderThan(entry, parent)')
     && managedProcess.includes('currentParent !== undefined')
     && managedProcess.includes('isNotOlderThan(entry, observedRoot)')
     && lifecycleTest.includes('function runTemporalIdentityCase()')
@@ -3968,12 +3969,18 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('assert.equal(observed.has(50003), true)')
     && lifecycleTest.includes("classifyProcessIdentity(root, missingStartCurrentRoot), 'unknown'")
     && lifecycleTest.includes('assert.equal(missingStartObserved.has(50006), false)')
+    && lifecycleTest.includes('assert.deepEqual(startlessUnknownPids, [50007])')
+    && lifecycleTest.includes('assert.equal(startlessDescendantObserved.has(50007), false)')
     && managedProcess.includes('sameIdentity(parent, currentParent)')
     && managedProcess.includes('expected.started_at === null')
     && managedProcess.includes('expected.ppid === current.ppid')
     && managedProcess.includes("if (current.started_at === null) return 'unknown'")
     && managedProcess.includes("else unknownPids.push(expected.pid)")
     && managedProcess.includes('unknown_after_cleanup: unknownPids')
+    && managedProcess.includes('const unknownCandidatePids = new Set()')
+    && managedProcess.includes("if (entry.started_at === null && (hasObservedParent || hasPosixGroup))")
+    && managedProcess.includes('identityObservationIncomplete = true')
+    && managedProcess.includes("status === 'completed' && identityObservationIncomplete")
     && managedProcess.includes("containmentMode: 'windows-job-object'")
     && managedProcess.includes('containment.drained')
     && windowsJobRunner.includes('CREATE_SUSPENDED')
@@ -4029,6 +4036,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.known_start_missing_current_start_unknown === true
     && testResult?.cases?.temporal_identity?.known_start_missing_current_start_child_excluded === true
+    && testResult?.cases?.temporal_identity?.startless_descendant_unknown === true
+    && testResult?.cases?.temporal_identity?.startless_descendant_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && (process.platform === 'win32'
       ? (testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
@@ -4162,6 +4171,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('uninitialized wrapper root may acquire its operating-system identity only when the live parent PID is the current supervisor')
     && autonomy.includes('current row with missing start time is unknown rather than a name-based match')
     && autonomy.includes('must not acquire descendants or receive a targeted signal')
+    && autonomy.includes('newly discovered descendant also requires start-time metadata before observation')
+    && autonomy.includes("permanently makes that invocation's observation unverified")
     && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
@@ -4185,6 +4196,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('uninitialized wrapper root accepts identity only when its live parent is the current supervisor')
     && decision.includes('live row whose start time is unavailable is classified unknown rather than matched by name')
     && decision.includes('cannot acquire descendants or receive a targeted signal')
+    && decision.includes('newly discovered descendant is not registered without start-time metadata')
+    && decision.includes("permanently makes the invocation's observation unverified")
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4206,6 +4219,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('reused PID')
     && spec.includes('Later observations require the recorded start time to match')
     && spec.includes('current row has no start time, identity is unknown rather than matched by executable name')
+    && spec.includes('newly discovered descendant must also provide start-time metadata before entering the observed tree')
+    && spec.includes('reported as an unobserved unknown candidate')
     && spec.includes('Exit codes are 0')
     && spec.includes('124 for timeout')
     && spec.includes('130 for interruption')
@@ -4316,6 +4331,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
     && String(guard.deterministic_cases?.uninitialized_root_reuse_exclusion).startsWith('passed')
     && guard.deterministic_cases?.known_start_missing_current_start === 'passed-unknown-unverified-child-excluded'
+    && guard.deterministic_cases?.startless_descendant_exclusion === 'passed-unknown-candidate-not-observed-or-signaled'
     && guard.deterministic_cases?.spoofed_atomic_marker_rejection === 'passed-forged-pid-never-observed-wrapper-and-atomic-child-gone'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
@@ -4358,6 +4374,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('same-name reused wrapper PID under an unrelated parent')
     && reusedParentKi.trigger.includes('worker-forged atomic-child control markers')
     && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
+    && reusedParentKi.trigger.includes('newly discovered descendant whose start time is unavailable')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
@@ -4366,6 +4383,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.repayment_condition.includes('supervisor-parent-gated initial root identity')
     && reusedParentKi.repayment_condition.includes('duplicate atomic-child markers never replace observed identity')
     && reusedParentKi.repayment_condition.includes('missing current start-time metadata remain unknown, unsignaled, and unverified')
+    && reusedParentKi.repayment_condition.includes('newly discovered descendants require start-time metadata or remain unobserved unknown candidates')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
