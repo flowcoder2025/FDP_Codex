@@ -248,7 +248,7 @@ public static class FdpWindowsJobRunner
         return false;
     }
 
-    public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, string controlToken)
+    public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, long controllerStartFileTime, string controlToken)
     {
         int wrapperProcessId;
         using (var wrapper = Process.GetCurrentProcess())
@@ -263,6 +263,11 @@ public static class FdpWindowsJobRunner
             throw new InvalidOperationException("Invalid controller PID.");
         }
         var controller = Process.GetProcessById(controllerPid);
+        if (controller.StartTime.ToFileTimeUtc() != controllerStartFileTime)
+        {
+            controller.Dispose();
+            throw new InvalidOperationException("Controller identity mismatch.");
+        }
         var controllerHandle = controller.Handle;
 
         var job = CreateJobObject(IntPtr.Zero, null);
@@ -432,8 +437,10 @@ public static class FdpWindowsJobRunner
 
 $controlToken = [string]$env:FDP_JOB_CONTROL_TOKEN
 $controllerPidText = [string]$env:FDP_JOB_CONTROLLER_PID
+$controllerStartFileTimeText = [string]$env:FDP_JOB_CONTROLLER_START_FILETIME
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)
 
 try {
     if ($controlToken -notmatch '^[a-f0-9]{64}$') {
@@ -442,6 +449,10 @@ try {
     $controllerPid = 0
     if (-not [int]::TryParse($controllerPidText, [ref]$controllerPid) -or $controllerPid -le 0) {
         throw 'Missing or invalid FDP Job controller PID.'
+    }
+    $controllerStartFileTime = 0L
+    if (-not [long]::TryParse($controllerStartFileTimeText, [ref]$controllerStartFileTime) -or $controllerStartFileTime -le 0) {
+        throw 'Missing or invalid FDP Job controller start FILETIME.'
     }
     Add-Type -TypeDefinition $source -Language CSharp
     $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FDP_JOB_ARGS_B64))
@@ -455,6 +466,7 @@ try {
         [string[]]$childArgs,
         $env:FDP_JOB_CWD,
         [int]$controllerPid,
+        [long]$controllerStartFileTime,
         $controlToken
     )
     exit [int]$exitCode

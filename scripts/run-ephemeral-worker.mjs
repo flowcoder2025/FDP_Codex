@@ -74,6 +74,12 @@ async function main() {
   const invocation = resolveCodexInvocation();
   const prompt = await readPrompt();
   const abortController = new AbortController();
+  const testAbortAfterMs = process.env.NODE_ENV === 'test'
+    ? Number.parseInt(process.env.FDP_WORKER_TEST_ABORT_AFTER_MS || '', 10)
+    : Number.NaN;
+  const testAbortTimer = Number.isInteger(testAbortAfterMs) && testAbortAfterMs > 0
+    ? setTimeout(() => abortController.abort('test-interruption'), testAbortAfterMs)
+    : null;
   const onSigint = () => abortController.abort('SIGINT');
   const onSigterm = () => abortController.abort('SIGTERM');
   process.once('SIGINT', onSigint);
@@ -98,6 +104,7 @@ async function main() {
     else if (result.interrupted) process.exitCode = 130;
     else process.exitCode = 1;
   } finally {
+    if (testAbortTimer) clearTimeout(testAbortTimer);
     process.removeListener('SIGINT', onSigint);
     process.removeListener('SIGTERM', onSigterm);
   }

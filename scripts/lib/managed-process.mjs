@@ -43,7 +43,7 @@ export function managedProcessPlatformSupport(platform = process.platform) {
   };
 }
 
-function buildSpawnInvocation(options, controlToken) {
+function buildSpawnInvocation(options, controlToken, controllerStartFileTime) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   return {
     command: path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
@@ -63,9 +63,31 @@ function buildSpawnInvocation(options, controlToken) {
       FDP_JOB_CWD: path.resolve(options.cwd || process.cwd()),
       [WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken,
       FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: controllerStartFileTime,
     },
     containmentMode: 'windows-job-object',
   };
+}
+
+async function readWindowsControllerStartFileTime(pid) {
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    '$process = Get-Process -Id ' + pid,
+    "$process.StartTime.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture)",
+  ].join('; ');
+  const value = (await execFileText(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', script,
+  ])).trim();
+  if (!/^[1-9][0-9]+$/.test(value)) {
+    throw new Error('failed to acquire immutable controller start FILETIME');
+  }
+  return value;
 }
 
 /** @param {number} milliseconds */
@@ -73,6 +95,22 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+/**
+ * @param {{
+ *   child: {exitCode: number | null, signalCode: NodeJS.Signals | null, kill: () => boolean},
+ *   closePromise: Promise<unknown>,
+ *   terminationGraceMs: number,
+ * }} options
+ */
+export async function stopExactWrapperForCleanup(options) {
+  const alreadyExited = options.child.exitCode !== null || options.child.signalCode !== null;
+  const killAccepted = alreadyExited ? null : options.child.kill();
+  const wrapperClosed = await Promise.race([
+    options.closePromise.then(() => true),
+    sleep(options.terminationGraceMs).then(() => false),
+  ]);
+  return { alreadyExited, killAccepted, wrapperClosed };
+}
 /**
  * @param {string} command
  * @param {string[]} args
@@ -488,6 +526,31 @@ export async function runManagedProcess(options) {
     emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
     return result;
   }
+  const timeoutDeadlineAt = Date.now() + options.timeoutMs;
+  /** @type {NodeJS.Timeout | undefined} */
+  let timeoutHandle;
+  const timeoutPromise = new Promise((resolve) => {
+    timeoutHandle = setTimeout(() => resolve({ kind: 'timeout' }), options.timeoutMs);
+  });
+
+  /** @type {(() => void) | null} */
+  let removeAbortListener = null;
+  const abortPromise = new Promise((resolve) => {
+    if (!options.signal) return;
+    const onAbort = () => resolve({ kind: 'interrupted', reason: options.signal?.reason });
+    if (options.signal.aborted) onAbort();
+    else {
+      options.signal.addEventListener('abort', onAbort, { once: true });
+      removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
+    }
+  });
+  const elapsedGuardOutcome = () => {
+    if (options.signal?.aborted) {
+      return { kind: 'interrupted', reason: options.signal.reason };
+    }
+    if (Date.now() >= timeoutDeadlineAt) return { kind: 'timeout' };
+    return null;
+  };
   const pollIntervalMs = options.pollIntervalMs ?? 500;
   const terminationGraceMs = options.terminationGraceMs ?? 500;
   const verificationTimeoutMs = options.verificationTimeoutMs ?? 5000;
@@ -498,7 +561,8 @@ export async function runManagedProcess(options) {
   let observationSucceeded = false;
   let identityObservationIncomplete = false;
   const controlToken = randomBytes(32).toString('hex');
-  const invocation = buildSpawnInvocation(options, controlToken);
+  const controllerStartFileTime = await readWindowsControllerStartFileTime(process.pid);
+  const invocation = buildSpawnInvocation(options, controlToken, controllerStartFileTime);
   const containment = {
     mode: invocation.containmentMode,
     assigned: false,
@@ -581,31 +645,6 @@ export async function runManagedProcess(options) {
     resolveIdentityReadiness();
   };
 
-  const timeoutDeadlineAt = Date.now() + options.timeoutMs;
-  /** @type {NodeJS.Timeout | undefined} */
-  let timeoutHandle;
-  const timeoutPromise = new Promise((resolve) => {
-    timeoutHandle = setTimeout(() => resolve({ kind: 'timeout' }), options.timeoutMs);
-  });
-
-  /** @type {(() => void) | null} */
-  let removeAbortListener = null;
-  const abortPromise = new Promise((resolve) => {
-    if (!options.signal) return;
-    const onAbort = () => resolve({ kind: 'interrupted', reason: options.signal?.reason });
-    if (options.signal.aborted) onAbort();
-    else {
-      options.signal.addEventListener('abort', onAbort, { once: true });
-      removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
-    }
-  });
-  const elapsedGuardOutcome = () => {
-    if (options.signal?.aborted) {
-      return { kind: 'interrupted', reason: options.signal.reason };
-    }
-    if (Date.now() >= timeoutDeadlineAt) return { kind: 'timeout' };
-    return null;
-  };
 
   const child = spawn(invocation.command, invocation.args, {
     cwd: invocation.cwd,
@@ -854,20 +893,18 @@ export async function runManagedProcess(options) {
   if (removeAbortListener) removeAbortListener();
 
   const stopRootWrapper = async () => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      containment.wrapper_closed = true;
-      return true;
-    }
-    const killAccepted = child.kill();
-    const wrapperClosed = await Promise.race([
-      closePromise.then(() => true),
-      sleep(terminationGraceMs).then(() => false),
-    ]);
+    const { alreadyExited, killAccepted, wrapperClosed } = await stopExactWrapperForCleanup({
+      child,
+      closePromise,
+      terminationGraceMs,
+    });
     containment.wrapper_closed = wrapperClosed;
     if (!wrapperClosed) {
-      containment.errors.push(killAccepted
+      containment.errors.push(killAccepted === true
         ? 'exact wrapper close was not observed before the termination deadline'
-        : 'exact wrapper termination request was rejected and close was not observed');
+        : alreadyExited
+          ? 'wrapper exit was observed but exact wrapper close was not observed before the termination deadline'
+          : 'exact wrapper termination request was rejected and close was not observed');
     }
     return wrapperClosed;
   };

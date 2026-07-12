@@ -2,6 +2,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import {
@@ -9,9 +12,12 @@ import {
   managedProcessPlatformSupport,
   mergeObservedTree,
   runManagedProcess,
+  stopExactWrapperForCleanup,
 } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+const workerCliPath = fileURLToPath(new URL('./run-ephemeral-worker.mjs', import.meta.url));
+const windowsJobRunnerPath = fileURLToPath(new URL('./windows-job-runner.ps1', import.meta.url));
 const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
 
@@ -100,6 +106,51 @@ function busyWait(milliseconds) {
   }
 }
 
+function captureChild(child, stdinText = null) {
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+  });
+  if (stdinText !== null) child.stdin.end(stdinText);
+  return new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
+  });
+}
+
+async function runDelayedWrapperCloseCase() {
+  let killCalled = false;
+  const closePromise = new Promise((resolve) => {
+    setTimeout(resolve, 75);
+  });
+  const startedAt = Date.now();
+  const result = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: 0,
+      signalCode: null,
+      kill: () => {
+        killCalled = true;
+        return true;
+      },
+    },
+    closePromise,
+    terminationGraceMs: 500,
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(result.alreadyExited, true);
+  assert.equal(result.killAccepted, null);
+  assert.equal(result.wrapperClosed, true);
+  assert.equal(killCalled, false);
+  assert(elapsedMs >= 50, 'wrapper close helper returned from exit state before the close event');
+  return {
+    exit_state_did_not_substitute_for_close: true,
+    elapsed_ms: elapsedMs,
+  };
+}
 function runBuiltinFanoutFlagCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
@@ -757,6 +808,104 @@ async function runObservationHangInterruptionCase() {
   }
 }
 
+function parseWorkerResult(stdout) {
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const event = JSON.parse(line);
+      if (event.type === 'worker.result') return event.result;
+    } catch {
+      // Non-JSON fixture output is surfaced separately by the managed worker.
+    }
+  }
+  return null;
+}
+
+async function runControllerIdentityMismatchCase() {
+  const token = 'b'.repeat(64);
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const child = spawn(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-File', windowsJobRunnerPath,
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      FDP_JOB_COMMAND: process.execPath,
+      FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify([fixturePath, 'complete']), 'utf8').toString('base64'),
+      FDP_JOB_CWD: process.cwd(),
+      FDP_JOB_CONTROL_TOKEN: token,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: '1',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 125, JSON.stringify(result, null, 2));
+  assert(result.stderr.includes('Controller identity mismatch.'), JSON.stringify(result, null, 2));
+  assert.equal(result.stderr.includes('FDP_JOB_RUNNER_ASSIGNED:' + token), false);
+  assert.equal(result.stderr.includes('FDP_JOB_RUNNER_ATOMIC_CHILD:' + token), false);
+  return {
+    exit_code: result.code,
+    mismatch_rejected_before_worker_creation: true,
+  };
+}
+
+async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-exit-'));
+  try {
+    await writeFile(path.join(tempRoot, 'exec'), 'setInterval(() => {}, 1000);\n', 'utf8');
+    /** @type {NodeJS.ProcessEnv} */
+    const env = {
+      ...process.env,
+      NODE_ENV: 'test',
+      CODEX_CLI_PATH: process.execPath,
+      FDP_JOB_TEST_OBSERVATION_DELAY_MS: '10000',
+    };
+    delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
+    if (abortAfterMs !== null) {
+      env.FDP_WORKER_TEST_ABORT_AFTER_MS = String(abortAfterMs);
+    }
+    const child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', expectedExitCode === 124 ? '1000' : '10000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const result = await captureChild(child, 'deterministic CLI exit regression\n');
+    assert.equal(result.code, expectedExitCode, JSON.stringify(result, null, 2));
+    assert.equal(result.signal, null);
+    const workerResult = parseWorkerResult(result.stdout);
+    assert(workerResult, result.stdout);
+    assert.equal(workerResult.status, 'cleanup_failed', JSON.stringify(workerResult, null, 2));
+    assert.equal(workerResult.ok, false);
+    assert.equal(workerResult.cleanup.verified, false);
+    if (expectedExitCode === 124) {
+      assert.equal(workerResult.timed_out, true);
+      assert.equal(workerResult.interrupted, false);
+    } else {
+      assert.equal(workerResult.timed_out, false);
+      assert.equal(workerResult.interrupted, true);
+    }
+    return {
+      exit_code: result.code,
+      detailed_status: workerResult.status,
+      cleanup_verified: workerResult.cleanup.verified,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
 async function runFastParentExitCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -781,6 +930,7 @@ async function runFastParentExitCase() {
 }
 
 const pidOnlySignalGuard = runPidOnlySignalGuardCase();
+const delayedWrapperClose = await runDelayedWrapperCloseCase();
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
@@ -797,6 +947,9 @@ const windowsCases = process.platform === 'win32' ? {
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
   controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
+  controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
+  cliTimeoutExit: await runCliPrimaryExitCase(124),
+  cliInterruptionExit: await runCliPrimaryExitCase(130, 750),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
   observationHangTimeout: await runObservationHangTimeoutCase(),
   observationHangInterruption: await runObservationHangInterruptionCase(),
@@ -810,6 +963,7 @@ console.log(JSON.stringify({
   ok: true,
   cases: {
     pid_only_signal_guard: pidOnlySignalGuard,
+    delayed_wrapper_close: delayedWrapperClose,
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
     temporal_identity: temporalIdentity,
@@ -901,6 +1055,9 @@ console.log(JSON.stringify({
         wrapper_gone: windowsCases.controllerDeathWatchdog.wrapper_gone,
         atomic_child_gone: windowsCases.controllerDeathWatchdog.atomic_child_gone,
       },
+      controller_identity_mismatch: windowsCases.controllerIdentityMismatch,
+      cli_timeout_exit: windowsCases.cliTimeoutExit,
+      cli_interruption_exit: windowsCases.cliInterruptionExit,
       atomic_wrapper_kill: {
         status: windowsCases.atomicWrapperKill.status,
         wrapper_pid: windowsCases.atomicWrapperKill.wrapper_pid,
