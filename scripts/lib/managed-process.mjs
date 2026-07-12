@@ -24,6 +24,7 @@ const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
 const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
 const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
 const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
+const WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG';
 const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
 const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
@@ -61,6 +62,7 @@ function buildSpawnInvocation(options, controlToken) {
       FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify(options.args || []), 'utf8').toString('base64'),
       FDP_JOB_CWD: path.resolve(options.cwd || process.cwd()),
       [WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
     },
     containmentMode: 'windows-job-object',
   };
@@ -262,6 +264,7 @@ function classifyObserved(observed, table) {
  *   observed: Map<number, ProcessInfo>,
  *   observeNow: () => Promise<ProcessInfo[]>,
  *   reason: string,
+ *   wrapperClosed: boolean,
  *   graceMs: number,
  *   verifyMs: number,
  * }} options
@@ -269,6 +272,7 @@ function classifyObserved(observed, table) {
  */
 async function verifyObservedTreeTermination(options) {
   const errors = [];
+  if (!options.wrapperClosed) errors.push('exact wrapper close was not observed');
   let table;
   try {
     table = await options.observeNow();
@@ -462,6 +466,8 @@ export async function runManagedProcess(options) {
         assigned: false,
         drained: false,
         verified: false,
+        controller_watchdog_armed: false,
+        wrapper_closed: false,
         root_started_at: null,
         atomic_child_pid: null,
         atomic_child_started_at: null,
@@ -498,6 +504,8 @@ export async function runManagedProcess(options) {
     assigned: false,
     drained: false,
     verified: false,
+    controller_watchdog_armed: false,
+    wrapper_closed: false,
     root_started_at: null,
     atomic_child_pid: null,
     atomic_child_started_at: null,
@@ -621,6 +629,7 @@ export async function runManagedProcess(options) {
 
   const authenticatedAssignedMarker = `${WINDOWS_JOB_ASSIGNED_MARKER}:${controlToken}`;
   const authenticatedDrainedMarker = `${WINDOWS_JOB_DRAINED_MARKER}:${controlToken}`;
+  const authenticatedControllerWatchdogMarker = `${WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER}:${controlToken}`;
   const authenticatedRootPrefix = `${WINDOWS_JOB_ROOT_PREFIX}${controlToken}|`;
   const authenticatedAtomicChildPrefix = `${WINDOWS_JOB_ATOMIC_CHILD_PREFIX}${controlToken}|`;
   const authenticatedErrorPrefix = `${WINDOWS_JOB_ERROR_PREFIX}${controlToken}|`;
@@ -632,6 +641,10 @@ export async function runManagedProcess(options) {
     }
     if (line === authenticatedDrainedMarker) {
       containment.drained = true;
+      return true;
+    }
+    if (line === authenticatedControllerWatchdogMarker) {
+      containment.controller_watchdog_armed = true;
       return true;
     }
     if (line.startsWith(authenticatedRootPrefix)) {
@@ -841,10 +854,22 @@ export async function runManagedProcess(options) {
   if (removeAbortListener) removeAbortListener();
 
   const stopRootWrapper = async () => {
-    if (child.exitCode === null && child.signalCode === null) {
-      child.kill();
-      await Promise.race([closePromise, sleep(terminationGraceMs)]);
+    if (child.exitCode !== null || child.signalCode !== null) {
+      containment.wrapper_closed = true;
+      return true;
     }
+    const killAccepted = child.kill();
+    const wrapperClosed = await Promise.race([
+      closePromise.then(() => true),
+      sleep(terminationGraceMs).then(() => false),
+    ]);
+    containment.wrapper_closed = wrapperClosed;
+    if (!wrapperClosed) {
+      containment.errors.push(killAccepted
+        ? 'exact wrapper close was not observed before the termination deadline'
+        : 'exact wrapper termination request was rejected and close was not observed');
+    }
+    return wrapperClosed;
   };
 
   let cleanup = {
@@ -868,8 +893,9 @@ export async function runManagedProcess(options) {
     timedOut = true;
     status = 'timed_out';
     emit({ type: 'worker.timeout', timestamp: new Date().toISOString(), root_pid: rootPid, timeout_ms: options.timeoutMs });
-    await stopRootWrapper();
+    const wrapperClosed = await stopRootWrapper();
     cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'timeout',
@@ -880,8 +906,9 @@ export async function runManagedProcess(options) {
     interrupted = true;
     status = 'interrupted';
     emit({ type: 'worker.interrupted', timestamp: new Date().toISOString(), root_pid: rootPid });
-    await stopRootWrapper();
+    const wrapperClosed = await stopRootWrapper();
     cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'interrupted',
@@ -890,8 +917,9 @@ export async function runManagedProcess(options) {
     });
   } else if (outcome && outcome.kind === 'stdin-failed') {
     status = 'stdin_failed';
-    await stopRootWrapper();
+    const wrapperClosed = await stopRootWrapper();
     cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'stdin-failed',
@@ -900,8 +928,9 @@ export async function runManagedProcess(options) {
     });
   } else if (outcome && outcome.kind === 'event-dispatch-failed') {
     status = 'event_dispatch_failed';
-    await stopRootWrapper();
+    const wrapperClosed = await stopRootWrapper();
     cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'event-dispatch-failed',
@@ -909,6 +938,7 @@ export async function runManagedProcess(options) {
       verifyMs: verificationTimeoutMs,
     });
   } else if (outcome && outcome.kind === 'exit') {
+    containment.wrapper_closed = true;
     exitCode = outcome.code;
     exitSignal = outcome.signal;
     await sleep(residualGraceMs);
@@ -923,6 +953,7 @@ export async function runManagedProcess(options) {
           observed,
           observeNow,
           reason: 'identity-metadata-unavailable-after-root-exit',
+          wrapperClosed: true,
           graceMs: terminationGraceMs,
           verifyMs: verificationTimeoutMs,
         });
@@ -932,6 +963,7 @@ export async function runManagedProcess(options) {
           observed,
           observeNow,
           reason: 'residual-processes-after-root-exit',
+          wrapperClosed: true,
           graceMs: terminationGraceMs,
           verifyMs: verificationTimeoutMs,
         });
@@ -945,6 +977,8 @@ export async function runManagedProcess(options) {
   if (cleanup.required && !cleanup.verified) status = 'cleanup_failed';
   if (status === 'completed' && identityObservationIncomplete) status = 'observation_failed';
   containment.verified = containment.assigned
+    && containment.controller_watchdog_armed
+    && containment.wrapper_closed
     && (containment.drained || (cleanup.required && cleanup.verified))
     && containment.errors.length === 0;
   if (status === 'completed' && !containment.verified) {

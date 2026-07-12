@@ -248,17 +248,27 @@ public static class FdpWindowsJobRunner
         return false;
     }
 
-    public static int Run(string command, string[] arguments, string workingDirectory, string controlToken)
+    public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, string controlToken)
     {
+        int wrapperProcessId;
         using (var wrapper = Process.GetCurrentProcess())
         {
+            wrapperProcessId = wrapper.Id;
             Console.Error.WriteLine(
                 "FDP_JOB_RUNNER_ROOT:" + controlToken + "|" + wrapper.Id + "|" + wrapper.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'"));
         }
 
+        if (controllerPid <= 0 || controllerPid == wrapperProcessId)
+        {
+            throw new InvalidOperationException("Invalid controller PID.");
+        }
+        var controller = Process.GetProcessById(controllerPid);
+        var controllerHandle = controller.Handle;
+
         var job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero)
         {
+            controller.Dispose();
             ThrowLastError("CreateJobObject");
         }
 
@@ -291,6 +301,18 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("InitializeProcThreadAttributeList");
             }
             attributeListInitialized = true;
+
+            var controllerWatchdog = new Thread(() =>
+            {
+                if (WaitForSingleObject(controllerHandle, UInt32.MaxValue) == WAIT_OBJECT_0)
+                {
+                    TerminateJobObject(job, 1);
+                    Environment.Exit(126);
+                }
+            });
+            controllerWatchdog.IsBackground = true;
+            controllerWatchdog.Start();
+            Console.Error.WriteLine("FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken);
 
             jobListValue = Marshal.AllocHGlobal(IntPtr.Size);
             Marshal.WriteIntPtr(jobListValue, job);
@@ -402,17 +424,24 @@ public static class FdpWindowsJobRunner
             }
             Marshal.FreeHGlobal(limitsPointer);
             CloseHandle(job);
+            controller.Dispose();
         }
     }
 }
 "@
 
 $controlToken = [string]$env:FDP_JOB_CONTROL_TOKEN
+$controllerPidText = [string]$env:FDP_JOB_CONTROLLER_PID
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)
 
 try {
     if ($controlToken -notmatch '^[a-f0-9]{64}$') {
         throw 'Missing or invalid FDP Job control token.'
+    }
+    $controllerPid = 0
+    if (-not [int]::TryParse($controllerPidText, [ref]$controllerPid) -or $controllerPid -le 0) {
+        throw 'Missing or invalid FDP Job controller PID.'
     }
     Add-Type -TypeDefinition $source -Language CSharp
     $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FDP_JOB_ARGS_B64))
@@ -425,6 +454,7 @@ try {
         $env:FDP_JOB_COMMAND,
         [string[]]$childArgs,
         $env:FDP_JOB_CWD,
+        [int]$controllerPid,
         $controlToken
     )
     exit [int]$exitCode

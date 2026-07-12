@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
@@ -11,7 +12,27 @@ import {
 } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
+
+async function runControllerWatchdogHelper() {
+  await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'root'],
+    timeoutMs: 30000,
+    pollIntervalMs: 100,
+    onEvent: (event) => {
+      if (event.type === 'worker.started' || event.type === 'worker.atomic_child') {
+        process.stdout.write(`${JSON.stringify(event)}\n`);
+      }
+    },
+  });
+}
+
+if (process.argv[2] === '--controller-watchdog-helper') {
+  await runControllerWatchdogHelper();
+  process.exit(0);
+}
 
 function runPidOnlySignalGuardCase() {
   assert(managedProcessSource.includes('PID-only signaling is forbidden'));
@@ -33,6 +54,8 @@ function assertObservedCleanupPartition(result) {
   const observedPids = [result.root_pid, ...result.observed_descendant_pids]
     .sort((a, b) => a - b);
   const atomicChildPid = result.containment.atomic_child_pid;
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
   assert.equal(typeof result.containment.root_started_at, 'string');
   assert(Number.isInteger(atomicChildPid) && atomicChildPid > 0);
   assert.equal(typeof result.containment.atomic_child_started_at, 'string');
@@ -425,6 +448,8 @@ async function runSpoofedAtomicMarkerCase() {
   assert.equal(result.ok, true);
   assert.notEqual(result.containment.atomic_child_pid, spoofedPid);
   assert.equal(result.observed_descendant_pids.includes(spoofedPid), false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
   assert.equal(typeof result.containment.root_started_at, 'string');
   assert.deepEqual(result.containment.errors, []);
   assert(events.some((event) => event.type === 'worker.stderr'
@@ -447,6 +472,8 @@ async function runSpoofedDrainWrapperKillCase() {
   assert.equal(result.ok, false);
   assert.equal(result.containment.assigned, true);
   assert.equal(result.containment.drained, false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
   assert.equal(result.containment.verified, false);
   assert(events.some((event) => event.type === 'worker.stderr'
     && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
@@ -555,6 +582,51 @@ async function runOrphanContainmentCase() {
   return result;
 }
 
+async function runControllerDeathWatchdogCase() {
+  const controller = spawn(process.execPath, [testScriptPath, '--controller-watchdog-helper'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let buffered = '';
+  let wrapperPid = null;
+  let atomicChildPid = null;
+  const identitiesReady = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('controller watchdog helper did not emit identities')), 10000);
+    controller.stdout.on('data', (chunk) => {
+      buffered += String(chunk);
+      const lines = buffered.split(/\r?\n/);
+      buffered = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'worker.started') wrapperPid = event.root_pid;
+        if (event.type === 'worker.atomic_child') atomicChildPid = event.pid;
+      }
+      if (Number.isInteger(wrapperPid) && Number.isInteger(atomicChildPid)) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+    controller.once('error', reject);
+  });
+  await identitiesReady;
+  assert.equal(controller.kill(), true);
+  await new Promise((resolve) => controller.once('close', resolve));
+  const deadline = Date.now() + 5000;
+  while ((isProcessAlive(wrapperPid) || isProcessAlive(atomicChildPid)) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(isProcessAlive(wrapperPid), false);
+  assert.equal(isProcessAlive(atomicChildPid), false);
+  return {
+    controller_terminated: true,
+    wrapper_pid: wrapperPid,
+    atomic_child_pid: atomicChildPid,
+    wrapper_gone: true,
+    atomic_child_gone: true,
+  };
+}
+
 async function runAtomicWrapperKillCase() {
   const events = [];
   let wrapperPid = null;
@@ -583,6 +655,8 @@ async function runAtomicWrapperKillCase() {
   assert.equal(result.ok, false);
   assert.equal(result.containment.assigned, true);
   assert.equal(result.containment.drained, false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
   assert.equal(result.containment.verified, false);
   assert.equal(result.containment.atomic_child_pid, atomicChildPid);
   const confirmedWrapperPid = Number(wrapperPid);
@@ -722,6 +796,7 @@ const windowsCases = process.platform === 'win32' ? {
   stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
+  controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
   observationHangTimeout: await runObservationHangTimeoutCase(),
   observationHangInterruption: await runObservationHangInterruptionCase(),
@@ -756,6 +831,8 @@ console.log(JSON.stringify({
         atomic_child_observed: windowsCases.timeout.observed_descendant_pids
           .includes(windowsCases.timeout.containment.atomic_child_pid),
         atomic_identity_before_observation: windowsCases.timeout.atomic_identity_before_observation,
+        controller_watchdog_armed: windowsCases.timeout.containment.controller_watchdog_armed,
+        wrapper_closed: windowsCases.timeout.containment.wrapper_closed,
       },
       started_callback_deadline: {
         status: windowsCases.startedCallbackDeadline.status,
@@ -818,6 +895,11 @@ console.log(JSON.stringify({
         status: windowsCases.orphanContainment.status,
         containment_mode: windowsCases.orphanContainment.containment.mode,
         containment_verified: windowsCases.orphanContainment.containment.verified,
+      },
+      controller_death_watchdog: {
+        controller_terminated: windowsCases.controllerDeathWatchdog.controller_terminated,
+        wrapper_gone: windowsCases.controllerDeathWatchdog.wrapper_gone,
+        atomic_child_gone: windowsCases.controllerDeathWatchdog.atomic_child_gone,
       },
       atomic_wrapper_kill: {
         status: windowsCases.atomicWrapperKill.status,

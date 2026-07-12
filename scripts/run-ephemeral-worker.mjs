@@ -94,8 +94,8 @@ async function main() {
       onEvent: emitJson,
     });
     if (result.ok) return;
-    if (result.status === 'timed_out') process.exitCode = 124;
-    else if (result.status === 'interrupted') process.exitCode = 130;
+    if (result.timed_out) process.exitCode = 124;
+    else if (result.interrupted) process.exitCode = 130;
     else process.exitCode = 1;
   } finally {
     process.removeListener('SIGINT', onSigint);

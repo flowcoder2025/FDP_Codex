@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-12T06:42:01Z",
+  "updated_at": "2026-07-12T07:05:19Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -306,6 +306,12 @@
           "fork_context": false,
           "reviewed_head": "6e5162bae4ec500fd613784ae50dc163d97fa01d",
           "result": "fail-one-p1-forgeable-drain-marker-remediated-one-p3-root-identity-event-documented-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f5511-e662-7713-93bd-3e7dc6599974",
+          "fork_context": false,
+          "reviewed_head": "2a92d82304d2da9c12289e9fc37ab630a18c9a1c",
+          "result": "fail-one-p1-controller-death-orphan-two-p2-wrapper-close-and-history-one-p3-timeout-exit-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -404,6 +410,9 @@
           "final_result_sink_failure": "passed-reclassified-event-dispatch-failed-ok-false",
           "authenticated_control_marker_spoof_rejection": "passed-forged-root-atomic-and-drain-markers-ignored",
           "forged_drain_wrapper_kill": "passed-unverified-containment-false",
+          "controller_death_watchdog": "passed-wrapper-and-atomic-child-confirmed-gone",
+          "exact_wrapper_close_required": "passed-cleanup-and-containment-invariant",
+          "timeout_exit_classification": "passed-primary-timeout-remains-124",
           "stdin_early_exit_cleanup": "passed-1mib-write-eof-structured-result",
           "stdin_timeout_cleanup": "passed-1mib-pending-write-timeout-structured-result",
           "observer_failure_classification": "passed-unobservable-identities-unknown-never-alive"
@@ -592,9 +601,9 @@
       "id": "KI-CX-WORKER-004",
       "severity": "High",
       "owner": "CODEX",
-      "trigger": "Windows lifecycle could attach an unrelated child after parent PID reuse, miss a fast detached child, start timeout or interruption too late, wait indefinitely on stalled observation, leak a worker through a hard-killed creation-to-assignment window, omit known identities from cleanup evidence, label unobservable dead identities as alive, let an event sink exception escape before cleanup, crash on a pending stdin write error, report success after final-result delivery failure, adopt a reused wrapper PID including under the same supervisor, accept worker-forged root, assignment, atomic-child, drain, or error control markers, treat missing current start-time metadata as a name-based identity match, or adopt a newly discovered descendant whose start time is unavailable, or signal an unrelated process after PID reuse between identity classification and termination",
-      "defer_reason": "pre-spawn absolute deadline and interruption setup, event-sink and stdin exception containment, per-invocation authenticated control markers with token removal before worker creation, immutable native root and atomic-child identity registration, three-state identity classification, startless-descendant rejection, parent identity filtering, native atomic-worker identity tracking, atomic Windows Job Object creation, exact wrapper-handle termination with PID-only descendant signaling disabled, wrapper hard-kill containment, bounded observation commands, and truthful unknown classification pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
-      "repayment_condition": "the wrapper, atomic worker, and all other observed descendants each receive exactly one gone, identity-mismatch, alive, or unknown classification; observer failure uses unknown and remains unverified; throwing event callbacks and failed stdin writes return only after structured verified cleanup; root, assignment, atomic-child, drain, and error markers require the exact per-invocation token; the token is removed from the wrapper environment before worker creation; forged markers never change containment state or observed identity; initial root identity requires a native marker whose PID equals the exact spawned wrapper and never uses parent or name fallback; known-start identities with missing current start-time metadata remain unknown, unsignaled, and unverified; newly discovered descendants require start-time metadata or remain unobserved unknown candidates with verification failed; pre-spawn deadlines, native same-supervisor-safe root identity, parent identity filtering, no PID-only descendant signaling, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
+      "trigger": "Windows lifecycle could leave the wrapper and worker alive after controller death, verify cleanup without observing exact wrapper close, obscure timeout exit classification, attach an unrelated child after parent PID reuse, miss a fast detached child, start timeout or interruption too late, wait indefinitely on stalled observation, leak a worker through a hard-killed creation-to-assignment window, omit known identities from cleanup evidence, label unobservable dead identities as alive, let an event sink exception escape before cleanup, crash on a pending stdin write error, report success after final-result delivery failure, adopt a reused wrapper PID including under the same supervisor, accept worker-forged root, assignment, atomic-child, drain, or error control markers, treat missing current start-time metadata as a name-based identity match, or adopt a newly discovered descendant whose start time is unavailable, or signal an unrelated process after PID reuse between identity classification and termination",
+      "defer_reason": "pre-spawn absolute deadline and interruption setup, event-sink and stdin exception containment, per-invocation authenticated control markers plus controller-handle watchdog with token and controller PID removal before worker creation, exact-wrapper close verification, primary timeout/interruption exit preservation, immutable native root and atomic-child identity registration, three-state identity classification, startless-descendant rejection, parent identity filtering, native atomic-worker identity tracking, atomic Windows Job Object creation, exact wrapper-handle termination with PID-only descendant signaling disabled, wrapper hard-kill containment, bounded observation commands, and truthful unknown classification pass locally, but the current remediation still requires fresh independent review, PR validation, merge, and post-merge audit",
+      "repayment_condition": "the wrapper, atomic worker, and all other observed descendants each receive exactly one gone, identity-mismatch, alive, or unknown classification; observer failure uses unknown and remains unverified; throwing event callbacks and failed stdin writes return only after structured verified cleanup; root, assignment, controller-watchdog, atomic-child, drain, and error markers require the exact per-invocation token; the token and controller PID are removed from the wrapper environment before worker creation; controller-handle death terminates the Job; exact wrapper close is mandatory before cleanup verification; timeout and interruption retain CLI exits 124 and 130; forged markers never change containment state or observed identity; initial root identity requires a native marker whose PID equals the exact spawned wrapper and never uses parent or name fallback; known-start identities with missing current start-time metadata remain unknown, unsignaled, and unverified; newly discovered descendants require start-time metadata or remain unobserved unknown candidates with verification failed; pre-spawn deadlines, native same-supervisor-safe root identity, parent identity filtering, no PID-only descendant signaling, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
       "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
       "status": "open",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
