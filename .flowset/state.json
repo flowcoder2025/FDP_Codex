@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-12T04:01:36Z",
+  "updated_at": "2026-07-12T04:20:08Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -264,6 +264,12 @@
           "fork_context": false,
           "reviewed_head": "17e410de9e6ed878bcc48417664891aa3d85f93c",
           "result": "fail-one-p1-uninitialized-root-pid-reuse-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f5487-8a79-7293-bef7-946b1356ca2f",
+          "fork_context": false,
+          "reviewed_head": "bc63f50d02eeb92c5cf8cb9c9240af6cafeb5f05",
+          "result": "fail-one-p2-tracked-candidate-pointer-drift-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -589,7 +595,7 @@
       "id": "KI-CX-REVIEW-002",
       "severity": "High",
       "owner": "H1 / execution platform",
-      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak; exact head bf31953 then failed with two P1 lifecycle gaps and one P2 KI overstatement; the 4720c45 review request used an invalid expanded SHA and the actual head review returned one P1 cleanup-evidence race plus two P2 contract findings; exact head 46fd0fe then failed with one P2 blocked-outcome merge-contract conflict and one P3 cleanup-partition coverage gap; exact head 63abaac then failed with two P2 atomic-child-classification and stale-residual-evidence findings; exact head e0c2fae then failed with one P2 atomic-identity ordering overstatement; exact head c6fcb67 then failed with two P2 pre-spawn-deadline and cleanup-classification findings; exact head 2e12847 then failed with one P1 event-sink exception process leak; exact head 87f3797 then failed with two P2 stdin-error and false-smoke-state findings plus one disposed P3 stale-comment finding; exact head a50c853 then failed with one P2 final-result sink false-success finding; exact head 17e410d then failed with one P1 uninitialized-root PID-reuse finding",
+      "trigger": "reviewer availability was intermittent, bounded reviews of b63bbca and 7696fbb returned FAIL with P2 findings, the c86b9f0 review returned FAIL with a P1 shell-reentry finding plus P2 Issue #55 drift, the 71576c0 review returned FAIL with two P1 and two P2 findings, the b46b0b7 review returned FAIL with one P1, one P2, and one P3 finding, the 311c582 reviewer was lost without a verdict when the task was interrupted, and the next verification agent hit the usage limit before inspection; exact head 6d44781 then failed with one P1 POSIX escape, one P2 handoff ownership conflict, and one P3 terminology overstatement; exact head faa06a3 then failed with one P1 Job Object assignment-failure suspended-process leak; exact head bf31953 then failed with two P1 lifecycle gaps and one P2 KI overstatement; the 4720c45 review request used an invalid expanded SHA and the actual head review returned one P1 cleanup-evidence race plus two P2 contract findings; exact head 46fd0fe then failed with one P2 blocked-outcome merge-contract conflict and one P3 cleanup-partition coverage gap; exact head 63abaac then failed with two P2 atomic-child-classification and stale-residual-evidence findings; exact head e0c2fae then failed with one P2 atomic-identity ordering overstatement; exact head c6fcb67 then failed with two P2 pre-spawn-deadline and cleanup-classification findings; exact head 2e12847 then failed with one P1 event-sink exception process leak; exact head 87f3797 then failed with two P2 stdin-error and false-smoke-state findings plus one disposed P3 stale-comment finding; exact head a50c853 then failed with one P2 final-result sink false-success finding; exact head 17e410d then failed with one P1 uninitialized-root PID-reuse finding; exact head bc63f50 then failed with one P2 tracked candidate-pointer drift finding",
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",

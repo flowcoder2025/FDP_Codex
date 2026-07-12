@@ -4378,6 +4378,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('non-active design fixture')
     && proofRecord.includes('kill-on-close Job Object')
     && proofRecord.includes('fresh final-head reviewer');
+  const reviewKiFixPlanRow = fixPlan.split(/\r?\n/).find((line) => line.startsWith('| KI-CX-REVIEW-002 / Issue #63')) ?? '';
+  checks.worker_review_candidate_pointer = reviewKiFixPlanRow.includes('query `git rev-parse HEAD`')
+    && reviewKiFixPlanRow.includes('compare that live value with Issue #63')
+    && !/current-candidate SHA[^|]*`[0-9a-f]{40}`/i.test(reviewKiFixPlanRow);
   checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
     && currentWi.includes('Status: blocked-external')
     && currentWi.includes('ESC: E1+E2+E3+E5+E6')
@@ -4481,6 +4485,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_proof_ledger) error('worker_proof.ledger_missing', 'WI-CX0060 must retain exactly 27 metadata-only fresh-context entries.');
   if (!checks.worker_proof_implementation) error('worker_proof.confinement_missing', 'Managed workers must disable nested multi-agent collaboration and retain deterministic argument coverage.');
   if (!checks.worker_proof_record) error('worker_proof.record_missing', 'WI-CX0060 must record the public preflight, first dogfood failure, cleanup, KIs, and approval gate.');
+  if (!checks.worker_review_candidate_pointer) error('worker_review.candidate_pointer_stale', 'The tracked review row must query live HEAD and Issue #63 and must not store a literal current-candidate SHA.');
   if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as externally blocked after explicit user approval was insufficient.');
   if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
   if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');

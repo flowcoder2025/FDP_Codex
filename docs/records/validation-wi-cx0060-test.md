@@ -123,6 +123,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - The remediation reclassifies final-result delivery failure to `event_dispatch_failed` and `ok: false`, preserves the prior terminal status and verified containment, and adds a deterministic final-result callback regression. The changed head requires fresh exact-head review.
 - Reviewer `019f50f4-0252-7ec1-8111-c3c4eb42c512` inspected exact head `17e410de9e6ed878bcc48417664891aa3d85f93c` with `fork_context: false` and returned FAIL with one P1: an uninitialized wrapper root could adopt a same-name reused PID under an unrelated parent.
 - Initial root identity now requires the current supervisor parent before name fallback, and a deterministic null-start same-name reuse regression rejects the unrelated root and child. Policy, decision, KI state, and validator now enforce the same rule. Direct `worker:test`, full `ci:check`, local CLI smoke, and `git diff --check` passed; fresh exact-head review remains.
+- Reviewer `019f5487-8a79-7293-bef7-946b1356ca2f` inspected exact head `bc63f50d02eeb92c5cf8cb9c9240af6cafeb5f05` with `fork_context: false` and returned FAIL with one P2: the tracked fix plan named predecessor `26fc45a` as the current review candidate.
+- The remediation removes literal current-candidate SHAs from the tracked review row, requires reviewers to query clean live HEAD and Issue #63, and makes repository validation reject a literal 40-character candidate SHA in that row. Fresh exact-head review remains.
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 
