@@ -4460,7 +4460,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
-    && String(guard.deterministic_cases?.stdin_timeout_cleanup).startsWith('passed')
+    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-1mib-pending-write-timeout-structured-result-repeated-3'
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'

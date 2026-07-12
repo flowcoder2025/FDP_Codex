@@ -841,10 +841,10 @@ async function runStdinTimeoutCase() {
     command: process.execPath,
     args: [fixturePath, 'root'],
     stdinText: 'x'.repeat(1024 * 1024),
-    timeoutMs: 750,
+    timeoutMs: 5000,
     pollIntervalMs: 100,
-    terminationGraceMs: 100,
-    verificationTimeoutMs: 2000,
+    terminationGraceMs: 500,
+    verificationTimeoutMs: 5000,
   });
   assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
   assert.equal(result.timed_out, true);

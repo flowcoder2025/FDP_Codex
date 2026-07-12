@@ -95,6 +95,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f5671-4959-7d81-a1ed-2d663d716ecf inspected exact head 9707ba4e69fec51d3035c7135ddd42b2653c7040 with fork_context: false and returned FAIL with P2 lookup-helper kill rejection being omitted plus incomplete reviewer command evidence after forced finalization. The lookup cleanup now records kill acceptance, marks rejection unverified even after close, and has direct rejection and close-timeout classification tests. Local typecheck and the full worker lifecycle suite pass; a fresh reviewer must complete every required command without early finalization.
 
+- Reviewer 019f567d-6db7-7822-8f32-467ffba527e4 inspected exact head c2cd5117c1a22e0d06494ff2718c130d7cb8cfb9 with fork_context: false and returned FAIL with one P2: the 750 ms stdin-timeout regression could expire before PowerShell identity readiness, making canonical validation timing-dependent even though the implementation failed closed. The regression now uses a 5-second deadline so authenticated identities and pending stdin are established before timeout cleanup is asserted; the full worker suite passed three consecutive runs. Fresh exact-head review remains.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

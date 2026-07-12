@@ -150,6 +150,9 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer 019f5671-4959-7d81-a1ed-2d663d716ecf inspected exact head 9707ba4e69fec51d3035c7135ddd42b2653c7040 with fork_context: false and returned FAIL: P2 lookup-helper kill rejection was discarded, and forced finalization occurred before the reviewer completed required exact-head commands and live Issue reads.
 - The remediation reuses exact-child stop evidence, classifies kill rejection as unverified even when close later occurs, preserves close-timeout unknown PID evidence, and directly tests both lookup-helper outcomes. Local typecheck and the full worker lifecycle suite pass; the next reviewer must run to full evidence completion.
 
+- Reviewer 019f567d-6db7-7822-8f32-467ffba527e4 inspected exact head c2cd5117c1a22e0d06494ff2718c130d7cb8cfb9 with fork_context: false and returned FAIL with one P2: the 750 ms stdin-timeout case could expire before authenticated identity readiness, causing canonical validation to fail intermittently with truthful cleanup_failed evidence.
+- The regression now uses a 5-second timeout and verification window so wrapper identity, atomic identity, and pending stdin are established before timeout cleanup is asserted. Three consecutive full worker:test runs passed; fresh exact-head review remains.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.
