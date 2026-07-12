@@ -248,12 +248,12 @@ public static class FdpWindowsJobRunner
         return false;
     }
 
-    public static int Run(string command, string[] arguments, string workingDirectory)
+    public static int Run(string command, string[] arguments, string workingDirectory, string controlToken)
     {
         using (var wrapper = Process.GetCurrentProcess())
         {
             Console.Error.WriteLine(
-                "FDP_JOB_RUNNER_ROOT:" + wrapper.Id + "|" + wrapper.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'"));
+                "FDP_JOB_RUNNER_ROOT:" + controlToken + "|" + wrapper.Id + "|" + wrapper.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'"));
         }
 
         var job = CreateJobObject(IntPtr.Zero, null);
@@ -342,9 +342,9 @@ public static class FdpWindowsJobRunner
             {
                 atomicChildStartedAt = atomicChild.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'");
             }
-            Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED");
+            Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED:" + controlToken);
             Console.Error.WriteLine(
-                "FDP_JOB_RUNNER_ATOMIC_CHILD:" + processInfo.dwProcessId + "|" + atomicChildStartedAt);
+                "FDP_JOB_RUNNER_ATOMIC_CHILD:" + controlToken + "|" + processInfo.dwProcessId + "|" + atomicChildStartedAt);
             if (Environment.GetEnvironmentVariable("FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE") == "1")
             {
                 Thread.Sleep(Timeout.Infinite);
@@ -375,7 +375,7 @@ public static class FdpWindowsJobRunner
                 throw new InvalidOperationException("Windows Job Object did not drain before the verification deadline.");
             }
 
-            Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED");
+            Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED:" + controlToken);
             return unchecked((int)exitCode);
         }
         finally
@@ -407,7 +407,13 @@ public static class FdpWindowsJobRunner
 }
 "@
 
+$controlToken = [string]$env:FDP_JOB_CONTROL_TOKEN
+[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)
+
 try {
+    if ($controlToken -notmatch '^[a-f0-9]{64}$') {
+        throw 'Missing or invalid FDP Job control token.'
+    }
     Add-Type -TypeDefinition $source -Language CSharp
     $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FDP_JOB_ARGS_B64))
     $childArgs = [string[]]@()
@@ -418,10 +424,11 @@ try {
     $exitCode = [FdpWindowsJobRunner]::Run(
         $env:FDP_JOB_COMMAND,
         [string[]]$childArgs,
-        $env:FDP_JOB_CWD
+        $env:FDP_JOB_CWD,
+        $controlToken
     )
     exit [int]$exitCode
 } catch {
-    [Console]::Error.WriteLine("FDP_JOB_RUNNER_ERROR: $($_.Exception.Message)")
+    [Console]::Error.WriteLine("FDP_JOB_RUNNER_ERROR:$controlToken|$($_.Exception.Message)")
     exit 125
 }

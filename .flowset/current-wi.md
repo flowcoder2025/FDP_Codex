@@ -81,6 +81,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer `019f54e6-2c96-7db3-990e-3ec05e1d1220` inspected exact head `6e2987b79fd38ef98c760412b36d1293ef86105d` with `fork_context: false` and returned FAIL with P1 PID reuse between identity classification and PID-only signaling, plus P2 machine-readable historical cleanup overstatement. Direct descendant PID signaling is now removed; exact wrapper-handle stop and Job-handle close own termination, while metadata cleanup only re-observes immutable identities. Historical state now separates the wrapper's reported result from incomplete proof status. Direct lifecycle tests, local CLI smoke, typecheck, standalone validation, full CI, and diff checks pass; fresh review remains.
 
+- Reviewer `019f54ff-1f40-7743-bb89-0fdb59150444` inspected exact head `6e5162bae4ec500fd613784ae50dc163d97fa01d` with `fork_context: false` and returned FAIL with P1 worker-forgeable drain verification plus P3 missing `worker.root_identity` event documentation. The controller now generates a 256-bit per-invocation token, the wrapper removes it from the environment before worker creation, and every native control marker requires that token. A forged drain followed by wrapper termination remains unverified and fails containment. The event list is complete. Direct lifecycle tests, local CLI smoke, typecheck, standalone validation, full CI, and diff checks pass; fresh review remains.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

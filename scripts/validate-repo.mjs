@@ -3937,6 +3937,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('verifyObservedTreeTermination')
     && !managedProcess.includes('process.kill(entry.pid')
     && !managedProcess.includes('signalProcesses(')
+    && managedProcess.includes("randomBytes(32).toString('hex')")
+    && managedProcess.includes('[WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken')
+    && managedProcess.includes('authenticatedAssignedMarker')
+    && managedProcess.includes('authenticatedDrainedMarker')
+    && managedProcess.includes('authenticatedRootPrefix')
+    && managedProcess.includes('authenticatedAtomicChildPrefix')
+    && managedProcess.includes('authenticatedErrorPrefix')
     && managedProcess.includes("type: 'worker.timeout'")
     && managedProcess.includes("type: 'worker.interrupted'")
     && managedProcess.includes('worker.${streamName}')
@@ -4014,6 +4021,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("type: 'worker.observation_started'")
     && managedProcess.indexOf('managedIdentitiesReadyPromise,') < managedProcess.indexOf('const initialObservation = observeNow()')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
+    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)")
+    && windowsJobRunner.indexOf("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN'") < windowsJobRunner.indexOf('Add-Type -TypeDefinition')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_ASSIGNED:" + controlToken')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_ERROR:$controlToken|')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
     && runner.includes('buildEphemeralWorkerArgs')
@@ -4082,10 +4094,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.cleanup_required === false
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.final_result_failure_reclassified === true
         && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.event_error_count >= 1
-        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.status === 'containment_failed'
-        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_marker_rejected === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_marker_ignored === true
         && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_pid_observed === false
-        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.containment_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.status !== 'completed'
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.forged_drain_ignored === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_assigned === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_drained === false
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_verified === false
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.status === 'stdin_failed'
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_verified === true
         && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_partition_verified === true
@@ -4148,6 +4165,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes("intentional final result sink failure")
     && lifecycleTest.includes('function runSpoofedAtomicMarkerCase()')
     && lifecycleTest.includes("fixturePath, 'spoof-marker'")
+    && lifecycleTest.includes('function runSpoofedDrainWrapperKillCase()')
+    && lifecycleTest.includes("fixturePath, 'spoof-drain-kill-wrapper'")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
     && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
@@ -4177,6 +4196,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('fail closed before spawning a worker')
     && autonomy.includes('assigned at creation through `STARTUPINFOEX` and `PROC_THREAD_ATTRIBUTE_JOB_LIST`')
     && autonomy.includes('creation marker must include the atomically created worker PID and start time')
+    && autonomy.includes('cryptographically random per-invocation control token')
+    && autonomy.includes('remove that token from its process environment before worker creation')
+    && autonomy.includes('root, assignment, atomic-child, drain, and error marker must carry the matching token')
     && autonomy.includes('register both root and atomic-child markers before any process-table query')
     && autonomy.includes('no supervisor acknowledgement is required for resume')
     && autonomy.includes('accepts only the first atomic-child marker')
@@ -4205,6 +4227,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('Other platforms fail closed before spawning')
     && decision.includes('assigns the suspended worker to the Job Object atomically')
     && decision.includes('writes the real worker PID and start time marker')
+    && decision.includes('cryptographically random per-invocation control token')
+    && decision.includes('removes it from the process environment before creating the worker')
+    && decision.includes('root, assignment, atomic-child, drain, and error markers only when they carry that exact token')
     && decision.includes('registered both immutable markers before any process-table query')
     && decision.includes('without waiting for a supervisor acknowledgement')
     && decision.includes('accepts and locks only that first marker')
@@ -4234,6 +4259,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('writes this marker while the worker is still suspended')
     && spec.includes('permanently locks the first marker it receives')
     && spec.includes('`worker.observation_started` records the ordering evidence')
+    && spec.includes('- `worker.root_identity`')
+    && spec.includes('256-bit random control token for each invocation')
+    && spec.includes('removes it from the process environment before worker creation')
+    && spec.includes('unrecognized same-name worker stderr remains ordinary stderr')
+    && spec.includes('forged drain followed by wrapper termination without verified containment')
     && spec.includes('every other observed descendant must appear exactly once')
     && spec.includes('Never signal an observed descendant by PID')
     && spec.includes('exact wrapper-handle stop and Job-handle close own termination')
@@ -4363,7 +4393,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.startless_descendant_exclusion === 'passed-unknown-candidate-not-observed-or-signaled'
     && guard.deterministic_cases?.native_root_identity === 'passed-marker-pid-and-start-time-before-observation'
     && guard.deterministic_cases?.same_supervisor_root_reuse_exclusion === 'passed-uninitialized-root-and-child-rejected'
-    && guard.deterministic_cases?.spoofed_atomic_marker_rejection === 'passed-forged-pid-never-observed-wrapper-and-atomic-child-gone'
+    && guard.deterministic_cases?.authenticated_control_marker_spoof_rejection === 'passed-forged-root-atomic-and-drain-markers-ignored'
+    && guard.deterministic_cases?.forged_drain_wrapper_kill === 'passed-unverified-containment-false'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
     && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed-repeated-5'
@@ -4403,7 +4434,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('pending stdin write error')
     && reusedParentKi.trigger.includes('final-result delivery failure')
     && reusedParentKi.trigger.includes('reused wrapper PID including under the same supervisor')
-    && reusedParentKi.trigger.includes('worker-forged root or atomic-child control markers')
+    && reusedParentKi.trigger.includes('worker-forged root, assignment, atomic-child, drain, or error control markers')
     && reusedParentKi.trigger.includes('signal an unrelated process after PID reuse between identity classification and termination')
     && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
     && reusedParentKi.trigger.includes('newly discovered descendant whose start time is unavailable')
@@ -4414,7 +4445,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.repayment_condition.includes('throwing event callbacks and failed stdin writes return only after structured verified cleanup')
     && reusedParentKi.repayment_condition.includes('initial root identity requires a native marker whose PID equals the exact spawned wrapper')
     && reusedParentKi.repayment_condition.includes('never uses parent or name fallback')
-    && reusedParentKi.repayment_condition.includes('duplicate root or atomic-child markers never replace observed identity')
+    && reusedParentKi.repayment_condition.includes('root, assignment, atomic-child, drain, and error markers require the exact per-invocation token')
+    && reusedParentKi.repayment_condition.includes('token is removed from the wrapper environment before worker creation')
+    && reusedParentKi.repayment_condition.includes('forged markers never change containment state or observed identity')
     && reusedParentKi.repayment_condition.includes('no PID-only descendant signaling')
     && reusedParentKi.repayment_condition.includes('missing current start-time metadata remain unknown, unsignaled, and unverified')
     && reusedParentKi.repayment_condition.includes('newly discovered descendants require start-time metadata or remain unobserved unknown candidates')
@@ -4424,6 +4457,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('cleanup_reported_verified: true')
     && proofRecord.includes('cleanup_proof_complete: false')
     && proofRecord.includes('removes every descendant `process.kill(pid)` path')
+    && proofRecord.includes('authenticates root, assignment, atomic-child, drain, and error markers with a 256-bit per-invocation token')
+    && proofRecord.includes('worker-forged drain plus wrapper-kill regression returns `containment_failed`')
     && proofRecord.includes('Issue #61 comment `4950118514` supersedes historical comment `4938282551`')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;

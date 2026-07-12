@@ -1,4 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,7 @@ const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
 const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
 const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
+const WINDOWS_JOB_CONTROL_TOKEN_ENV = 'FDP_JOB_CONTROL_TOKEN';
 const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
 
 export function managedProcessPlatformSupport(platform = process.platform) {
@@ -40,7 +42,7 @@ export function managedProcessPlatformSupport(platform = process.platform) {
   };
 }
 
-function buildSpawnInvocation(options) {
+function buildSpawnInvocation(options, controlToken) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   return {
     command: path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
@@ -58,6 +60,7 @@ function buildSpawnInvocation(options) {
       FDP_JOB_COMMAND: options.command,
       FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify(options.args || []), 'utf8').toString('base64'),
       FDP_JOB_CWD: path.resolve(options.cwd || process.cwd()),
+      [WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken,
     },
     containmentMode: 'windows-job-object',
   };
@@ -488,7 +491,8 @@ export async function runManagedProcess(options) {
   const observationErrors = new Set();
   let observationSucceeded = false;
   let identityObservationIncomplete = false;
-  const invocation = buildSpawnInvocation(options);
+  const controlToken = randomBytes(32).toString('hex');
+  const invocation = buildSpawnInvocation(options, controlToken);
   const containment = {
     mode: invocation.containmentMode,
     assigned: false,
@@ -615,23 +619,28 @@ export async function runManagedProcess(options) {
   };
   child.stdin.on('error', handleStdinError);
 
+  const authenticatedAssignedMarker = `${WINDOWS_JOB_ASSIGNED_MARKER}:${controlToken}`;
+  const authenticatedDrainedMarker = `${WINDOWS_JOB_DRAINED_MARKER}:${controlToken}`;
+  const authenticatedRootPrefix = `${WINDOWS_JOB_ROOT_PREFIX}${controlToken}|`;
+  const authenticatedAtomicChildPrefix = `${WINDOWS_JOB_ATOMIC_CHILD_PREFIX}${controlToken}|`;
+  const authenticatedErrorPrefix = `${WINDOWS_JOB_ERROR_PREFIX}${controlToken}|`;
   const stdoutCount = captureLines(child.stdout, 'stdout', emit);
   const stderrCount = captureLines(child.stderr, 'stderr', emit, (line) => {
-    if (line === WINDOWS_JOB_ASSIGNED_MARKER) {
+    if (line === authenticatedAssignedMarker) {
       containment.assigned = true;
       return true;
     }
-    if (line === WINDOWS_JOB_DRAINED_MARKER) {
+    if (line === authenticatedDrainedMarker) {
       containment.drained = true;
       return true;
     }
-    if (line.startsWith(WINDOWS_JOB_ROOT_PREFIX)) {
+    if (line.startsWith(authenticatedRootPrefix)) {
       if (rootMarkerLocked) {
         containment.errors.push('duplicate root identity marker rejected');
         return true;
       }
       rootMarkerLocked = true;
-      const marker = line.slice(WINDOWS_JOB_ROOT_PREFIX.length);
+      const marker = line.slice(authenticatedRootPrefix.length);
       const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
       const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
       const startedAt = markerMatch?.[2] ?? '';
@@ -643,13 +652,13 @@ export async function runManagedProcess(options) {
       }
       return true;
     }
-    if (line.startsWith(WINDOWS_JOB_ATOMIC_CHILD_PREFIX)) {
+    if (line.startsWith(authenticatedAtomicChildPrefix)) {
       if (atomicChildMarkerLocked) {
         containment.errors.push('duplicate atomic child marker rejected');
         return true;
       }
       atomicChildMarkerLocked = true;
-      const marker = line.slice(WINDOWS_JOB_ATOMIC_CHILD_PREFIX.length);
+      const marker = line.slice(authenticatedAtomicChildPrefix.length);
       const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
       const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
       const startedAt = markerMatch?.[2] ?? '';
@@ -663,8 +672,8 @@ export async function runManagedProcess(options) {
       }
       return true;
     }
-    if (line.startsWith(WINDOWS_JOB_ERROR_PREFIX)) {
-      const message = line.slice(WINDOWS_JOB_ERROR_PREFIX.length).trim();
+    if (line.startsWith(authenticatedErrorPrefix)) {
+      const message = line.slice(authenticatedErrorPrefix.length).trim();
       containment.errors.push(message || line);
     }
     return false;

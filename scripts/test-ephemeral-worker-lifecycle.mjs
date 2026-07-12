@@ -413,22 +413,46 @@ async function runThrowingResultCallbackCase() {
 
 async function runSpoofedAtomicMarkerCase() {
   const spoofedPid = 424242;
+  const events = [];
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'spoof-marker'],
     timeoutMs: 5000,
     pollIntervalMs: 100,
+    onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
-  assert.equal(result.ok, false);
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
   assert.notEqual(result.containment.atomic_child_pid, spoofedPid);
   assert.equal(result.observed_descendant_pids.includes(spoofedPid), false);
   assert.equal(typeof result.containment.root_started_at, 'string');
-  assert(result.containment.errors.includes('duplicate root identity marker rejected'));
-  assert(result.containment.errors.includes('duplicate atomic child marker rejected'));
+  assert.deepEqual(result.containment.errors, []);
+  assert(events.some((event) => event.type === 'worker.stderr'
+    && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
   assert.equal(isProcessAlive(result.root_pid), false);
   assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
-  return { ...result, spoofed_marker_rejected: true };
+  return { ...result, spoofed_marker_ignored: true };
+}
+
+async function runSpoofedDrainWrapperKillCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'spoof-drain-kill-wrapper'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    onEvent: (event) => events.push(event),
+  });
+  assert.notEqual(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, false);
+  assert.equal(result.containment.verified, false);
+  assert(events.some((event) => event.type === 'worker.stderr'
+    && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
+  assert.equal(isProcessAlive(result.root_pid), false);
+  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  return { ...result, forged_drain_ignored: true };
 }
 
 async function runStdinEarlyExitCase() {
@@ -693,6 +717,7 @@ const windowsCases = process.platform === 'win32' ? {
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
   throwingResultCallback: await runThrowingResultCallbackCase(),
   spoofedAtomicMarker: await runSpoofedAtomicMarkerCase(),
+  spoofedDrainWrapperKill: await runSpoofedDrainWrapperKillCase(),
   stdinEarlyExit: await runStdinEarlyExitCase(),
   stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
@@ -756,9 +781,16 @@ console.log(JSON.stringify({
       },
       spoofed_atomic_marker: {
         status: windowsCases.spoofedAtomicMarker.status,
-        spoofed_marker_rejected: windowsCases.spoofedAtomicMarker.spoofed_marker_rejected,
+        spoofed_marker_ignored: windowsCases.spoofedAtomicMarker.spoofed_marker_ignored,
         spoofed_pid_observed: windowsCases.spoofedAtomicMarker.observed_descendant_pids.includes(424242),
-        containment_error_count: windowsCases.spoofedAtomicMarker.containment.errors.length,
+        containment_verified: windowsCases.spoofedAtomicMarker.containment.verified,
+      },
+      spoofed_drain_wrapper_kill: {
+        status: windowsCases.spoofedDrainWrapperKill.status,
+        forged_drain_ignored: windowsCases.spoofedDrainWrapperKill.forged_drain_ignored,
+        containment_assigned: windowsCases.spoofedDrainWrapperKill.containment.assigned,
+        containment_drained: windowsCases.spoofedDrainWrapperKill.containment.drained,
+        containment_verified: windowsCases.spoofedDrainWrapperKill.containment.verified,
       },
       stdin_early_exit: {
         status: windowsCases.stdinEarlyExit.status,
