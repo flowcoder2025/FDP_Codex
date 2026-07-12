@@ -250,6 +250,12 @@ public static class FdpWindowsJobRunner
 
     public static int Run(string command, string[] arguments, string workingDirectory)
     {
+        using (var wrapper = Process.GetCurrentProcess())
+        {
+            Console.Error.WriteLine(
+                "FDP_JOB_RUNNER_ROOT:" + wrapper.Id + "|" + wrapper.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'"));
+        }
+
         var job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero)
         {
@@ -334,7 +340,7 @@ public static class FdpWindowsJobRunner
             string atomicChildStartedAt;
             using (var atomicChild = Process.GetProcessById((int)processInfo.dwProcessId))
             {
-                atomicChildStartedAt = atomicChild.StartTime.ToUniversalTime().ToString("o");
+                atomicChildStartedAt = atomicChild.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'");
             }
             Console.Error.WriteLine("FDP_JOB_RUNNER_ASSIGNED");
             Console.Error.WriteLine(

@@ -24,6 +24,7 @@ function assertObservedCleanupPartition(result) {
   const observedPids = [result.root_pid, ...result.observed_descendant_pids]
     .sort((a, b) => a - b);
   const atomicChildPid = result.containment.atomic_child_pid;
+  assert.equal(typeof result.containment.root_started_at, 'string');
   assert(Number.isInteger(atomicChildPid) && atomicChildPid > 0);
   assert.equal(typeof result.containment.atomic_child_started_at, 'string');
   assert(result.observed_descendant_pids.includes(atomicChildPid));
@@ -43,12 +44,18 @@ function assertObservedCleanupPartition(result) {
   return true;
 }
 
-function assertAtomicIdentityBeforeObservation(events, result) {
+function assertManagedIdentitiesBeforeObservation(events, result) {
+  const rootIdentityIndex = events.findIndex((event) => event.type === 'worker.root_identity');
   const atomicChildIndex = events.findIndex((event) => event.type === 'worker.atomic_child');
   const observationIndex = events.findIndex((event) => event.type === 'worker.observation_started');
-  assert(atomicChildIndex >= 0);
+  assert(rootIdentityIndex >= 0);
+  assert(atomicChildIndex > rootIdentityIndex);
   assert(observationIndex > atomicChildIndex);
+  const rootIdentity = events[rootIdentityIndex];
   const observation = events[observationIndex];
+  assert.equal(rootIdentity.pid, result.root_pid);
+  assert.equal(rootIdentity.started_at, result.containment.root_started_at);
+  assert.equal(observation.root_identity_registered, true);
   assert.equal(observation.atomic_child_registered, true);
   assert.equal(observation.atomic_child_pid, result.containment.atomic_child_pid);
   return true;
@@ -216,6 +223,34 @@ function runTemporalIdentityCase() {
   assert.equal(uninitializedRootObserved.get(rootPid)?.started_at, null);
   assert.equal(uninitializedRootObserved.has(50005), false);
 
+  const sameSupervisorReuseObserved = new Map([[rootPid, {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'powershell.exe',
+    started_at: null,
+  }]]);
+  const sameSupervisorReuse = {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'unrelated.exe',
+    started_at: '2026-07-10T13:00:00.000Z',
+  };
+  assert.equal(classifyProcessIdentity(sameSupervisorReuseObserved.get(rootPid), sameSupervisorReuse), 'unknown');
+  mergeObservedTree([
+    sameSupervisorReuse,
+    {
+      pid: 50008,
+      ppid: rootPid,
+      pgid: null,
+      name: 'unrelated-same-supervisor-child',
+      started_at: '2026-07-10T13:00:00.100Z',
+    },
+  ], rootPid, sameSupervisorReuseObserved);
+  assert.equal(sameSupervisorReuseObserved.get(rootPid)?.started_at, null);
+  assert.equal(sameSupervisorReuseObserved.has(50008), false);
+
   return {
     stale_excluded: true,
     reused_parent_identity_excluded: true,
@@ -224,6 +259,7 @@ function runTemporalIdentityCase() {
     startless_descendant_unknown: true,
     startless_descendant_excluded: true,
     uninitialized_root_reuse_excluded: true,
+    same_supervisor_root_reuse_excluded: true,
     descendant_count: observed.size - 1,
   };
 }
@@ -242,6 +278,7 @@ async function runNormalCase() {
   assert.equal(result.exit_code, 0);
   assert.equal(result.cleanup.required, false);
   assert.equal(result.observation_verified, true);
+  assertManagedIdentitiesBeforeObservation(events, result);
   assert(events.some((event) => event.type === 'worker.stdout' && event.payload?.fixture === 'complete'));
   assert(events.some((event) => event.type === 'worker.stderr' && event.payload === 'fixture stderr visible'));
   return result;
@@ -260,13 +297,13 @@ async function runTimeoutCase() {
   });
   assert.equal(result.status, 'timed_out');
   assert.equal(result.timed_out, true);
-  assert(result.observed_descendant_pids.length >= 2);
+  assert(result.observed_descendant_pids.length >= 2, JSON.stringify(result, null, 2));
   assert.equal(result.cleanup.required, true);
   assert.equal(result.cleanup.reason, 'timeout');
   assert.equal(result.cleanup.verified, true);
   assert.deepEqual(result.cleanup.alive_after_cleanup, []);
   const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-  const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+  const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
   return {
     ...result,
     cleanup_partition_verified: cleanupPartitionVerified,
@@ -377,6 +414,8 @@ async function runSpoofedAtomicMarkerCase() {
   assert.equal(result.ok, false);
   assert.notEqual(result.containment.atomic_child_pid, spoofedPid);
   assert.equal(result.observed_descendant_pids.includes(spoofedPid), false);
+  assert.equal(typeof result.containment.root_started_at, 'string');
+  assert(result.containment.errors.includes('duplicate root identity marker rejected'));
   assert(result.containment.errors.includes('duplicate atomic child marker rejected'));
   assert.equal(isProcessAlive(result.root_pid), false);
   assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
@@ -445,12 +484,12 @@ async function runInterruptionCase() {
     });
     assert.equal(result.status, 'interrupted');
     assert.equal(result.interrupted, true);
-    assert(result.observed_descendant_pids.length >= 2);
+    assert(result.observed_descendant_pids.length >= 2, JSON.stringify(result, null, 2));
     assert.equal(result.cleanup.reason, 'interrupted');
     assert.equal(result.cleanup.verified, true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
     return {
       ...result,
       cleanup_partition_verified: cleanupPartitionVerified,
@@ -553,7 +592,7 @@ async function runObservationHangTimeoutCase() {
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
     return {
       ...result,
       elapsed_ms: elapsedMs,
@@ -597,7 +636,7 @@ async function runObservationHangInterruptionCase() {
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
     assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-    const atomicIdentityBeforeObservation = assertAtomicIdentityBeforeObservation(events, result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
     return {
       ...result,
       elapsed_ms: elapsedMs,

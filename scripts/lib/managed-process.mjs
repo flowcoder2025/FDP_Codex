@@ -23,6 +23,7 @@ const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
 const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
 const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
 const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
+const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
 const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
 const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
@@ -160,13 +161,7 @@ export function listProcessTable() {
  */
 export function classifyProcessIdentity(expected, current) {
   if (expected.pid !== current.pid) return 'mismatch';
-  if (expected.started_at === null) {
-    return expected.ppid === current.ppid
-      && Boolean(expected.name && current.name)
-      && path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase()
-      ? 'same'
-      : 'mismatch';
-  }
+  if (expected.started_at === null) return 'unknown';
   if (current.started_at === null) return 'unknown';
   return expected.started_at === current.started_at ? 'same' : 'mismatch';
 }
@@ -201,15 +196,7 @@ export function mergeObservedTree(table, rootPid, observed) {
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
   const unknownCandidatePids = new Set();
-  const matchesSpawnedRoot = root
-    && root.ppid === process.pid
-    && (process.platform === 'win32' || root.pgid === rootPid);
-  const needsInitialIdentity = expectedRoot && expectedRoot.started_at === null;
-  if (root && (
-    !expectedRoot
-    || (needsInitialIdentity && matchesSpawnedRoot)
-    || sameIdentity(expectedRoot, root)
-  )) {
+  if (root && (!expectedRoot || sameIdentity(expectedRoot, root))) {
     observed.set(rootPid, root);
   }
 
@@ -513,7 +500,9 @@ export async function runManagedProcess(options) {
         assigned: false,
         drained: false,
         verified: false,
+        root_started_at: null,
         atomic_child_pid: null,
+        atomic_child_started_at: null,
         errors: [platformSupport.reason],
       },
       cleanup: {
@@ -546,22 +535,59 @@ export async function runManagedProcess(options) {
     assigned: false,
     drained: false,
     verified: false,
+    root_started_at: null,
     atomic_child_pid: null,
     atomic_child_started_at: null,
     errors: [],
   };
   let spawnedRootPid = null;
   /** @type {{pid: number, started_at: string} | null} */
+  let rootMarker = null;
+  /** @type {{pid: number, started_at: string} | null} */
   let atomicChildMarker = null;
+  let rootIdentityRegistered = false;
   let atomicIdentityRegistered = false;
+  let rootIdentityEventEmitted = false;
   let atomicChildEventEmitted = false;
+  let rootMarkerLocked = false;
   let atomicChildMarkerLocked = false;
-  /** @type {(value: {kind: 'atomic-identity-ready'}) => void} */
-  let resolveAtomicIdentityReady = () => {};
-  /** @type {Promise<{kind: 'atomic-identity-ready'}>} */
-  const atomicIdentityReadyPromise = new Promise((resolve) => {
-    resolveAtomicIdentityReady = resolve;
+  /** @type {(value: {kind: 'managed-identities-ready'}) => void} */
+  let resolveManagedIdentitiesReady = () => {};
+  /** @type {Promise<{kind: 'managed-identities-ready'}>} */
+  const managedIdentitiesReadyPromise = new Promise((resolve) => {
+    resolveManagedIdentitiesReady = resolve;
   });
+  const resolveIdentityReadiness = () => {
+    if (rootIdentityRegistered && atomicIdentityRegistered) {
+      resolveManagedIdentitiesReady({ kind: 'managed-identities-ready' });
+    }
+  };
+  const registerRootIdentity = () => {
+    if (spawnedRootPid === null || rootMarker === null) return;
+    if (rootMarker.pid !== spawnedRootPid) {
+      containment.errors.push(`root marker pid ${rootMarker.pid} does not match spawned pid ${spawnedRootPid}`);
+      return;
+    }
+    observed.set(spawnedRootPid, {
+      pid: spawnedRootPid,
+      ppid: process.pid,
+      pgid: null,
+      name: path.basename(invocation.command),
+      started_at: rootMarker.started_at,
+    });
+    containment.root_started_at = rootMarker.started_at;
+    rootIdentityRegistered = true;
+    if (!rootIdentityEventEmitted) {
+      emit({
+        type: 'worker.root_identity',
+        timestamp: new Date().toISOString(),
+        pid: spawnedRootPid,
+        started_at: rootMarker.started_at,
+      });
+      rootIdentityEventEmitted = true;
+    }
+    resolveIdentityReadiness();
+  };
   const registerAtomicChildIdentity = () => {
     if (spawnedRootPid === null || atomicChildMarker === null) return;
     observed.set(atomicChildMarker.pid, {
@@ -581,7 +607,7 @@ export async function runManagedProcess(options) {
       });
       atomicChildEventEmitted = true;
     }
-    resolveAtomicIdentityReady({ kind: 'atomic-identity-ready' });
+    resolveIdentityReadiness();
   };
 
   const timeoutDeadlineAt = Date.now() + options.timeoutMs;
@@ -638,6 +664,24 @@ export async function runManagedProcess(options) {
     }
     if (line === WINDOWS_JOB_DRAINED_MARKER) {
       containment.drained = true;
+      return true;
+    }
+    if (line.startsWith(WINDOWS_JOB_ROOT_PREFIX)) {
+      if (rootMarkerLocked) {
+        containment.errors.push('duplicate root identity marker rejected');
+        return true;
+      }
+      rootMarkerLocked = true;
+      const marker = line.slice(WINDOWS_JOB_ROOT_PREFIX.length);
+      const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
+      const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
+      const startedAt = markerMatch?.[2] ?? '';
+      if (Number.isInteger(pid) && pid > 0 && Number.isFinite(Date.parse(startedAt))) {
+        rootMarker = { pid, started_at: startedAt };
+        registerRootIdentity();
+      } else {
+        containment.errors.push(`invalid root identity marker: ${line}`);
+      }
       return true;
     }
     if (line.startsWith(WINDOWS_JOB_ATOMIC_CHILD_PREFIX)) {
@@ -723,6 +767,7 @@ export async function runManagedProcess(options) {
     name: path.basename(invocation.command),
     started_at: null,
   });
+  registerRootIdentity();
   registerAtomicChildIdentity();
   emit({
     type: 'worker.started',
@@ -745,8 +790,8 @@ export async function runManagedProcess(options) {
   let observationAttempt = 0;
   const observeNow = () => {
     if (observeInFlight) return observeInFlight;
-    if (!atomicIdentityRegistered) {
-      const message = 'atomic child identity is not registered';
+    if (!rootIdentityRegistered || !atomicIdentityRegistered) {
+      const message = 'managed root and atomic child identities are not registered';
       observationErrors.add(message);
       emit({ type: 'worker.observation_error', timestamp: new Date().toISOString(), message });
       return Promise.reject(new Error(message));
@@ -756,6 +801,7 @@ export async function runManagedProcess(options) {
       type: 'worker.observation_started',
       timestamp: new Date().toISOString(),
       attempt: observationAttempt,
+      root_identity_registered: rootIdentityRegistered,
       atomic_child_pid: containment.atomic_child_pid,
       atomic_child_registered: containment.atomic_child_pid !== null
         && observed.has(containment.atomic_child_pid),
@@ -788,10 +834,10 @@ export async function runManagedProcess(options) {
     abortPromise,
     stdinFailurePromise,
     closePromise,
-    atomicIdentityReadyPromise,
+    managedIdentitiesReadyPromise,
   ]);
   let initialOutcome = readinessOutcome;
-  if (readinessOutcome.kind === 'atomic-identity-ready') {
+  if (readinessOutcome.kind === 'managed-identities-ready') {
     initialOutcome = elapsedGuardOutcome() ?? eventFailureOutcome ?? stdinFailureOutcome;
     if (initialOutcome === null) {
       const initialObservation = observeNow().then(() => null, () => null);
