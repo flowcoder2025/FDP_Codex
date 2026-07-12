@@ -163,6 +163,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - Reviewer 019f56c1-730b-7783-a855-7f906dd6a2d0 completed all required commands on exact head c72a559d1cb477faa810cb9fbd870f865ed7edef and returned FAIL: P1 controller creation-time validation and watchdog acquisition used separate handles; P2 the stdin specification still claimed a real pending write. Remediation uses OpenProcess plus GetProcessTimes on one retained native handle and qualifies stdin coverage as synthetic post-timeout precedence injection.
 
+- Reviewer 019f56db-740a-7d02-b553-ba9b75cc862f completed all required commands on exact head 2b3a10f080b6928013c38a8dd230d3b0920f5785 and returned FAIL: P2 active Job descendants after real-worker root exit were drained but reported completed; P2 prompt read waited outside timeout and interruption. Remediation queries Job activity at root exit and returns containment_failed after drain when members remain, and held-open stdin now returns structured null-root no-spawn exits 124/130 before EOF.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

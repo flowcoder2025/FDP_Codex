@@ -18,7 +18,7 @@ FDP_Codex will start ephemeral Codex workers only through `scripts/run-ephemeral
 
 The wrapper uses the fixed `codex exec --ephemeral --json` surface, accepts only `read-only` or `workspace-write`, and sends the prompt through stdin. It does not place the prompt in the process argument list or persist it to a wrapper log.
 
-The wrapper emits JSONL lifecycle, stdout, stderr, timeout, interruption, observation-error, and final-result events as the worker runs. The default timeout is 120 seconds and every invocation must have a finite timeout.
+The wrapper emits JSONL lifecycle, stdout, stderr, timeout, interruption, observation-error, and final-result events as the worker runs. The default timeout is 120 seconds and every invocation must have a finite timeout. The deadline and interrupt listeners are armed before reading stdin; a held-open stdin returns a structured null-root timeout or interruption result without spawning, and managed execution receives only the remaining deadline.
 
 ## Process Ownership
 
@@ -26,7 +26,7 @@ On Windows, the supervisor creates the real worker suspended, assigns it to a ki
 
 On Windows timeout or interruption, the exact wrapper is stopped first so closing its Job handle terminates every atomically assigned member. The supervisor then re-observes tracked identities; every cleanup result classifies the wrapper, atomic worker, and all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown. Observation failure assigns unobservable identities to unknown rather than alive and keeps cleanup unverified. The supervisor never sends PID-only signals to observed descendants; exact wrapper-handle stop and Job-handle close own termination, while metadata cleanup only re-observes immutable identities. Observation continues until no tracked identity remains or the verification deadline expires. A cleanup that cannot be observed or verified is a failure, not a successful fallback. Timeout and interruption remain the primary CLI exit classifications 124 and 130 even when cleanup failure becomes the detailed result status. The deterministic suite launches the real CLI wrapper as a child process and observes both codes under cleanup failure.
 
-If the root process exits while an observed descendant remains, the supervisor treats that as a lifecycle failure, cleans the residual process tree, and returns a non-success result.
+If the real worker root exits while any other Job process remains active, including a descendant not yet observed by metadata polling, the native wrapper records that active count, terminates and drains the Job, and returns a lifecycle failure instead of the root exit code.
 
 The controller must use the wrapper's internal timeout or an interrupt signal instead of force-killing the wrapper as its normal timeout mechanism. Windows Job Object close terminates assigned processes if the wrapper is killed, but the killed wrapper cannot emit a verified final result.
 

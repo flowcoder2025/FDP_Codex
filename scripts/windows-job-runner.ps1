@@ -279,23 +279,28 @@ public static class FdpWindowsJobRunner
         return result.ToString();
     }
 
+    private static uint GetActiveProcessCount(IntPtr job)
+    {
+        JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting;
+        if (!QueryInformationJobObject(
+            job,
+            JobObjectBasicAccountingInformation,
+            out accounting,
+            (uint)Marshal.SizeOf(typeof(JOBOBJECT_BASIC_ACCOUNTING_INFORMATION)),
+            IntPtr.Zero))
+        {
+            ThrowLastError("QueryInformationJobObject");
+        }
+
+        return accounting.ActiveProcesses;
+    }
+
     private static bool WaitForDrain(IntPtr job, int timeoutMs)
     {
         var stopwatch = Stopwatch.StartNew();
         do
         {
-            JOBOBJECT_BASIC_ACCOUNTING_INFORMATION accounting;
-            if (!QueryInformationJobObject(
-                job,
-                JobObjectBasicAccountingInformation,
-                out accounting,
-                (uint)Marshal.SizeOf(typeof(JOBOBJECT_BASIC_ACCOUNTING_INFORMATION)),
-                IntPtr.Zero))
-            {
-                ThrowLastError("QueryInformationJobObject");
-            }
-
-            if (accounting.ActiveProcesses == 0)
+            if (GetActiveProcessCount(job) == 0)
             {
                 return true;
             }
@@ -450,6 +455,7 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("GetExitCodeProcess");
             }
 
+            var activeProcessesAfterRootExit = GetActiveProcessCount(job);
             if (!TerminateJobObject(job, 1))
             {
                 ThrowLastError("TerminateJobObject");
@@ -461,6 +467,11 @@ public static class FdpWindowsJobRunner
             }
 
             Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED:" + controlToken);
+            if (activeProcessesAfterRootExit > 0)
+            {
+                throw new InvalidOperationException(
+                    "Worker root exited while " + activeProcessesAfterRootExit + " Job process(es) remained active.");
+            }
             return unchecked((int)exitCode);
         }
         finally

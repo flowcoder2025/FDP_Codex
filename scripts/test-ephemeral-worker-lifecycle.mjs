@@ -995,10 +995,12 @@ async function runOrphanContainmentCase() {
     verificationTimeoutMs: 5000,
     onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
   assert.equal(result.containment.mode, 'windows-job-object');
-  assert.equal(result.containment.verified, true);
+  assert.equal(result.containment.drained, true);
+  assert.equal(result.containment.verified, false);
+  assert(result.containment.errors.some((error) => error.includes('Worker root exited while')));
   const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
     && event.payload?.fixture === 'orphan-root');
   assert(fixtureEvent?.payload?.child_pid);
@@ -1334,6 +1336,65 @@ async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
     await rm(tempRoot, { recursive: true, force: true });
   }
 }
+async function runCliPromptBoundaryCase(expectedExitCode, abortAfterMs = null) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-prompt-boundary-'));
+  let child;
+  let guardTimer;
+  try {
+    await writeFile(path.join(tempRoot, 'exec'), 'setInterval(() => {}, 1000);\n', 'utf8');
+    /** @type {NodeJS.ProcessEnv} */
+    const env = {
+      ...process.env,
+      NODE_ENV: 'test',
+      CODEX_CLI_PATH: process.execPath,
+    };
+    delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
+    if (abortAfterMs !== null) env.FDP_WORKER_TEST_ABORT_AFTER_MS = String(abortAfterMs);
+    child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', expectedExitCode === 124 ? '1000' : '10000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const startedAt = Date.now();
+    const result = await Promise.race([
+      captureChild(child),
+      new Promise((resolve, reject) => {
+        guardTimer = setTimeout(() => {
+          child.kill();
+          reject(new Error('prompt boundary CLI did not terminate'));
+        }, 5000);
+      }),
+    ]);
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.code, expectedExitCode, JSON.stringify(result, null, 2));
+    assert.equal(result.signal, null);
+    assert(elapsedMs < 5000, 'prompt boundary exceeded finite guard: ' + elapsedMs + 'ms');
+    const workerResult = parseWorkerResult(result.stdout);
+    assert(workerResult, result.stdout);
+    assert.equal(workerResult.status, expectedExitCode === 124 ? 'timed_out' : 'interrupted');
+    assert.equal(workerResult.root_pid, null);
+    assert.equal(workerResult.cleanup.required, false);
+    assert.equal(workerResult.cleanup.verified, true);
+    assert.equal(result.stdout.includes('"type":"worker.started"'), false);
+    return {
+      exit_code: result.code,
+      status: workerResult.status,
+      root_pid: workerResult.root_pid,
+      wrapper_spawned: false,
+      elapsed_ms: elapsedMs,
+    };
+  } finally {
+    if (guardTimer) clearTimeout(guardTimer);
+    if (child && child.exitCode === null && child.signalCode === null) child.kill();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
 async function runFastParentExitCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -1344,12 +1405,13 @@ async function runFastParentExitCase() {
     verificationTimeoutMs: 5000,
     onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
-  assert.equal(result.ok, true);
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
   assert.equal(result.containment.mode, 'windows-job-object');
   assert.equal(result.containment.assigned, true);
   assert.equal(result.containment.drained, true);
-  assert.equal(result.containment.verified, true);
+  assert.equal(result.containment.verified, false);
+  assert(result.containment.errors.some((error) => error.includes('Worker root exited while')));
   const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
     && event.payload?.fixture === 'fast-orphan-root');
   assert(fixtureEvent?.payload?.child_pid);
@@ -1389,6 +1451,8 @@ const windowsCases = process.platform === 'win32' ? {
   controllerPreAcquireDeath: await runControllerPreAcquireDeathCase(),
   controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
   controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
+  cliPromptTimeout: await runCliPromptBoundaryCase(124),
+  cliPromptInterruption: await runCliPromptBoundaryCase(130, 750),
   cliTimeoutExit: await runCliPrimaryExitCase(124),
   cliInterruptionExit: await runCliPrimaryExitCase(130, 750),
   atomicWrapperKill: await runAtomicWrapperKillCase(),
@@ -1510,6 +1574,8 @@ console.log(JSON.stringify({
         atomic_child_gone: windowsCases.controllerDeathWatchdog.atomic_child_gone,
       },
       controller_identity_mismatch: windowsCases.controllerIdentityMismatch,
+      cli_prompt_timeout: windowsCases.cliPromptTimeout,
+      cli_prompt_interruption: windowsCases.cliPromptInterruption,
       cli_timeout_exit: windowsCases.cliTimeoutExit,
       cli_interruption_exit: windowsCases.cliInterruptionExit,
       atomic_wrapper_kill: {

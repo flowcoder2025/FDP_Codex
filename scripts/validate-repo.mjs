@@ -4049,6 +4049,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("type: 'worker.observation_started'")
     && managedProcess.indexOf('managedIdentitiesReadyPromise,') < managedProcess.indexOf('const initialObservation = observeNow()')
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
+    && windowsJobRunner.includes('activeProcessesAfterRootExit = GetActiveProcessCount(job)')
+    && windowsJobRunner.includes('Worker root exited while')
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)")
     && windowsJobRunner.indexOf("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN'") < windowsJobRunner.indexOf('Add-Type -TypeDefinition')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
@@ -4070,6 +4072,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
     && runner.includes('buildEphemeralWorkerArgs')
     && runner.includes('stdinText: prompt')
+    && runner.includes('const deadlineAt = Date.now() + args.timeoutMs')
+    && runner.indexOf("process.once('SIGINT', onSigint)") < runner.indexOf('await readPrompt(deadlineAt, abortController.signal)')
+    && runner.includes('const remainingMs = deadlineAt - Date.now()')
+    && runner.includes('timeoutMs: remainingMs')
+    && runner.includes('emitPromptBoundaryResult')
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
@@ -4180,8 +4187,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.interruption?.atomic_child_observed === true
         && testResult?.cases?.windows_lifecycle?.interruption?.atomic_identity_before_observation === true
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.status === 'containment_failed'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
-        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === false
         && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.controller_terminated_before_watchdog === true
         && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.wrapper_gone === true
         && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.worker_executed === false
@@ -4190,6 +4198,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.atomic_child_gone === true
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.exit_code === 125
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.mismatch_rejected_before_worker_creation === true
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.exit_code === 124
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.exit_code === 130
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.wrapper_spawned === false
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.exit_code === 124
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.detailed_status === 'cleanup_failed'
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.cleanup_verified === false
@@ -4223,9 +4239,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.alive_after_cleanup_count === 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.unknown_after_cleanup_count >= 2
-        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'containment_failed'
         && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
-        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === true)
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === false)
       : (testResult?.cases?.unsupported_platform?.status === 'unsupported_platform'
         && testResult?.cases?.unsupported_platform?.containment_mode === 'unsupported-fail-closed'
         && testResult?.cases?.windows_lifecycle === null))
@@ -4253,6 +4269,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runPreSpawnTimeoutCase()')
     && lifecycleTest.includes('function runControlEnvironmentIsolationCase()')
     && lifecycleTest.includes('function runControllerPreAcquireDeathCase()')
+    && lifecycleTest.includes('function runCliPromptBoundaryCase(expectedExitCode')
+    && lifecycleTest.includes('captureChild(child),')
+    && lifecycleTest.includes("assert.equal(workerResult.root_pid, null)")
     && lifecycleTest.includes('function runCliPrimaryExitCase(expectedExitCode')
     && lifecycleTest.includes('await runCliPrimaryExitCase(124)')
     && lifecycleTest.includes('await runCliPrimaryExitCase(130, 750)')
@@ -4285,6 +4304,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('stops the exact wrapper first so Job-handle close terminates all atomically assigned members')
     && autonomy.includes('never sends PID-only signals to observed descendants')
     && autonomy.includes('Job-handle close owns termination and metadata cleanup only re-observes immutable identities')
+    && autonomy.includes('root exits while any other Job process remains active')
+    && autonomy.includes('return a lifecycle failure rather than the root exit code')
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('fail closed before spawning a worker')
@@ -4306,7 +4327,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('no supervisor acknowledgement is required for resume')
     && autonomy.includes('accepts only the first atomic-child marker')
     && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
-    && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before controller identity lookup')
+    && autonomy.includes('deadline and interrupt listeners must be armed before reading the worker prompt')
+    && autonomy.includes('absolute timeout deadline and interrupt listener must also remain armed before controller identity lookup')
     && autonomy.includes('identity lookup must race those guards')
     && autonomy.includes('returns without creating a wrapper or worker')
     && autonomy.includes('Behavioral validation must prove the worker inherits none of them')
@@ -4347,6 +4369,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('without waiting for a supervisor acknowledgement')
     && decision.includes('accepts and locks only that first marker')
     && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
+    && decision.includes('deadline and interrupt listeners are armed before reading stdin')
     && decision.includes('absolute timeout deadline and interrupt listener are armed before controller identity lookup')
     && decision.includes('identity lookup races those guards')
     && decision.includes('returns without creating a wrapper or worker')
@@ -4424,6 +4447,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('zero-active-process drain marker')
     && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
     && spec.includes('assigned to the kill-on-close Job Object atomically at process creation')
+    && spec.includes('deadline and interruption handling are armed before prompt input')
+    && spec.includes('held-open stdin')
     && spec.includes('armed before spawn and before any event callback')
     && spec.includes('throwing event sink is captured as `event_dispatch_failed`')
     && spec.includes('event delivery errors')
@@ -4477,7 +4502,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.containment?.posix === 'unsupported-fail-closed-before-spawn'
     && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
     && guard.containment?.normal_completion_requires_verified_drain === true
-    && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
+    && guard.deterministic_cases?.windows_orphan_job_containment === 'passed-lifecycle-failure-after-drain'
+    && guard.deterministic_cases?.windows_fast_parent_exit_containment === 'passed-lifecycle-failure-after-drain'
+    && guard.deterministic_cases?.cli_prompt_timeout === 'passed-held-open-stdin-124-null-root-no-wrapper'
+    && guard.deterministic_cases?.cli_prompt_interruption === 'passed-held-open-stdin-130-null-root-no-wrapper'
     && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
     && guard.deterministic_cases?.windows_observation_hang_timeout === 'passed-shared-8000ms-bound-post-result-gone'
     && guard.deterministic_cases?.windows_observation_hang_interruption === 'passed-shared-8000ms-bound-post-result-gone'

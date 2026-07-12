@@ -105,6 +105,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f56c1-730b-7783-a855-7f906dd6a2d0 inspected exact head c72a559d1cb477faa810cb9fbd870f865ed7edef with fork_context: false and completed every required command. It returned FAIL with P1 separate controller StartTime and watchdog handle acquisition permitting PID-reuse rebinding, and P2 stdin specification overstatement. The wrapper now opens, verifies creation FILETIME on, and retains one native controller handle; the specification explicitly describes test-only post-timeout stdin error injection without claiming a real pending write. Fresh review remains.
 
+- Reviewer 019f56db-740a-7d02-b553-ba9b75cc862f inspected exact head 2b3a10f080b6928013c38a8dd230d3b0920f5785 with fork_context: false and completed every required command. It returned FAIL with two P2 findings: root exit with active Job descendants was hidden as completed, and prompt input was outside the invocation deadline and early interruption handlers. The native wrapper now drains but fails root-exit residuals, while the CLI arms deadline and interruption before stdin, returns null-root 124/130 without spawning on held-open input, and passes only remaining time to managed execution. Fresh review remains.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

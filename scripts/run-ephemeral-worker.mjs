@@ -2,7 +2,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
-import { runManagedProcess } from './lib/managed-process.mjs';
+import { managedProcessPlatformSupport, runManagedProcess } from './lib/managed-process.mjs';
 
 const MAX_PROMPT_BYTES = 1024 * 1024;
 const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write']);
@@ -47,32 +47,153 @@ function parseArgs(argv) {
   return result;
 }
 
-async function readPrompt() {
-  if (process.stdin.isTTY) throw new Error('worker prompt must be piped through stdin');
-  process.stdin.setEncoding('utf8');
-  let prompt = '';
-  for await (const chunk of process.stdin) {
-    prompt += chunk;
-    if (Buffer.byteLength(prompt, 'utf8') > MAX_PROMPT_BYTES) {
-      throw new Error(`worker prompt exceeds ${MAX_PROMPT_BYTES} bytes`);
-    }
+class PromptBoundaryError extends Error {
+  constructor(kind, reason) {
+    super(kind === 'timeout'
+      ? 'worker prompt read timed out'
+      : 'worker prompt read interrupted: ' + String(reason || 'signal'));
+    this.kind = kind;
+    this.reason = reason;
   }
-  if (!prompt.trim()) throw new Error('worker prompt on stdin is empty');
-  return prompt;
 }
 
+function readPrompt(deadlineAt, signal) {
+  if (process.stdin.isTTY) return Promise.reject(new Error('worker prompt must be piped through stdin'));
+  process.stdin.setEncoding('utf8');
+  return new Promise((resolve, reject) => {
+    let prompt = '';
+    let settled = false;
+    let timeoutHandle;
+
+    const cleanup = () => {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      process.stdin.removeListener('data', onData);
+      process.stdin.removeListener('end', onEnd);
+      process.stdin.removeListener('error', onError);
+      signal.removeEventListener('abort', onAbort);
+    };
+    const finish = (callback, value, destroy = false) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (destroy) {
+        process.stdin.pause();
+        process.stdin.destroy();
+      }
+      callback(value);
+    };
+    const onData = (chunk) => {
+      prompt += chunk;
+      if (Buffer.byteLength(prompt, 'utf8') > MAX_PROMPT_BYTES) {
+        finish(reject, new Error('worker prompt exceeds ' + MAX_PROMPT_BYTES + ' bytes'), true);
+      }
+    };
+    const onEnd = () => {
+      if (!prompt.trim()) {
+        finish(reject, new Error('worker prompt on stdin is empty'));
+        return;
+      }
+      finish(resolve, prompt);
+    };
+    const onError = (error) => finish(reject, error);
+    const onAbort = () => finish(
+      reject,
+      new PromptBoundaryError('interrupted', signal.reason),
+      true,
+    );
+    const remainingMs = deadlineAt - Date.now();
+    const onTimeout = () => finish(
+      reject,
+      new PromptBoundaryError('timeout', 'prompt-read-deadline'),
+      true,
+    );
+
+    process.stdin.on('data', onData);
+    process.stdin.once('end', onEnd);
+    process.stdin.once('error', onError);
+    signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    if (remainingMs <= 0) {
+      queueMicrotask(onTimeout);
+      return;
+    }
+    timeoutHandle = setTimeout(onTimeout, remainingMs);
+    process.stdin.resume();
+  });
+}
 function emitJson(event) {
-  process.stdout.write(`${JSON.stringify(event)}\n`);
+  process.stdout.write(JSON.stringify(event) + '\n');
 }
 
+function emitPromptBoundaryResult(kind, timeoutMs, reason) {
+  const timedOut = kind === 'timeout';
+  const status = timedOut ? 'timed_out' : 'interrupted';
+  const timestamp = new Date().toISOString();
+  emitJson({
+    type: timedOut ? 'worker.timeout' : 'worker.interrupted',
+    timestamp,
+    root_pid: null,
+    ...(timedOut ? { timeout_ms: timeoutMs } : {}),
+  });
+  const platformSupport = managedProcessPlatformSupport();
+  const message = timedOut
+    ? 'worker prompt read exceeded the invocation deadline'
+    : 'worker prompt read interrupted: ' + String(reason || 'signal');
+  const result = {
+    schema_version: 1,
+    kind: 'managed-worker-result',
+    status,
+    ok: false,
+    root_pid: null,
+    observed_descendant_pids: [],
+    timed_out: timedOut,
+    interrupted: !timedOut,
+    exit_code: null,
+    signal: null,
+    stdout_line_count: 0,
+    stderr_line_count: 0,
+    event_errors: [],
+    stdin_errors: [],
+    observation_verified: false,
+    observation_errors: [message],
+    containment: {
+      mode: platformSupport.mode,
+      assigned: false,
+      drained: false,
+      verified: false,
+      controller_watchdog_armed: false,
+      wrapper_closed: false,
+      root_started_at: null,
+      atomic_child_pid: null,
+      atomic_child_started_at: null,
+      errors: [],
+    },
+    cleanup: {
+      required: false,
+      reason: null,
+      requested_pids: [],
+      confirmed_gone_pids: [],
+      identity_mismatch_pids: [],
+      alive_after_cleanup: [],
+      unknown_after_cleanup: [],
+      verified: true,
+      errors: [],
+    },
+  };
+  emitJson({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+  return result;
+}
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    process.stdout.write(`${usage()}\n`);
+    process.stdout.write(usage() + '\n');
     return;
   }
-  const invocation = resolveCodexInvocation();
-  const prompt = await readPrompt();
+
+  const deadlineAt = Date.now() + args.timeoutMs;
   const abortController = new AbortController();
   const testAbortAfterMs = process.env.NODE_ENV === 'test'
     ? Number.parseInt(process.env.FDP_WORKER_TEST_ABORT_AFTER_MS || '', 10)
@@ -84,7 +205,26 @@ async function main() {
   const onSigterm = () => abortController.abort('SIGTERM');
   process.once('SIGINT', onSigint);
   process.once('SIGTERM', onSigterm);
+
   try {
+    const invocation = resolveCodexInvocation();
+    let prompt;
+    try {
+      prompt = await readPrompt(deadlineAt, abortController.signal);
+    } catch (error) {
+      if (!(error instanceof PromptBoundaryError)) throw error;
+      const result = emitPromptBoundaryResult(error.kind, args.timeoutMs, error.reason);
+      process.exitCode = result.timed_out ? 124 : 130;
+      return;
+    }
+
+    const remainingMs = deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      emitPromptBoundaryResult('timeout', args.timeoutMs, 'prompt-read-deadline');
+      process.exitCode = 124;
+      return;
+    }
+
     const result = await runManagedProcess({
       command: invocation.command,
       args: buildEphemeralWorkerArgs({
@@ -94,7 +234,7 @@ async function main() {
       }),
       cwd: args.cwd,
       stdinText: prompt,
-      timeoutMs: args.timeoutMs,
+      timeoutMs: remainingMs,
       pollIntervalMs: 100,
       signal: abortController.signal,
       onEvent: emitJson,
@@ -109,7 +249,6 @@ async function main() {
     process.removeListener('SIGTERM', onSigterm);
   }
 }
-
 main().catch((error) => {
   emitJson({
     type: 'worker.wrapper_error',
