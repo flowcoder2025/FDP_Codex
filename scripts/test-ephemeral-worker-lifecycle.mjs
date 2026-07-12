@@ -347,7 +347,7 @@ function runTemporalIdentityCase() {
       name: 'unrelated-child',
       started_at: '2026-07-10T11:00:00.100Z',
     },
-  ], rootPid, reusedRootObserved);
+  ], rootPid, reusedRootObserved, 'linux');
   assert.equal(reusedRootObserved.has(50004), false);
 
   const missingStartCurrentRoot = {
@@ -430,6 +430,7 @@ function runTemporalIdentityCase() {
   return {
     stale_excluded: true,
     reused_parent_identity_excluded: true,
+    posix_group_reused_root_excluded: true,
     known_start_missing_current_start_unknown: true,
     known_start_missing_current_start_child_excluded: true,
     startless_descendant_unknown: true,

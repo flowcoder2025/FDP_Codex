@@ -165,11 +165,15 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - Reviewer 019f56db-740a-7d02-b553-ba9b75cc862f completed all required commands on exact head 2b3a10f080b6928013c38a8dd230d3b0920f5785 and returned FAIL: P2 active Job descendants after real-worker root exit were drained but reported completed; P2 prompt read waited outside timeout and interruption. Remediation queries Job activity at root exit and returns containment_failed after drain when members remain, and held-open stdin now returns structured null-root no-spawn exits 124/130 before EOF.
 
+- Reviewer 019f56f8-79b2-7b61-bcf2-73bcf6c69cf5 returned PASS with no findings on the prior exact PR #65 head. GitHub review 4680454951, `npm.cmd run audit:independent-review -- --pr 65`, and the required `independent-review` status passed before the head changed.
+
+- Initial PR #65 Node 20/24 validation then failed the deterministic reused-root case on Linux. `mergeObservedTree` accepted a same-process-group child even when the live root PID identity mismatched the observed root. The remediation disables POSIX group fallback while a present root is mismatched or unknown, forces the Linux branch in the regression on every host, and requires `posix_group_reused_root_excluded: true` in canonical validation. This head change invalidates the prior PASS.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.
 - The dogfood target was not edited.
-- No target branch, commit, remote, push, or PR was created.
+- The Layer 2 boundary remains: No target branch, commit, remote, push, or PR was created for the dogfood target. The approved Layer 1 branch and draft PR #65 were published.
 - No release, deployment, package publication, OSS submission, production dependency, public API or external contract change, A2/A3 authority expansion, destructive operation, or provider-policy workaround occurred.
 - No release publication, deployment, package publication, OSS program submission, A3 publication behavior, production dependency addition, public API or external contract change, first Layer 2 scaffold generation, or destructive filesystem or git operation occurred.
 - Reviewer 019f5528-b21a-74f3-a4b2-cad013731bdb inspected exact head 9012cc54e79686195d226cdb85f4586ba10ecd3c with fork_context: false and returned FAIL: P1 the wrapper could acquire a reused controller PID after controller death; P2 cleanup could treat exit state as the actual close event; P2 the recorded 124/130 behavior had no real CLI subprocess regression.

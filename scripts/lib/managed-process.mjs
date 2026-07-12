@@ -321,15 +321,19 @@ function isNotOlderThan(candidate, ancestor) {
  * @param {ProcessInfo[]} table
  * @param {number} rootPid
  * @param {Map<number, ProcessInfo>} observed
+ * @param {NodeJS.Platform} [platform]
  */
-export function mergeObservedTree(table, rootPid, observed) {
+export function mergeObservedTree(table, rootPid, observed, platform = process.platform) {
   const byPid = new Map(table.map((entry) => [entry.pid, entry]));
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
   const unknownCandidatePids = new Set();
-  if (root && (!expectedRoot || sameIdentity(expectedRoot, root))) {
-    observed.set(rootPid, root);
+  let rootIdentity = null;
+  if (root) {
+    rootIdentity = expectedRoot ? classifyProcessIdentity(expectedRoot, root) : 'same';
+    if (rootIdentity === 'same') observed.set(rootPid, root);
   }
+  const posixGroupRootTrusted = platform !== 'win32' && (!root || rootIdentity === 'same');
 
   const parentPids = new Set(observed.keys());
   parentPids.add(rootPid);
@@ -345,7 +349,7 @@ export function mergeObservedTree(table, rootPid, observed) {
         && parent !== undefined
         && currentParent !== undefined
         && sameIdentity(parent, currentParent);
-      const hasPosixGroup = process.platform !== 'win32' && entry.pgid === rootPid;
+      const hasPosixGroup = posixGroupRootTrusted && entry.pgid === rootPid;
       if (entry.started_at === null && (hasObservedParent || hasPosixGroup)) {
         unknownCandidatePids.add(entry.pid);
         continue;

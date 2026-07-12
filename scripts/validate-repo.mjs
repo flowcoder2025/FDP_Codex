@@ -4112,6 +4112,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
+    && testResult?.cases?.temporal_identity?.posix_group_reused_root_excluded === true
     && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.same_supervisor_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.known_start_missing_current_start_unknown === true
