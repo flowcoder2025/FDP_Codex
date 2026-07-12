@@ -65,6 +65,14 @@ function isProcessAlive(pid) {
   }
 }
 
+async function waitForProcessGone(pid, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (isProcessAlive(pid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return !isProcessAlive(pid);
+}
+
 function assertObservedCleanupPartition(result) {
   const observedPids = [result.root_pid, ...result.observed_descendant_pids]
     .sort((a, b) => a - b);
@@ -1065,20 +1073,20 @@ async function runObservationHangTimeoutCase() {
     const result = await runManagedProcess({
       command: process.execPath,
       args: [fixturePath, 'root'],
-      timeoutMs: 750,
+      timeoutMs: 3000,
       pollIntervalMs: 100,
-      terminationGraceMs: 100,
-      verificationTimeoutMs: 1000,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 3000,
       onEvent: (event) => events.push(event),
     });
     const elapsedMs = Date.now() - startedAt;
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
     assert.equal(result.ok, false);
     assert.equal(result.timed_out, true);
-    assert(elapsedMs < 5000, `observation hang exceeded finite bound: ${elapsedMs}ms`);
+    assert(elapsedMs < 8000, `observation hang exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
-    assert.equal(isProcessAlive(result.root_pid), false);
-    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert.equal(await waitForProcessGone(result.root_pid), true);
+    assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
@@ -1102,7 +1110,7 @@ async function runObservationHangInterruptionCase() {
   const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
   process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
   const abortController = new AbortController();
-  const abortTimer = setTimeout(() => abortController.abort('observer-hang-test'), 750);
+  const abortTimer = setTimeout(() => abortController.abort('observer-hang-test'), 3000);
   const startedAt = Date.now();
   try {
     const result = await runManagedProcess({
@@ -1110,8 +1118,8 @@ async function runObservationHangInterruptionCase() {
       args: [fixturePath, 'root'],
       timeoutMs: 10000,
       pollIntervalMs: 100,
-      terminationGraceMs: 100,
-      verificationTimeoutMs: 1000,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 3000,
       signal: abortController.signal,
       onEvent: (event) => events.push(event),
     });
@@ -1119,10 +1127,10 @@ async function runObservationHangInterruptionCase() {
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
     assert.equal(result.ok, false);
     assert.equal(result.interrupted, true);
-    assert(elapsedMs < 5000, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
+    assert(elapsedMs < 8000, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
-    assert.equal(isProcessAlive(result.root_pid), false);
-    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    assert.equal(await waitForProcessGone(result.root_pid), true);
+    assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));

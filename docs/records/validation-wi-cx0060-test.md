@@ -153,6 +153,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer 019f567d-6db7-7822-8f32-467ffba527e4 inspected exact head c2cd5117c1a22e0d06494ff2718c130d7cb8cfb9 with fork_context: false and returned FAIL with one P2: the 750 ms stdin-timeout case could expire before authenticated identity readiness, causing canonical validation to fail intermittently with truthful cleanup_failed evidence.
 - The regression now uses a 5-second timeout and verification window so wrapper identity, atomic identity, and pending stdin are established before timeout cleanup is asserted. Three consecutive full worker:test runs passed; fresh exact-head review remains.
 
+- Exact-head CI on a5cf411 then exposed timing dependence in observation-hang timeout: the fail-closed result could precede final OS PID disappearance. Timeout and interruption now establish identities for 3 seconds and use bounded post-result disappearance polling without changing unknown/unverified cleanup semantics. Two full worker:test runs and canonical validate passed.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

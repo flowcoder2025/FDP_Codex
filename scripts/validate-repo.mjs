@@ -4455,8 +4455,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.containment?.normal_completion_requires_verified_drain === true
     && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
     && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
-    && String(guard.deterministic_cases?.windows_observation_hang_timeout).startsWith('passed')
-    && String(guard.deterministic_cases?.windows_observation_hang_interruption).startsWith('passed')
+    && guard.deterministic_cases?.windows_observation_hang_timeout === 'passed-bounded-identity-ready-post-result-gone-repeated-2'
+    && guard.deterministic_cases?.windows_observation_hang_interruption === 'passed-bounded-identity-ready-post-result-gone-repeated-2'
     && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
