@@ -3933,7 +3933,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("mode: 'unsupported-fail-closed'")
     && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.includes('started_at')
-    && managedProcess.includes('process.kill(entry.pid, signal)')
+    && managedProcess.includes('PID-only signaling is forbidden')
+    && managedProcess.includes('verifyObservedTreeTermination')
+    && !managedProcess.includes('process.kill(entry.pid')
+    && !managedProcess.includes('signalProcesses(')
     && managedProcess.includes("type: 'worker.timeout'")
     && managedProcess.includes("type: 'worker.interrupted'")
     && managedProcess.includes('worker.${streamName}')
@@ -4038,7 +4041,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
-    && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.pid_only_signal_guard?.direct_pid_signaling === false
+        && testResult?.cases?.pid_only_signal_guard?.termination_owner === 'exact-wrapper-handle-and-job-object'
+        && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
     && testResult?.cases?.platform_support?.windows === 'supported'
     && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
     && testResult?.cases?.temporal_identity?.stale_excluded === true
@@ -4165,7 +4170,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
     && autonomy.includes('must run through `scripts/run-ephemeral-worker.mjs`')
     && autonomy.includes('stops the exact wrapper first so Job-handle close terminates all atomically assigned members')
-    && autonomy.includes('Targeted residual cleanup after a normal root exit signals deepest observed descendants before parents')
+    && autonomy.includes('never sends PID-only signals to observed descendants')
+    && autonomy.includes('Job-handle close owns termination and metadata cleanup only re-observes immutable identities')
     && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
     && autonomy.includes('kill-on-close Job Object')
     && autonomy.includes('fail closed before spawning a worker')
@@ -4217,7 +4223,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes("permanently makes the invocation's observation unverified")
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
-    && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
+    && decision.includes('never sends PID-only signals to observed descendants')
+    && decision.includes('metadata cleanup only re-observes immutable identities')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
     && decision.includes('KI-CX-PROVIDER-001 records that separate provider trust boundary');
@@ -4228,6 +4235,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('permanently locks the first marker it receives')
     && spec.includes('`worker.observation_started` records the ordering evidence')
     && spec.includes('every other observed descendant must appear exactly once')
+    && spec.includes('Never signal an observed descendant by PID')
+    && spec.includes('exact wrapper-handle stop and Job-handle close own termination')
     && spec.includes('unknown_after_cleanup')
     && spec.includes('absolute timeout deadline and interrupt listener are armed before spawn')
     && spec.includes('prompt is required on stdin')
@@ -4395,6 +4404,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('final-result delivery failure')
     && reusedParentKi.trigger.includes('reused wrapper PID including under the same supervisor')
     && reusedParentKi.trigger.includes('worker-forged root or atomic-child control markers')
+    && reusedParentKi.trigger.includes('signal an unrelated process after PID reuse between identity classification and termination')
     && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
     && reusedParentKi.trigger.includes('newly discovered descendant whose start time is unavailable')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
@@ -4405,11 +4415,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.repayment_condition.includes('initial root identity requires a native marker whose PID equals the exact spawned wrapper')
     && reusedParentKi.repayment_condition.includes('never uses parent or name fallback')
     && reusedParentKi.repayment_condition.includes('duplicate root or atomic-child markers never replace observed identity')
+    && reusedParentKi.repayment_condition.includes('no PID-only descendant signaling')
     && reusedParentKi.repayment_condition.includes('missing current start-time metadata remain unknown, unsignaled, and unverified')
     && reusedParentKi.repayment_condition.includes('newly discovered descendants require start-time metadata or remain unobserved unknown candidates')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && handoff.includes('historical reported evidence, not a complete zero-residual proof')
     && proofRecord.includes('historical result is not evidence of complete zero-residual cleanup')
+    && proofRecord.includes('cleanup_reported_verified: true')
+    && proofRecord.includes('cleanup_proof_complete: false')
+    && proofRecord.includes('removes every descendant `process.kill(pid)` path')
     && proofRecord.includes('Issue #61 comment `4950118514` supersedes historical comment `4938282551`')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
@@ -4438,7 +4452,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && !codexInvocation.includes('verifyManagedWorkerExecPolicy')
     && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
     && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
-    && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.pid_only_signal_guard?.direct_pid_signaling === false
+        && testResult?.cases?.pid_only_signal_guard?.termination_owner === 'exact-wrapper-handle-and-job-object'
+        && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
     && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed';
   checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
     && proofRecord.includes('PSC: P1')
@@ -4485,8 +4501,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.nested_agent_confinement?.command_reentry?.controller_validation_owner === 'visible-controller'
     && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
     && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
-    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_verified === true
-    && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.alive_after_cleanup) === '[]'
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_reported_verified === true
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_proof_complete === false
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.evidence_status === 'historical-reported-not-complete-zero-residual-proof'
+    && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.reported_alive_after_cleanup) === '[]'
+    && !('cleanup_verified' in guard.live_model_smoke.layer2_dogfood_first_attempt)
     && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-after-current-explicit-user-approval'
     && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true;
   checks.worker_proof_known_issues = confinementKi?.severity === 'High'

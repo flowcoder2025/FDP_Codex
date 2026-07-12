@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import {
@@ -10,6 +11,14 @@ import {
 } from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
+
+function runPidOnlySignalGuardCase() {
+  assert(managedProcessSource.includes('PID-only signaling is forbidden'));
+  assert.equal(managedProcessSource.includes('process.kill(entry.pid'), false);
+  assert.equal(managedProcessSource.includes('signalProcesses('), false);
+  return { direct_pid_signaling: false, termination_owner: 'exact-wrapper-handle-and-job-object' };
+}
 
 function isProcessAlive(pid) {
   try {
@@ -673,6 +682,7 @@ async function runFastParentExitCase() {
   return result;
 }
 
+const pidOnlySignalGuard = runPidOnlySignalGuardCase();
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
@@ -699,6 +709,7 @@ const unsupportedPlatform = process.platform === 'win32'
 console.log(JSON.stringify({
   ok: true,
   cases: {
+    pid_only_signal_guard: pidOnlySignalGuard,
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
     temporal_identity: temporalIdentity,

@@ -253,37 +253,6 @@ function classifyObserved(observed, table) {
   return { alive, identityMismatches, unknownPids };
 }
 
-/**
- * @param {ProcessInfo} entry
- * @param {Map<number, ProcessInfo>} observed
- */
-function processDepth(entry, observed) {
-  let depth = 0;
-  let cursor = entry;
-  const seen = new Set([entry.pid]);
-  while (observed.has(cursor.ppid) && !seen.has(cursor.ppid)) {
-    depth += 1;
-    seen.add(cursor.ppid);
-    cursor = /** @type {ProcessInfo} */ (observed.get(cursor.ppid));
-  }
-  return depth;
-}
-
-/**
- * @param {ProcessInfo[]} entries
- * @param {string} signal
- * @param {string[]} errors
- */
-function signalProcesses(entries, signal, errors) {
-  for (const entry of entries) {
-    try {
-      process.kill(entry.pid, signal);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ESRCH') continue;
-      errors.push(`pid ${entry.pid}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-}
 
 /**
  * @param {{
@@ -295,7 +264,7 @@ function signalProcesses(entries, signal, errors) {
  * }} options
  * @returns {Promise<CleanupResult>}
  */
-async function terminateObservedTree(options) {
+async function verifyObservedTreeTermination(options) {
   const errors = [];
   let table;
   try {
@@ -318,13 +287,10 @@ async function terminateObservedTree(options) {
   let classified = classifyObserved(options.observed, table);
   let classificationUnknown = false;
   const requested = classified.alive
-    .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed))
-    .map((entry) => entry.pid);
-  const requestedEntries = requested
-    .map((pid) => options.observed.get(pid))
-    .filter((entry) => entry !== undefined);
-
-  signalProcesses(requestedEntries, 'SIGTERM', errors);
+    .map((entry) => entry.pid)
+    .sort((a, b) => a - b);
+  // The exact wrapper handle has already stopped or exited. Job-handle close owns
+  // termination; PID-only signaling is forbidden because PID reuse is racy.
   await sleep(options.graceMs);
 
   try {
@@ -333,13 +299,6 @@ async function terminateObservedTree(options) {
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
     classificationUnknown = true;
-  }
-
-  if (!classificationUnknown && classified.alive.length > 0) {
-    const forceSignal = process.platform === 'win32' ? 'SIGTERM' : 'SIGKILL';
-    const forceEntries = classified.alive
-      .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed));
-    signalProcesses(forceEntries, forceSignal, errors);
   }
 
   const deadline = Date.now() + options.verifyMs;
@@ -901,7 +860,7 @@ export async function runManagedProcess(options) {
     status = 'timed_out';
     emit({ type: 'worker.timeout', timestamp: new Date().toISOString(), root_pid: rootPid, timeout_ms: options.timeoutMs });
     await stopRootWrapper();
-    cleanup = await terminateObservedTree({
+    cleanup = await verifyObservedTreeTermination({
       observed,
       observeNow,
       reason: 'timeout',
@@ -913,7 +872,7 @@ export async function runManagedProcess(options) {
     status = 'interrupted';
     emit({ type: 'worker.interrupted', timestamp: new Date().toISOString(), root_pid: rootPid });
     await stopRootWrapper();
-    cleanup = await terminateObservedTree({
+    cleanup = await verifyObservedTreeTermination({
       observed,
       observeNow,
       reason: 'interrupted',
@@ -923,7 +882,7 @@ export async function runManagedProcess(options) {
   } else if (outcome && outcome.kind === 'stdin-failed') {
     status = 'stdin_failed';
     await stopRootWrapper();
-    cleanup = await terminateObservedTree({
+    cleanup = await verifyObservedTreeTermination({
       observed,
       observeNow,
       reason: 'stdin-failed',
@@ -933,7 +892,7 @@ export async function runManagedProcess(options) {
   } else if (outcome && outcome.kind === 'event-dispatch-failed') {
     status = 'event_dispatch_failed';
     await stopRootWrapper();
-    cleanup = await terminateObservedTree({
+    cleanup = await verifyObservedTreeTermination({
       observed,
       observeNow,
       reason: 'event-dispatch-failed',
@@ -951,7 +910,7 @@ export async function runManagedProcess(options) {
       if (residualClassification.unknownPids.length > 0) {
         observationErrors.add(`identity metadata unavailable for pids: ${residualClassification.unknownPids.join(', ')}`);
         status = 'observation_failed';
-        cleanup = await terminateObservedTree({
+        cleanup = await verifyObservedTreeTermination({
           observed,
           observeNow,
           reason: 'identity-metadata-unavailable-after-root-exit',
@@ -960,7 +919,7 @@ export async function runManagedProcess(options) {
         });
       } else if (residuals.length > 0) {
         status = 'residual_processes';
-        cleanup = await terminateObservedTree({
+        cleanup = await verifyObservedTreeTermination({
           observed,
           observeNow,
           reason: 'residual-processes-after-root-exit',
