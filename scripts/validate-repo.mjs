@@ -3966,9 +3966,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('assert.equal(observed.has(50001), false)')
     && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
     && lifecycleTest.includes('assert.equal(observed.has(50003), true)')
+    && lifecycleTest.includes("classifyProcessIdentity(root, missingStartCurrentRoot), 'unknown'")
+    && lifecycleTest.includes('assert.equal(missingStartObserved.has(50006), false)')
     && managedProcess.includes('sameIdentity(parent, currentParent)')
     && managedProcess.includes('expected.started_at === null')
     && managedProcess.includes('expected.ppid === current.ppid')
+    && managedProcess.includes("if (current.started_at === null) return 'unknown'")
+    && managedProcess.includes("else unknownPids.push(expected.pid)")
+    && managedProcess.includes('unknown_after_cleanup: unknownPids')
     && managedProcess.includes("containmentMode: 'windows-job-object'")
     && managedProcess.includes('containment.drained')
     && windowsJobRunner.includes('CREATE_SUSPENDED')
@@ -4022,6 +4027,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
     && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
+    && testResult?.cases?.temporal_identity?.known_start_missing_current_start_unknown === true
+    && testResult?.cases?.temporal_identity?.known_start_missing_current_start_child_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && (process.platform === 'win32'
       ? (testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
@@ -4153,6 +4160,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
     && autonomy.includes('final `worker.result` sink itself fails')
     && autonomy.includes('uninitialized wrapper root may acquire its operating-system identity only when the live parent PID is the current supervisor')
+    && autonomy.includes('current row with missing start time is unknown rather than a name-based match')
+    && autonomy.includes('must not acquire descendants or receive a targeted signal')
     && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
@@ -4174,6 +4183,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
     && decision.includes('final `worker.result` delivery fails')
     && decision.includes('uninitialized wrapper root accepts identity only when its live parent is the current supervisor')
+    && decision.includes('live row whose start time is unavailable is classified unknown rather than matched by name')
+    && decision.includes('cannot acquire descendants or receive a targeted signal')
     && decision.includes('Each query has its own finite timeout')
     && decision.includes('the exact wrapper is stopped first')
     && decision.includes('targeted residual cleanup after normal root exit signals deepest observed descendants before parents')
@@ -4192,7 +4203,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('prompt is required on stdin')
     && spec.includes('danger-full-access` is not accepted')
     && spec.includes('worker.result')
-    && spec.includes('pid reuse')
+    && spec.includes('reused PID')
+    && spec.includes('Later observations require the recorded start time to match')
+    && spec.includes('current row has no start time, identity is unknown rather than matched by executable name')
     && spec.includes('Exit codes are 0')
     && spec.includes('124 for timeout')
     && spec.includes('130 for interruption')
@@ -4302,6 +4315,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
     && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
     && String(guard.deterministic_cases?.uninitialized_root_reuse_exclusion).startsWith('passed')
+    && guard.deterministic_cases?.known_start_missing_current_start === 'passed-unknown-unverified-child-excluded'
     && guard.deterministic_cases?.spoofed_atomic_marker_rejection === 'passed-forged-pid-never-observed-wrapper-and-atomic-child-gone'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
@@ -4343,6 +4357,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('final-result delivery failure')
     && reusedParentKi.trigger.includes('same-name reused wrapper PID under an unrelated parent')
     && reusedParentKi.trigger.includes('worker-forged atomic-child control markers')
+    && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
@@ -4350,6 +4365,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.repayment_condition.includes('throwing event callbacks and failed stdin writes return only after structured verified cleanup')
     && reusedParentKi.repayment_condition.includes('supervisor-parent-gated initial root identity')
     && reusedParentKi.repayment_condition.includes('duplicate atomic-child markers never replace observed identity')
+    && reusedParentKi.repayment_condition.includes('missing current start-time metadata remain unknown, unsignaled, and unverified')
     && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;

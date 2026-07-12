@@ -156,19 +156,27 @@ export function listProcessTable() {
 /**
  * @param {ProcessInfo} expected
  * @param {ProcessInfo} current
+ * @returns {'same' | 'mismatch' | 'unknown'}
  */
-function sameIdentity(expected, current) {
-  if (expected.pid !== current.pid) return false;
+export function classifyProcessIdentity(expected, current) {
+  if (expected.pid !== current.pid) return 'mismatch';
   if (expected.started_at === null) {
     return expected.ppid === current.ppid
       && Boolean(expected.name && current.name)
-      && path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase();
+      && path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase()
+      ? 'same'
+      : 'mismatch';
   }
-  if (expected.started_at && current.started_at) return expected.started_at === current.started_at;
-  if (expected.name && current.name) {
-    return path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase();
-  }
-  return false;
+  if (current.started_at === null) return 'unknown';
+  return expected.started_at === current.started_at ? 'same' : 'mismatch';
+}
+
+/**
+ * @param {ProcessInfo} expected
+ * @param {ProcessInfo} current
+ */
+function sameIdentity(expected, current) {
+  return classifyProcessIdentity(expected, current) === 'same';
 }
 
 /**
@@ -239,13 +247,17 @@ function classifyObserved(observed, table) {
   const alive = [];
   /** @type {number[]} */
   const identityMismatches = [];
+  /** @type {number[]} */
+  const unknownPids = [];
   for (const expected of observed.values()) {
     const current = byPid.get(expected.pid);
     if (!current) continue;
-    if (sameIdentity(expected, current)) alive.push(current);
-    else identityMismatches.push(expected.pid);
+    const identity = classifyProcessIdentity(expected, current);
+    if (identity === 'same') alive.push(current);
+    else if (identity === 'mismatch') identityMismatches.push(expected.pid);
+    else unknownPids.push(expected.pid);
   }
-  return { alive, identityMismatches };
+  return { alive, identityMismatches, unknownPids };
 }
 
 /**
@@ -367,8 +379,9 @@ async function terminateObservedTree(options) {
 
   const aliveAfter = classified.alive.map((entry) => entry.pid).sort((a, b) => a - b);
   const mismatchPids = [...new Set(classified.identityMismatches)].sort((a, b) => a - b);
+  const unknownPids = [...new Set(classified.unknownPids)].sort((a, b) => a - b);
   const confirmedGone = [...options.observed.keys()]
-    .filter((pid) => !aliveAfter.includes(pid) && !mismatchPids.includes(pid))
+    .filter((pid) => !aliveAfter.includes(pid) && !mismatchPids.includes(pid) && !unknownPids.includes(pid))
     .sort((a, b) => a - b);
   return {
     required: true,
@@ -377,8 +390,8 @@ async function terminateObservedTree(options) {
     confirmed_gone_pids: confirmedGone,
     identity_mismatch_pids: mismatchPids,
     alive_after_cleanup: aliveAfter,
-    unknown_after_cleanup: [],
-    verified: aliveAfter.length === 0 && errors.length === 0,
+    unknown_after_cleanup: unknownPids,
+    verified: aliveAfter.length === 0 && unknownPids.length === 0 && errors.length === 0,
     errors,
   };
 }
@@ -876,8 +889,19 @@ export async function runManagedProcess(options) {
     await sleep(residualGraceMs);
     try {
       const table = await observeNow();
-      const residuals = classifyObserved(observed, table).alive.filter((entry) => entry.pid !== rootPid);
-      if (residuals.length > 0) {
+      const residualClassification = classifyObserved(observed, table);
+      const residuals = residualClassification.alive.filter((entry) => entry.pid !== rootPid);
+      if (residualClassification.unknownPids.length > 0) {
+        observationErrors.add(`identity metadata unavailable for pids: ${residualClassification.unknownPids.join(', ')}`);
+        status = 'observation_failed';
+        cleanup = await terminateObservedTree({
+          observed,
+          observeNow,
+          reason: 'identity-metadata-unavailable-after-root-exit',
+          graceMs: terminationGraceMs,
+          verifyMs: verificationTimeoutMs,
+        });
+      } else if (residuals.length > 0) {
         status = 'residual_processes';
         cleanup = await terminateObservedTree({
           observed,

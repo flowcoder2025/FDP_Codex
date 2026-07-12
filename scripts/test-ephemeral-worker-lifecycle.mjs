@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
 import {
+  classifyProcessIdentity,
   managedProcessPlatformSupport,
   mergeObservedTree,
   runManagedProcess,
@@ -166,6 +167,27 @@ function runTemporalIdentityCase() {
   ], rootPid, reusedRootObserved);
   assert.equal(reusedRootObserved.has(50004), false);
 
+  const missingStartCurrentRoot = {
+    pid: rootPid,
+    ppid: 12345,
+    pgid: rootPid,
+    name: 'node',
+    started_at: null,
+  };
+  assert.equal(classifyProcessIdentity(root, missingStartCurrentRoot), 'unknown');
+  const missingStartObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    missingStartCurrentRoot,
+    {
+      pid: 50006,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'unrelated-missing-start-child',
+      started_at: null,
+    },
+  ], rootPid, missingStartObserved);
+  assert.equal(missingStartObserved.has(50006), false);
+
   const uninitializedRootObserved = new Map([[rootPid, {
     pid: rootPid,
     ppid: process.pid,
@@ -183,6 +205,8 @@ function runTemporalIdentityCase() {
   return {
     stale_excluded: true,
     reused_parent_identity_excluded: true,
+    known_start_missing_current_start_unknown: true,
+    known_start_missing_current_start_child_excluded: true,
     uninitialized_root_reuse_excluded: true,
     descendant_count: observed.size - 1,
   };
