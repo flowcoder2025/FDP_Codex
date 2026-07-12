@@ -141,6 +141,9 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - KI-CX-REVIEW-002 / Issue #63 records the reviewer-surface availability boundary.
 - A fresh final-head reviewer and GitHub-anchored independent-review audit remain mandatory before PR readiness or merge.
 
+- Reviewer 019f5643-ccc9-7d70-9bbe-3cc13f1a99d8 inspected exact head cfc503e4f5fd23e2fd9aa27af81f070c691e87dc with fork_context: false and returned FAIL with one P2: timeout could win during controller identity lookup, return cleanup verified, and leave the PowerShell lookup child alive until its independent delay expired.
+- The remediation owns the lookup ChildProcess, terminates it when timeout or interruption wins, waits for the actual close event, and includes its PID and terminal cleanup classification in the structured pre-spawn result. Deterministic delayed-lookup timeout and interruption regressions both return in about 110 ms, confirm the lookup PID is gone, and create no wrapper or worker. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

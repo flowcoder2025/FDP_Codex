@@ -408,8 +408,12 @@ async function runPreSpawnTimeoutCase() {
     assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
     assert.equal(result.timed_out, true);
     assert.equal(result.root_pid, null);
-    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.required, true);
     assert.equal(result.cleanup.verified, true);
+    assert.equal(result.cleanup.requested_pids.length, 1);
+    assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
+    assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
+    assert.equal(isProcessAlive(result.cleanup.requested_pids[0]), false);
     assert(elapsedMs < 750, 'controller identity query was not bounded by the timeout guard');
     assertNoWorkerSpawnEvents(events);
     return {
@@ -417,8 +421,54 @@ async function runPreSpawnTimeoutCase() {
       elapsed_ms: elapsedMs,
       wrapper_spawned: false,
       worker_executed: false,
+      identity_lookup_closed: true,
     };
   } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDelay === undefined) delete process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+    else process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = previousDelay;
+  }
+}
+
+async function runPreSpawnIdentityAbortCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDelay = process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = '1000';
+  const abortController = new AbortController();
+  const abortHandle = setTimeout(() => abortController.abort('identity-lookup-abort'), 100);
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      signal: abortController.signal,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+    assert.equal(result.interrupted, true);
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, true);
+    assert.equal(result.cleanup.verified, true);
+    assert.equal(result.cleanup.requested_pids.length, 1);
+    assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
+    assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
+    assert.equal(isProcessAlive(result.cleanup.requested_pids[0]), false);
+    assert(elapsedMs < 750, 'controller identity query was not cancelled after interruption');
+    assertNoWorkerSpawnEvents(events);
+    return {
+      status: result.status,
+      elapsed_ms: elapsedMs,
+      wrapper_spawned: false,
+      worker_executed: false,
+      identity_lookup_closed: true,
+    };
+  } finally {
+    clearTimeout(abortHandle);
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = previousNodeEnv;
     if (previousDelay === undefined) delete process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
@@ -1090,6 +1140,7 @@ const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
   preSpawnAbort: await runPreSpawnAbortCase(),
   preSpawnTimeout: await runPreSpawnTimeoutCase(),
+  preSpawnIdentityAbort: await runPreSpawnIdentityAbortCase(),
   controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
   normal: await runNormalCase(),
   timeout: await runTimeoutCase(),
@@ -1131,6 +1182,7 @@ console.log(JSON.stringify({
     windows_lifecycle: windowsCases && {
       pre_spawn_abort: windowsCases.preSpawnAbort,
       pre_spawn_timeout: windowsCases.preSpawnTimeout,
+      pre_spawn_identity_abort: windowsCases.preSpawnIdentityAbort,
       control_environment_isolation: windowsCases.controlEnvironmentIsolation,
       normal: {
         status: windowsCases.normal.status,

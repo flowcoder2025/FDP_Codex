@@ -69,7 +69,7 @@ function buildSpawnInvocation(options, controlToken, controllerStartFileTime) {
   };
 }
 
-async function readWindowsControllerStartFileTime(pid) {
+function startWindowsControllerStartFileTimeLookup(pid) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   const testDelayMs = process.env.NODE_ENV === 'test'
@@ -83,17 +83,24 @@ async function readWindowsControllerStartFileTime(pid) {
     '$process = Get-Process -Id ' + pid,
     "$process.StartTime.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture)",
   ].join('; ');
-  const value = (await execFileText(powershell, [
+  const execution = startExecFileText(powershell, [
     '-NoLogo',
     '-NoProfile',
     '-NonInteractive',
     '-ExecutionPolicy', 'Bypass',
     '-Command', script,
-  ])).trim();
-  if (!/^[1-9][0-9]+$/.test(value)) {
-    throw new Error('failed to acquire immutable controller start FILETIME');
-  }
-  return value;
+  ]);
+  return {
+    pid: execution.pid,
+    result: execution.result.then((output) => {
+      const value = output.trim();
+      if (!/^[1-9][0-9]+$/.test(value)) {
+        throw new Error('failed to acquire immutable controller start FILETIME');
+      }
+      return value;
+    }),
+    terminateAndWait: execution.terminateAndWait,
+  };
 }
 
 /** @param {number} milliseconds */
@@ -120,11 +127,13 @@ export async function stopExactWrapperForCleanup(options) {
 /**
  * @param {string} command
  * @param {string[]} args
- * @returns {Promise<string>}
  */
-function execFileText(command, args) {
-  return new Promise((resolve, reject) => {
-    execFile(command, args, {
+function startExecFileText(command, args) {
+  /** @type {import('node:child_process').ChildProcess} */
+  let child;
+  /** @type {Promise<string>} */
+  const result = new Promise((resolve, reject) => {
+    child = execFile(command, args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
       timeout: DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS,
@@ -138,6 +147,40 @@ function execFileText(command, args) {
       resolve(String(stdout));
     });
   });
+  const closed = new Promise((resolve) => {
+    child.once('close', () => resolve(true));
+  });
+  const childPid = Number.isInteger(child.pid) && child.pid > 0 ? child.pid : null;
+  return {
+    pid: childPid,
+    result,
+    terminateAndWait: async () => {
+      const wasRunning = child.exitCode === null && child.signalCode === null;
+      if (wasRunning) child.kill();
+      const closeVerified = await Promise.race([
+        closed,
+        sleep(DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS + 500).then(() => false),
+      ]);
+      const requestedPids = wasRunning && childPid !== null ? [childPid] : [];
+      return {
+        required: wasRunning,
+        requested_pids: requestedPids,
+        confirmed_gone_pids: closeVerified ? requestedPids : [],
+        unknown_after_cleanup: closeVerified ? [] : requestedPids,
+        verified: closeVerified,
+        errors: closeVerified ? [] : ['controller identity lookup did not close after termination'],
+      };
+    },
+  };
+}
+
+/**
+ * @param {string} command
+ * @param {string[]} args
+ * @returns {Promise<string>}
+ */
+function execFileText(command, args) {
+  return startExecFileText(command, args).result;
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
@@ -566,11 +609,14 @@ export async function runManagedProcess(options) {
   const observationErrors = new Set();
   let observationSucceeded = false;
   let identityObservationIncomplete = false;
-  const returnBeforeSpawn = (outcome) => {
+  const returnBeforeSpawn = (outcome, preSpawnCleanup = null) => {
     if (timeoutHandle) clearTimeout(timeoutHandle);
     if (removeAbortListener) removeAbortListener();
     const timedOut = outcome.kind === 'timeout';
     const interrupted = outcome.kind === 'interrupted';
+    const primaryStatus = timedOut ? 'timed_out' : 'interrupted';
+    const cleanupRequired = preSpawnCleanup?.required === true;
+    const cleanupVerified = preSpawnCleanup?.verified !== false;
     emit({
       type: timedOut ? 'worker.timeout' : 'worker.interrupted',
       timestamp: new Date().toISOString(),
@@ -580,7 +626,7 @@ export async function runManagedProcess(options) {
     const result = {
       schema_version: 1,
       kind: 'managed-worker-result',
-      status: timedOut ? 'timed_out' : 'interrupted',
+      status: cleanupRequired && !cleanupVerified ? 'cleanup_failed' : primaryStatus,
       ok: false,
       root_pid: null,
       observed_descendant_pids: [],
@@ -607,17 +653,20 @@ export async function runManagedProcess(options) {
         errors: [],
       },
       cleanup: {
-        required: false,
-        reason: null,
-        requested_pids: [],
-        confirmed_gone_pids: [],
+        required: cleanupRequired,
+        reason: cleanupRequired ? outcome.kind : null,
+        requested_pids: preSpawnCleanup?.requested_pids || [],
+        confirmed_gone_pids: preSpawnCleanup?.confirmed_gone_pids || [],
         identity_mismatch_pids: [],
         alive_after_cleanup: [],
-        unknown_after_cleanup: [],
-        verified: true,
-        errors: [],
+        unknown_after_cleanup: preSpawnCleanup?.unknown_after_cleanup || [],
+        verified: cleanupVerified,
+        errors: preSpawnCleanup?.errors || [],
       },
     };
+    if (cleanupRequired && !cleanupVerified) {
+      result.terminal_status_before_cleanup_failure = primaryStatus;
+    }
     emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
     if (eventFailureOutcome !== null) {
       result.terminal_status_before_event_failure = result.status;
@@ -629,16 +678,19 @@ export async function runManagedProcess(options) {
 
   const initialPreSpawnGuard = elapsedGuardOutcome();
   if (initialPreSpawnGuard !== null) return returnBeforeSpawn(initialPreSpawnGuard);
+  const controllerIdentityLookup = startWindowsControllerStartFileTimeLookup(process.pid);
+  const controllerIdentityPromise = controllerIdentityLookup.result.then(
+    (value) => ({ kind: 'controller-identity', value }),
+    (error) => ({ kind: 'controller-identity-failed', error }),
+  );
   const controllerIdentityOutcome = await Promise.race([
-    readWindowsControllerStartFileTime(process.pid).then(
-      (value) => ({ kind: 'controller-identity', value }),
-      (error) => ({ kind: 'controller-identity-failed', error }),
-    ),
+    controllerIdentityPromise,
     timeoutPromise,
     abortPromise,
   ]);
   if (controllerIdentityOutcome.kind === 'timeout' || controllerIdentityOutcome.kind === 'interrupted') {
-    return returnBeforeSpawn(controllerIdentityOutcome);
+    const preSpawnCleanup = await controllerIdentityLookup.terminateAndWait();
+    return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup);
   }
   if (controllerIdentityOutcome.kind === 'controller-identity-failed') {
     if (timeoutHandle) clearTimeout(timeoutHandle);
