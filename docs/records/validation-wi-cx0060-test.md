@@ -159,7 +159,7 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - The remediation behaviorally covers synchronous helper start failure and asynchronous helper execution failure, routes both through the shared final-result publisher without creating a wrapper, and exposes one shared 8000 ms observation-hang bound to both the lifecycle suite and canonical validator.
 
-- Canonical validation exposed that a 1 MiB stdin payload could be fully accepted by the Windows pipe and therefore did not guarantee the intended pending-write timeout condition. The deterministic regression now uses 64 MiB to establish backpressure before timeout while preserving timeout as the primary status and requiring verified cleanup.
+- Exact-head CI showed that even 64 MiB does not guarantee pending backpressure because the PowerShell wrapper may drain stdin. The deterministic regression now injects a test-only stdin error immediately after timeout has won, then requires the error to be retained without changing timeout status and requires verified cleanup.
 
 ## Boundaries
 

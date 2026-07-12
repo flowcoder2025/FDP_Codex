@@ -1076,6 +1076,11 @@ export async function runManagedProcess(options) {
   if (poll) clearInterval(poll);
   if (timeoutHandle) clearTimeout(timeoutHandle);
   if (removeAbortListener) removeAbortListener();
+  if (process.env.NODE_ENV === 'test'
+    && process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT === '1'
+    && outcome?.kind === 'timeout') {
+    handleStdinError(new Error('test stdin failure after timeout selection'));
+  }
 
   const stopRootWrapper = async () => {
     const { alreadyExited, killAccepted, wrapperClosed } = await stopExactWrapperForCleanup({

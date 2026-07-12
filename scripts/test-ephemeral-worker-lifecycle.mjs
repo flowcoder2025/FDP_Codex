@@ -905,26 +905,36 @@ async function runStdinEarlyExitCase() {
 }
 
 async function runStdinTimeoutCase() {
-  const result = await runManagedProcess({
-    command: process.execPath,
-    args: [fixturePath, 'root'],
-    stdinText: 'x'.repeat(STDIN_TIMEOUT_BACKPRESSURE_BYTES),
-    timeoutMs: 5000,
-    pollIntervalMs: 100,
-    terminationGraceMs: 500,
-    verificationTimeoutMs: 5000,
-  });
-  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
-  assert.equal(result.timed_out, true);
-  assert(result.stdin_errors.length >= 1);
-  assert.equal(result.cleanup.required, true);
-  assert.equal(result.cleanup.verified, true);
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
-  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
-  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousInjection = process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      stdinText: 'x'.repeat(1024 * 1024),
+      timeoutMs: 5000,
+      pollIntervalMs: 100,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 5000,
+    });
+    assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+    assert.equal(result.timed_out, true);
+    assert(result.stdin_errors.includes('test stdin failure after timeout selection'));
+    assert.equal(result.cleanup.required, true);
+    assert.equal(result.cleanup.verified, true);
+    assert.equal(isProcessAlive(result.root_pid), false);
+    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousInjection === undefined) delete process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT;
+    else process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT = previousInjection;
+  }
 }
-
 async function runInterruptionCase() {
   const events = [];
   const abortController = new AbortController();

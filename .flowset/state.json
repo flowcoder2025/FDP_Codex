@@ -2,7 +2,7 @@
   "schema_version": 1,
   "kind": "fdp-codex-flow-state",
   "layer": "layer1",
-  "updated_at": "2026-07-12T14:17:40Z",
+  "updated_at": "2026-07-12T14:25:33Z",
   "source_files": [
     ".flowset/current-wi.md",
     ".flowset/fix_plan.md",
@@ -461,7 +461,7 @@
           "exact_wrapper_close_required": "passed-actual-close-event-required-no-exit-state-shortcut",
           "timeout_exit_classification": "passed-real-cli-cleanup-failed-timeout-124-interruption-130",
           "stdin_early_exit_cleanup": "passed-1mib-write-eof-structured-result",
-          "stdin_timeout_cleanup": "passed-64mib-backpressure-timeout-structured-result",
+          "stdin_timeout_cleanup": "passed-injected-post-timeout-stdin-error-structured-result",
           "observer_failure_classification": "passed-unobservable-identities-unknown-never-alive",
           "pre_spawn_identity_interrupt_guard": "passed-bounded-no-wrapper-no-worker-lookup-child-close-confirmed",
           "final_spawn_timeout_guard": "passed-no-wrapper-no-worker-after-invocation-materialization",

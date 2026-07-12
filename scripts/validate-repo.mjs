@@ -4256,8 +4256,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes("fixturePath, 'spoof-drain-kill-wrapper'")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
-    && lifecycleTest.includes('STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024')
-    && lifecycleTest.includes("stdinText: 'x'.repeat(STDIN_TIMEOUT_BACKPRESSURE_BYTES)")
+    && managedProcess.includes('FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT')
+    && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
+    && lifecycleTest.includes('test stdin failure after timeout selection')
     && fixture.includes("mode === 'exit-immediately'")
     && lifecycleTest.includes("assert.equal(result.status, 'timed_out'")
     && lifecycleTest.includes('result.cleanup.unknown_after_cleanup.includes(result.root_pid)')
@@ -4472,7 +4473,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
-    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-64mib-backpressure-timeout-structured-result'
+    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-injected-post-timeout-stdin-error-structured-result'
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'

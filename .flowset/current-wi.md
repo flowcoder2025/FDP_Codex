@@ -101,7 +101,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f5694-780a-7e12-a77b-0347605268f4 inspected exact head b406504be52366e75c69715d7d92931f22abfd32 with fork_context: false and returned FAIL with two P2 findings: synchronous controller-identity helper start failure bypassed structured result publication, and lifecycle tests allowed an 8-second observation-hang bound while validator enforced 5 seconds. Helper start and execution failures now return controller_identity_failed through the shared publisher with no wrapper, and test output plus validator share finite_bound_ms 8000. Typecheck and the full worker suite pass; fresh review remains.
 
-- Canonical validation then exposed that the historical 1 MiB stdin-timeout fixture did not always retain pending backpressure, so no stdin error was guaranteed. The fixture now uses a 64 MiB payload to deterministically keep the write pending while proving timeout remains primary and cleanup remains verified.
+- Exact-head CI proved that neither 1 MiB nor 64 MiB input guarantees a pending stdin write because the PowerShell wrapper may continue draining stdin. The regression now injects a test-only stdin error immediately after timeout selection, deterministically proving the error is recorded while timeout remains primary and cleanup remains verified.
 
 ## Open Known Issues
 
