@@ -155,6 +155,12 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - Exact-head CI on a5cf411 then exposed timing dependence in observation-hang timeout: the fail-closed result could precede final OS PID disappearance. Timeout and interruption now establish identities for 3 seconds and use bounded post-result disappearance polling without changing unknown/unverified cleanup semantics. Two full worker:test runs and canonical validate passed.
 
+- Reviewer 019f5694-780a-7e12-a77b-0347605268f4 inspected exact head b406504be52366e75c69715d7d92931f22abfd32 with fork_context: false and returned FAIL: P2 synchronous identity-helper start failure emitted no managed result; P2 observation-hang tests used an 8-second bound while canonical validator used 5 seconds.
+
+- The remediation behaviorally covers synchronous helper start failure and asynchronous helper execution failure, routes both through the shared final-result publisher without creating a wrapper, and exposes one shared 8000 ms observation-hang bound to both the lifecycle suite and canonical validator.
+
+- Canonical validation exposed that a 1 MiB stdin payload could be fully accepted by the Windows pipe and therefore did not guarantee the intended pending-write timeout condition. The deterministic regression now uses 64 MiB to establish backpressure before timeout while preserving timeout as the primary status and requiring verified cleanup.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

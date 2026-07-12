@@ -3950,6 +3950,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('controller identity lookup did not close after termination')
     && managedProcess.includes('controller identity lookup termination request was rejected')
     && managedProcess.includes('classifyControllerIdentityLookupCleanup')
+    && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_EXEC_THROW')
+    && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_RESULT_REJECT')
+    && managedProcess.includes('controller_identity_failed')
     && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
@@ -4110,6 +4113,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
       ? (testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.wrapper_spawned === false
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.status === 'controller_identity_failed'
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.structured_result === true
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.status === 'controller_identity_failed'
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.structured_result === true
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.wrapper_spawned === false
         && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.status === 'timed_out'
         && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.elapsed_ms < 750
         && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.wrapper_spawned === false
@@ -4190,7 +4199,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_assigned === true
         && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_verified === false
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.status === 'cleanup_failed'
-        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.elapsed_ms < 5000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.finite_bound_ms === 8000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.elapsed_ms < testResult.cases.windows_lifecycle.observation_hang_timeout.finite_bound_ms
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.timed_out === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_pid > 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.cleanup_partition_verified === true
@@ -4199,7 +4209,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.alive_after_cleanup_count === 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.unknown_after_cleanup_count >= 2
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.status === 'cleanup_failed'
-        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < 5000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.finite_bound_ms === 8000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < testResult.cases.windows_lifecycle.observation_hang_interruption.finite_bound_ms
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.interrupted === true
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_pid > 0
         && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.cleanup_partition_verified === true
@@ -4245,7 +4256,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes("fixturePath, 'spoof-drain-kill-wrapper'")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
-    && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
+    && lifecycleTest.includes('STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024')
+    && lifecycleTest.includes("stdinText: 'x'.repeat(STDIN_TIMEOUT_BACKPRESSURE_BYTES)")
     && fixture.includes("mode === 'exit-immediately'")
     && lifecycleTest.includes("assert.equal(result.status, 'timed_out'")
     && lifecycleTest.includes('result.cleanup.unknown_after_cleanup.includes(result.root_pid)')
@@ -4455,12 +4467,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.containment?.normal_completion_requires_verified_drain === true
     && String(guard.deterministic_cases?.windows_fast_parent_exit_containment).startsWith('passed')
     && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
-    && guard.deterministic_cases?.windows_observation_hang_timeout === 'passed-bounded-identity-ready-post-result-gone-repeated-2'
-    && guard.deterministic_cases?.windows_observation_hang_interruption === 'passed-bounded-identity-ready-post-result-gone-repeated-2'
+    && guard.deterministic_cases?.windows_observation_hang_timeout === 'passed-shared-8000ms-bound-post-result-gone'
+    && guard.deterministic_cases?.windows_observation_hang_interruption === 'passed-shared-8000ms-bound-post-result-gone'
     && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
     && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
-    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-1mib-pending-write-timeout-structured-result-repeated-3'
+    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-64mib-backpressure-timeout-structured-result'
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
     && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
@@ -4512,6 +4524,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.spawn_failure_result_callback === 'passed-reclassified-event-dispatch-failed'
     && guard.deterministic_cases?.wrapper_stop_failure_paths === 'passed-kill-rejection-and-close-timeout-exposed'
     && guard.deterministic_cases?.identity_lookup_cleanup_classification === 'passed-kill-rejection-and-close-timeout-fail-closed'
+    && guard.deterministic_cases?.controller_identity_start_failure === 'passed-structured-result-no-wrapper'
+    && guard.deterministic_cases?.controller_identity_result_failure === 'passed-structured-result-no-wrapper'
     && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
     && guard.deterministic_cases?.control_environment_isolation === 'passed-token-pid-filetime-absent-in-real-worker'
     && guard.deterministic_cases?.exact_wrapper_close_required === 'passed-actual-close-event-required-no-exit-state-shortcut'

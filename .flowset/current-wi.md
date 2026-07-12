@@ -99,6 +99,10 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Exact-head CI on a5cf411 exposed a second timing-dependent case: 750 ms observation-hang timeout could return cleanup_failed before the Windows PID disappeared, and the test asserted immediate absence. Timeout and interruption now wait 3 seconds for authenticated identities, allow bounded 3-second post-result PID disappearance polling, and retain fail-closed unknown classification. Two full worker:test runs plus canonical validate passed.
 
+- Reviewer 019f5694-780a-7e12-a77b-0347605268f4 inspected exact head b406504be52366e75c69715d7d92931f22abfd32 with fork_context: false and returned FAIL with two P2 findings: synchronous controller-identity helper start failure bypassed structured result publication, and lifecycle tests allowed an 8-second observation-hang bound while validator enforced 5 seconds. Helper start and execution failures now return controller_identity_failed through the shared publisher with no wrapper, and test output plus validator share finite_bound_ms 8000. Typecheck and the full worker suite pass; fresh review remains.
+
+- Canonical validation then exposed that the historical 1 MiB stdin-timeout fixture did not always retain pending backpressure, so no stdin error was guaranteed. The fixture now uses a 64 MiB payload to deterministically keep the write pending while proving timeout remains primary and cleanup remains verified.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

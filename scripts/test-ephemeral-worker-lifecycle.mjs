@@ -21,6 +21,8 @@ const workerCliPath = fileURLToPath(new URL('./run-ephemeral-worker.mjs', import
 const windowsJobRunnerPath = fileURLToPath(new URL('./windows-job-runner.ps1', import.meta.url));
 const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
+const OBSERVATION_HANG_FINITE_BOUND_MS = 8000;
+const STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024;
 
 async function runControllerWatchdogHelper(preAcquire = false, markerPath = null) {
   await runManagedProcess({
@@ -457,6 +459,64 @@ async function runPreSpawnAbortCase() {
   };
 }
 
+async function runControllerIdentityStartFailureCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousFailure = process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      onEvent: (event) => events.push(event),
+    });
+    assert.equal(result.status, 'controller_identity_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.verified, true);
+    assert(result.observation_errors.includes('test controller identity helper start failure'));
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assertNoWorkerSpawnEvents(events);
+    return { status: result.status, structured_result: true, wrapper_spawned: false };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousFailure === undefined) delete process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW;
+    else process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW = previousFailure;
+  }
+}
+
+async function runControllerIdentityResultFailureCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousFailure = process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      onEvent: (event) => events.push(event),
+    });
+    assert.equal(result.status, 'controller_identity_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.verified, true);
+    assert(result.observation_errors.some((error) => error.includes('test controller identity helper result failure')));
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assertNoWorkerSpawnEvents(events);
+    return { status: result.status, structured_result: true, wrapper_spawned: false };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousFailure === undefined) delete process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT;
+    else process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT = previousFailure;
+  }
+}
+
 async function runPreSpawnTimeoutCase() {
   const events = [];
   const previousNodeEnv = process.env.NODE_ENV;
@@ -848,7 +908,7 @@ async function runStdinTimeoutCase() {
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'root'],
-    stdinText: 'x'.repeat(1024 * 1024),
+    stdinText: 'x'.repeat(STDIN_TIMEOUT_BACKPRESSURE_BYTES),
     timeoutMs: 5000,
     pollIntervalMs: 100,
     terminationGraceMs: 500,
@@ -1083,7 +1143,7 @@ async function runObservationHangTimeoutCase() {
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
     assert.equal(result.ok, false);
     assert.equal(result.timed_out, true);
-    assert(elapsedMs < 8000, `observation hang exceeded finite bound: ${elapsedMs}ms`);
+    assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
     assert.equal(await waitForProcessGone(result.root_pid), true);
     assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
@@ -1127,7 +1187,7 @@ async function runObservationHangInterruptionCase() {
     assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
     assert.equal(result.ok, false);
     assert.equal(result.interrupted, true);
-    assert(elapsedMs < 8000, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
+    assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
     assert.equal(await waitForProcessGone(result.root_pid), true);
     assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
@@ -1280,6 +1340,8 @@ const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
   preSpawnAbort: await runPreSpawnAbortCase(),
+  controllerIdentityStartFailure: await runControllerIdentityStartFailureCase(),
+  controllerIdentityResultFailure: await runControllerIdentityResultFailureCase(),
   preSpawnTimeout: await runPreSpawnTimeoutCase(),
   preSpawnIdentityAbort: await runPreSpawnIdentityAbortCase(),
   finalSpawnTimeout: await runFinalSpawnTimeoutGuardCase(),
@@ -1327,6 +1389,8 @@ console.log(JSON.stringify({
     },
     windows_lifecycle: windowsCases && {
       pre_spawn_abort: windowsCases.preSpawnAbort,
+      controller_identity_start_failure: windowsCases.controllerIdentityStartFailure,
+      controller_identity_result_failure: windowsCases.controllerIdentityResultFailure,
       pre_spawn_timeout: windowsCases.preSpawnTimeout,
       pre_spawn_identity_abort: windowsCases.preSpawnIdentityAbort,
       final_spawn_timeout: windowsCases.finalSpawnTimeout,
@@ -1430,6 +1494,7 @@ console.log(JSON.stringify({
       observation_hang_timeout: {
         status: windowsCases.observationHangTimeout.status,
         elapsed_ms: windowsCases.observationHangTimeout.elapsed_ms,
+        finite_bound_ms: OBSERVATION_HANG_FINITE_BOUND_MS,
         timed_out: windowsCases.observationHangTimeout.timed_out,
         atomic_child_pid: windowsCases.observationHangTimeout.containment.atomic_child_pid,
         cleanup_partition_verified: windowsCases.observationHangTimeout.cleanup_partition_verified,
@@ -1445,6 +1510,7 @@ console.log(JSON.stringify({
       observation_hang_interruption: {
         status: windowsCases.observationHangInterruption.status,
         elapsed_ms: windowsCases.observationHangInterruption.elapsed_ms,
+        finite_bound_ms: OBSERVATION_HANG_FINITE_BOUND_MS,
         interrupted: windowsCases.observationHangInterruption.interrupted,
         atomic_child_pid: windowsCases.observationHangInterruption.containment.atomic_child_pid,
         cleanup_partition_verified: windowsCases.observationHangInterruption.cleanup_partition_verified,

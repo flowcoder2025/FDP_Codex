@@ -75,14 +75,18 @@ function startWindowsControllerStartFileTimeLookup(pid) {
   const testDelayMs = process.env.NODE_ENV === 'test'
     ? Number.parseInt(process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS || '', 10)
     : Number.NaN;
-  const script = [
+  const testResultFailure = process.env.NODE_ENV === 'test'
+    && process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT === '1';
+  const script = (testResultFailure ? [
+    "throw 'test controller identity helper result failure'",
+  ] : [
     "$ErrorActionPreference = 'Stop'",
     ...(Number.isInteger(testDelayMs) && testDelayMs > 0
       ? ['Start-Sleep -Milliseconds ' + testDelayMs]
       : []),
     '$process = Get-Process -Id ' + pid,
     "$process.StartTime.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture)",
-  ].join('; ');
+  ]).join('; ');
   const execution = startExecFileText(powershell, [
     '-NoLogo',
     '-NoProfile',
@@ -155,10 +159,14 @@ export function classifyControllerIdentityLookupCleanup(pid, stopResult) {
  * @param {string[]} args
  */
 function startExecFileText(command, args) {
-  /** @type {import('node:child_process').ChildProcess} */
+  /** @type {import('node:child_process').ChildProcess | undefined} */
   let child;
   /** @type {Promise<string>} */
   const result = new Promise((resolve, reject) => {
+    if (process.env.NODE_ENV === 'test'
+      && process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW === '1') {
+      throw new Error('test controller identity helper start failure');
+    }
     child = execFile(command, args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
@@ -173,6 +181,20 @@ function startExecFileText(command, args) {
       resolve(String(stdout));
     });
   });
+  if (!child) {
+    return {
+      pid: null,
+      result,
+      terminateAndWait: async () => ({
+        required: false,
+        requested_pids: [],
+        confirmed_gone_pids: [],
+        unknown_after_cleanup: [],
+        verified: true,
+        errors: [],
+      }),
+    };
+  }
   const closed = new Promise((resolve) => {
     child.once('close', () => resolve(true));
   });
@@ -639,15 +661,21 @@ export async function runManagedProcess(options) {
     if (removeAbortListener) removeAbortListener();
     const timedOut = outcome.kind === 'timeout';
     const interrupted = outcome.kind === 'interrupted';
-    const primaryStatus = timedOut ? 'timed_out' : 'interrupted';
+    const identityFailed = outcome.kind === 'controller-identity-failed';
+    const failureMessage = identityFailed
+      ? (outcome.error instanceof Error ? outcome.error.message : String(outcome.error))
+      : null;
+    const primaryStatus = timedOut ? 'timed_out' : interrupted ? 'interrupted' : 'controller_identity_failed';
     const cleanupRequired = preSpawnCleanup?.required === true;
     const cleanupVerified = preSpawnCleanup?.verified !== false;
-    emit({
-      type: timedOut ? 'worker.timeout' : 'worker.interrupted',
-      timestamp: new Date().toISOString(),
-      root_pid: null,
-      ...(timedOut ? { timeout_ms: options.timeoutMs } : {}),
-    });
+    if (timedOut || interrupted) {
+      emit({
+        type: timedOut ? 'worker.timeout' : 'worker.interrupted',
+        timestamp: new Date().toISOString(),
+        root_pid: null,
+        ...(timedOut ? { timeout_ms: options.timeoutMs } : {}),
+      });
+    }
     const result = {
       schema_version: 1,
       kind: 'managed-worker-result',
@@ -664,7 +692,7 @@ export async function runManagedProcess(options) {
       event_errors: eventErrors,
       stdin_errors: stdinErrors,
       observation_verified: false,
-      observation_errors: [],
+      observation_errors: failureMessage ? [failureMessage] : [],
       containment: {
         mode: platformSupport.mode,
         assigned: false,
@@ -675,7 +703,7 @@ export async function runManagedProcess(options) {
         root_started_at: null,
         atomic_child_pid: null,
         atomic_child_started_at: null,
-        errors: [],
+        errors: failureMessage ? [failureMessage] : [],
       },
       cleanup: {
         required: cleanupRequired,
@@ -712,9 +740,7 @@ export async function runManagedProcess(options) {
     return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup);
   }
   if (controllerIdentityOutcome.kind === 'controller-identity-failed') {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-    if (removeAbortListener) removeAbortListener();
-    throw controllerIdentityOutcome.error;
+    return returnBeforeSpawn(controllerIdentityOutcome);
   }
   const finalPreSpawnGuard = elapsedGuardOutcome();
   if (finalPreSpawnGuard !== null) return returnBeforeSpawn(finalPreSpawnGuard);
