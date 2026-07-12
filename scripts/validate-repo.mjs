@@ -3950,9 +3950,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('controller identity lookup did not close after termination')
     && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('return emitFinalResult(result)')
     && managedProcess.includes('return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup)')
     && managedProcess.includes('root_pid: null')
     && managedProcess.indexOf('const finalPreSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
+    && managedProcess.indexOf('const finalSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.indexOf('const timeoutDeadlineAt = Date.now() + options.timeoutMs') < managedProcess.indexOf('startWindowsControllerStartFileTimeLookup(process.pid)')
     && managedProcess.includes('export async function stopExactWrapperForCleanup(options)')
     && managedProcess.includes('const killAccepted = alreadyExited ? null : options.child.kill()')
@@ -4328,7 +4331,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('behavioral fixture proves the worker inherits none of them')
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
-    && decision.includes('final `worker.result` delivery fails')
+    && decision.includes('Every terminal path uses one final-result publisher')
+    && decision.includes('retains its prior terminal status')
     && decision.includes('native wrapper writes its own PID and start time marker')
     && decision.includes('requires that PID to match the exact spawned wrapper')
     && decision.includes('uninitialized wrapper root is never adopted from process-table parent or name fields')
@@ -4501,6 +4505,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.pre_spawn_abort_guard === 'passed-interrupted-no-wrapper-no-worker'
     && guard.deterministic_cases?.pre_spawn_identity_timeout_guard === 'passed-bounded-no-wrapper-no-worker-lookup-child-close-confirmed'
     && guard.deterministic_cases?.pre_spawn_identity_interrupt_guard === 'passed-bounded-no-wrapper-no-worker-lookup-child-close-confirmed'
+    && guard.deterministic_cases?.final_spawn_timeout_guard === 'passed-no-wrapper-no-worker-after-invocation-materialization'
+    && guard.deterministic_cases?.final_spawn_interrupt_guard === 'passed-no-wrapper-no-worker-after-invocation-materialization'
+    && guard.deterministic_cases?.spawn_failure_result_callback === 'passed-reclassified-event-dispatch-failed'
+    && guard.deterministic_cases?.wrapper_stop_failure_paths === 'passed-kill-rejection-and-close-timeout-exposed'
     && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
     && guard.deterministic_cases?.control_environment_isolation === 'passed-token-pid-filetime-absent-in-real-worker'
     && guard.deterministic_cases?.exact_wrapper_close_required === 'passed-actual-close-event-required-no-exit-state-shortcut'

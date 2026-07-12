@@ -529,6 +529,15 @@ export async function runManagedProcess(options) {
       }
     }
   };
+  const emitFinalResult = (result) => {
+    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+    if (eventFailureOutcome !== null && result.status !== 'event_dispatch_failed') {
+      result.terminal_status_before_event_failure = result.status;
+      result.status = 'event_dispatch_failed';
+      result.ok = false;
+    }
+    return result;
+  };
   const platformSupport = managedProcessPlatformSupport();
   if (!platformSupport.supported) {
     const result = {
@@ -572,8 +581,7 @@ export async function runManagedProcess(options) {
         errors: [],
       },
     };
-    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-    return result;
+    return emitFinalResult(result);
   }
   const timeoutDeadlineAt = Date.now() + options.timeoutMs;
   /** @type {NodeJS.Timeout | undefined} */
@@ -667,13 +675,7 @@ export async function runManagedProcess(options) {
     if (cleanupRequired && !cleanupVerified) {
       result.terminal_status_before_cleanup_failure = primaryStatus;
     }
-    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-    if (eventFailureOutcome !== null) {
-      result.terminal_status_before_event_failure = result.status;
-      result.status = 'event_dispatch_failed';
-      result.ok = false;
-    }
-    return result;
+    return emitFinalResult(result);
   };
 
   const initialPreSpawnGuard = elapsedGuardOutcome();
@@ -784,6 +786,8 @@ export async function runManagedProcess(options) {
     resolveIdentityReadiness();
   };
 
+  const finalSpawnGuard = elapsedGuardOutcome();
+  if (finalSpawnGuard !== null) return returnBeforeSpawn(finalSpawnGuard);
 
   const child = spawn(invocation.command, invocation.args, {
     cwd: invocation.cwd,
@@ -913,8 +917,7 @@ export async function runManagedProcess(options) {
         errors: [],
       },
     };
-    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-    return result;
+    return emitFinalResult(result);
   }
 
   const rootPid = child.pid;
@@ -1186,11 +1189,5 @@ export async function runManagedProcess(options) {
     containment,
     cleanup,
   };
-  emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-  if (eventFailureOutcome !== null && result.status !== 'event_dispatch_failed') {
-    result.terminal_status_before_event_failure = result.status;
-    result.status = 'event_dispatch_failed';
-    result.ok = false;
-  }
-  return result;
+  return emitFinalResult(result);
 }

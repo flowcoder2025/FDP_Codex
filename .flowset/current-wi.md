@@ -91,6 +91,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f5643-ccc9-7d70-9bbe-3cc13f1a99d8 inspected exact head cfc503e4f5fd23e2fd9aa27af81f070c691e87dc with fork_context: false and returned FAIL with one P2: pre-spawn timeout returned cleanup verified while the controller-identity PowerShell lookup child was still alive. The lookup is now tracked as an owned child, terminated through its exact ChildProcess handle, and awaited through its close event before a pre-spawn timeout or interruption result returns. Deterministic timeout and interruption cases confirm the lookup PID is gone, no wrapper or worker starts, and cleanup is truthful. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
 
+- Reviewer 019f565e-84d3-7561-8f56-412d05d31db9 inspected exact head b13dc495673e6cb27440df254fecc5799cc97d7e with fork_context: false and returned FAIL with P1 cancellation between the prior final guard and spawn, P2 spawn-failure final-result delivery not being reclassified, and P3 missing kill-rejection and close-timeout coverage. A new guard now runs immediately before spawn after invocation environment materialization; one shared final-result publisher reclassifies sink failure on every return path; deterministic cases cover environment-build timeout and interruption, spawn-failure result-sink failure, kill rejection, and close timeout. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

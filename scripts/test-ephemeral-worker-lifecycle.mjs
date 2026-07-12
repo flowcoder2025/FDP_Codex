@@ -159,6 +159,38 @@ async function runDelayedWrapperCloseCase() {
     elapsed_ms: elapsedMs,
   };
 }
+async function runWrapperStopFailureCases() {
+  const killRejected = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: null,
+      signalCode: null,
+      kill: () => false,
+    },
+    closePromise: new Promise((resolve) => setTimeout(resolve, 20)),
+    terminationGraceMs: 200,
+  });
+  assert.equal(killRejected.alreadyExited, false);
+  assert.equal(killRejected.killAccepted, false);
+  assert.equal(killRejected.wrapperClosed, true);
+
+  const closeTimedOut = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: null,
+      signalCode: null,
+      kill: () => true,
+    },
+    closePromise: new Promise(() => {}),
+    terminationGraceMs: 25,
+  });
+  assert.equal(closeTimedOut.alreadyExited, false);
+  assert.equal(closeTimedOut.killAccepted, true);
+  assert.equal(closeTimedOut.wrapperClosed, false);
+
+  return {
+    kill_rejection_exposed: true,
+    close_timeout_exposed: true,
+  };
+}
 function runBuiltinFanoutFlagCase() {
   const args = buildEphemeralWorkerArgs({
     argsPrefix: ['codex.js'],
@@ -476,6 +508,56 @@ async function runPreSpawnIdentityAbortCase() {
   }
 }
 
+/** @returns {NodeJS.ProcessEnv} */
+function delayedInvocationEnvironment(delayMs, onRead = null) {
+  /** @type {NodeJS.ProcessEnv} */
+  const env = {};
+  Object.defineProperty(env, 'FDP_TEST_DELAYED_ENV', {
+    enumerable: true,
+    get: () => {
+      busyWait(delayMs);
+      if (onRead) onRead();
+      return '1';
+    },
+  });
+  return env;
+}
+
+async function runFinalSpawnTimeoutGuardCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: delayedInvocationEnvironment(1500),
+    timeoutMs: 1000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return { status: result.status, wrapper_spawned: false, worker_executed: false };
+}
+
+async function runFinalSpawnAbortGuardCase() {
+  const events = [];
+  const abortController = new AbortController();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: delayedInvocationEnvironment(25, () => abortController.abort('during-invocation-build')),
+    timeoutMs: 5000,
+    signal: abortController.signal,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return { status: result.status, wrapper_spawned: false, worker_executed: false };
+}
 async function runControlEnvironmentIsolationCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -633,6 +715,28 @@ async function runThrowingResultCallbackCase() {
   return { ...result, previous_status: result.terminal_status_before_event_failure, final_result_failure_reclassified: true };
 }
 
+async function runSpawnFailureResultCallbackCase() {
+  const missingCwd = path.join(os.tmpdir(), 'fdp-codex-missing-spawn-cwd-' + process.pid + '-' + Date.now());
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    cwd: missingCwd,
+    timeoutMs: 5000,
+    onEvent: (event) => {
+      if (event.type === 'worker.result') throw new Error('spawn-failed-result-sink');
+    },
+  });
+  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.terminal_status_before_event_failure, 'spawn_failed');
+  assert.equal(result.ok, false);
+  assert(result.event_errors.includes('spawn-failed-result-sink'));
+  assert.equal(result.root_pid, null);
+  return {
+    status: result.status,
+    previous_status: result.terminal_status_before_event_failure,
+    final_result_failure_reclassified: true,
+  };
+}
 async function runSpoofedAtomicMarkerCase() {
   const spoofedPid = 424242;
   const events = [];
@@ -1134,6 +1238,7 @@ async function runFastParentExitCase() {
 
 const pidOnlySignalGuard = runPidOnlySignalGuardCase();
 const delayedWrapperClose = await runDelayedWrapperCloseCase();
+const wrapperStopFailures = await runWrapperStopFailureCases();
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
@@ -1141,12 +1246,15 @@ const windowsCases = process.platform === 'win32' ? {
   preSpawnAbort: await runPreSpawnAbortCase(),
   preSpawnTimeout: await runPreSpawnTimeoutCase(),
   preSpawnIdentityAbort: await runPreSpawnIdentityAbortCase(),
+  finalSpawnTimeout: await runFinalSpawnTimeoutGuardCase(),
+  finalSpawnAbort: await runFinalSpawnAbortGuardCase(),
   controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
   normal: await runNormalCase(),
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
   throwingResultCallback: await runThrowingResultCallbackCase(),
+  spawnFailureResultCallback: await runSpawnFailureResultCallbackCase(),
   spoofedAtomicMarker: await runSpoofedAtomicMarkerCase(),
   spoofedDrainWrapperKill: await runSpoofedDrainWrapperKillCase(),
   stdinEarlyExit: await runStdinEarlyExitCase(),
@@ -1172,6 +1280,7 @@ console.log(JSON.stringify({
   cases: {
     pid_only_signal_guard: pidOnlySignalGuard,
     delayed_wrapper_close: delayedWrapperClose,
+    wrapper_stop_failures: wrapperStopFailures,
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
     temporal_identity: temporalIdentity,
@@ -1183,6 +1292,8 @@ console.log(JSON.stringify({
       pre_spawn_abort: windowsCases.preSpawnAbort,
       pre_spawn_timeout: windowsCases.preSpawnTimeout,
       pre_spawn_identity_abort: windowsCases.preSpawnIdentityAbort,
+      final_spawn_timeout: windowsCases.finalSpawnTimeout,
+      final_spawn_abort: windowsCases.finalSpawnAbort,
       control_environment_isolation: windowsCases.controlEnvironmentIsolation,
       normal: {
         status: windowsCases.normal.status,
@@ -1222,6 +1333,7 @@ console.log(JSON.stringify({
         final_result_failure_reclassified: windowsCases.throwingResultCallback.final_result_failure_reclassified,
         event_error_count: windowsCases.throwingResultCallback.event_errors.length,
       },
+      spawn_failure_result_callback: windowsCases.spawnFailureResultCallback,
       spoofed_atomic_marker: {
         status: windowsCases.spoofedAtomicMarker.status,
         spoofed_marker_ignored: windowsCases.spoofedAtomicMarker.spoofed_marker_ignored,

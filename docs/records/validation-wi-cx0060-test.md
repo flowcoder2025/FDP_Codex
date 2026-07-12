@@ -144,6 +144,9 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 - Reviewer 019f5643-ccc9-7d70-9bbe-3cc13f1a99d8 inspected exact head cfc503e4f5fd23e2fd9aa27af81f070c691e87dc with fork_context: false and returned FAIL with one P2: timeout could win during controller identity lookup, return cleanup verified, and leave the PowerShell lookup child alive until its independent delay expired.
 - The remediation owns the lookup ChildProcess, terminates it when timeout or interruption wins, waits for the actual close event, and includes its PID and terminal cleanup classification in the structured pre-spawn result. Deterministic delayed-lookup timeout and interruption regressions both return in about 110 ms, confirm the lookup PID is gone, and create no wrapper or worker. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
 
+- Reviewer 019f565e-84d3-7561-8f56-412d05d31db9 inspected exact head b13dc495673e6cb27440df254fecc5799cc97d7e with fork_context: false and returned FAIL: P1 timeout or interruption during invocation environment materialization could occur after the prior final guard and still create a wrapper; P2 spawn-failure final-result sink failure remained spawn_failed; P3 kill rejection and close timeout lacked direct coverage.
+- The remediation performs another synchronous guard check immediately before spawn after environment materialization and handler preparation, centralizes final-result emission and reclassification for every terminal path, and adds deterministic environment-build timeout/interruption, spawn-failure sink, kill-rejection, and close-timeout cases. Typecheck and the full worker lifecycle suite pass; fresh exact-head review remains.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.
