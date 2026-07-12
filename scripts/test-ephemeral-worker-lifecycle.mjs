@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,15 +21,19 @@ const windowsJobRunnerPath = fileURLToPath(new URL('./windows-job-runner.ps1', i
 const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
 
-async function runControllerWatchdogHelper() {
+async function runControllerWatchdogHelper(preAcquire = false, markerPath = null) {
   await runManagedProcess({
     command: process.execPath,
-    args: [fixturePath, 'root'],
+    args: preAcquire ? [fixturePath, 'write-marker', markerPath] : [fixturePath, 'root'],
+    env: preAcquire ? {
+      NODE_ENV: 'test',
+      FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS: '1000',
+    } : undefined,
     timeoutMs: 30000,
     pollIntervalMs: 100,
     onEvent: (event) => {
-      if (event.type === 'worker.started' || event.type === 'worker.atomic_child') {
-        process.stdout.write(`${JSON.stringify(event)}\n`);
+      if (['worker.started', 'worker.root_identity', 'worker.atomic_child'].includes(event.type)) {
+        process.stdout.write(JSON.stringify(event) + '\n');
       }
     },
   });
@@ -37,6 +41,10 @@ async function runControllerWatchdogHelper() {
 
 if (process.argv[2] === '--controller-watchdog-helper') {
   await runControllerWatchdogHelper();
+  process.exit(0);
+}
+if (process.argv[2] === '--controller-pre-acquire-helper') {
+  await runControllerWatchdogHelper(true, process.argv[3]);
   process.exit(0);
 }
 
@@ -347,6 +355,96 @@ function runTemporalIdentityCase() {
   };
 }
 
+function assertNoWorkerSpawnEvents(events) {
+  const forbidden = new Set([
+    'worker.started',
+    'worker.root_identity',
+    'worker.atomic_child',
+    'worker.stdout',
+    'worker.stderr',
+  ]);
+  assert.deepEqual(events.filter((event) => forbidden.has(event.type)), []);
+}
+
+async function runPreSpawnAbortCase() {
+  const events = [];
+  const abortController = new AbortController();
+  abortController.abort('already-aborted');
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 5000,
+    signal: abortController.signal,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+  assert.equal(result.interrupted, true);
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return {
+    status: result.status,
+    wrapper_spawned: false,
+    worker_executed: false,
+  };
+}
+
+async function runPreSpawnTimeoutCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDelay = process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = '1000';
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 100,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+    assert.equal(result.timed_out, true);
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.verified, true);
+    assert(elapsedMs < 750, 'controller identity query was not bounded by the timeout guard');
+    assertNoWorkerSpawnEvents(events);
+    return {
+      status: result.status,
+      elapsed_ms: elapsedMs,
+      wrapper_spawned: false,
+      worker_executed: false,
+    };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDelay === undefined) delete process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+    else process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = previousDelay;
+  }
+}
+
+async function runControlEnvironmentIsolationCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'assert-control-env-absent'],
+    timeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'assert-control-env-absent');
+  assert(fixtureEvent);
+  assert.deepEqual(fixtureEvent.payload.inherited, []);
+  return {
+    status: result.status,
+    control_environment_inherited: false,
+  };
+}
 async function runNormalCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -633,6 +731,61 @@ async function runOrphanContainmentCase() {
   return result;
 }
 
+async function runControllerPreAcquireDeathCase() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-controller-pre-acquire-'));
+  const markerPath = path.join(tempRoot, 'worker-executed.txt');
+  let controller = null;
+  try {
+    controller = spawn(process.execPath, [
+      testScriptPath,
+      '--controller-pre-acquire-helper',
+      markerPath,
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let buffered = '';
+    let wrapperPid = null;
+    const rootIdentityReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('pre-acquire helper did not emit root identity')), 10000);
+      controller.stdout.on('data', (chunk) => {
+        buffered += String(chunk);
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line) continue;
+          const event = JSON.parse(line);
+          if (event.type === 'worker.root_identity') wrapperPid = event.pid;
+        }
+        if (Number.isInteger(wrapperPid)) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      controller.once('error', reject);
+    });
+    await rootIdentityReady;
+    assert.equal(controller.kill(), true);
+    await new Promise((resolve) => controller.once('close', resolve));
+    const deadline = Date.now() + 5000;
+    while (isProcessAlive(wrapperPid) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.equal(isProcessAlive(wrapperPid), false);
+    assert.equal(existsSync(markerPath), false, 'worker executed before controller identity acquisition');
+    return {
+      controller_terminated_before_watchdog: true,
+      wrapper_gone: true,
+      worker_executed: false,
+    };
+  } finally {
+    if (controller && controller.exitCode === null && controller.signalCode === null) {
+      controller.kill();
+    }
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
 async function runControllerDeathWatchdogCase() {
   const controller = spawn(process.execPath, [testScriptPath, '--controller-watchdog-helper'], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -935,6 +1088,9 @@ const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
+  preSpawnAbort: await runPreSpawnAbortCase(),
+  preSpawnTimeout: await runPreSpawnTimeoutCase(),
+  controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
   normal: await runNormalCase(),
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
@@ -946,6 +1102,7 @@ const windowsCases = process.platform === 'win32' ? {
   stdinTimeout: await runStdinTimeoutCase(),
   interruption: await runInterruptionCase(),
   orphanContainment: await runOrphanContainmentCase(),
+  controllerPreAcquireDeath: await runControllerPreAcquireDeathCase(),
   controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
   controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
   cliTimeoutExit: await runCliPrimaryExitCase(124),
@@ -972,6 +1129,9 @@ console.log(JSON.stringify({
       containment_mode: unsupportedPlatform.containment.mode,
     },
     windows_lifecycle: windowsCases && {
+      pre_spawn_abort: windowsCases.preSpawnAbort,
+      pre_spawn_timeout: windowsCases.preSpawnTimeout,
+      control_environment_isolation: windowsCases.controlEnvironmentIsolation,
       normal: {
         status: windowsCases.normal.status,
         stdout_line_count: windowsCases.normal.stdout_line_count,
@@ -1050,6 +1210,7 @@ console.log(JSON.stringify({
         containment_mode: windowsCases.orphanContainment.containment.mode,
         containment_verified: windowsCases.orphanContainment.containment.verified,
       },
+      controller_pre_acquire_death: windowsCases.controllerPreAcquireDeath,
       controller_death_watchdog: {
         controller_terminated: windowsCases.controllerDeathWatchdog.controller_terminated,
         wrapper_gone: windowsCases.controllerDeathWatchdog.wrapper_gone,

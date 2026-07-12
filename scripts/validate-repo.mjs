@@ -3945,6 +3945,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('FDP_JOB_CONTROLLER_PID: String(process.pid)')
     && managedProcess.includes('FDP_JOB_CONTROLLER_START_FILETIME: controllerStartFileTime')
     && managedProcess.includes('readWindowsControllerStartFileTime(process.pid)')
+    && managedProcess.includes('const controllerIdentityOutcome = await Promise.race([')
+    && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('return returnBeforeSpawn(controllerIdentityOutcome)')
+    && managedProcess.includes('root_pid: null')
+    && managedProcess.indexOf('const finalPreSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.indexOf('const timeoutDeadlineAt = Date.now() + options.timeoutMs') < managedProcess.indexOf('readWindowsControllerStartFileTime(process.pid)')
     && managedProcess.includes('export async function stopExactWrapperForCleanup(options)')
     && managedProcess.includes('const killAccepted = alreadyExited ? null : options.child.kill()')
@@ -4042,6 +4048,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('controller.StartTime.ToFileTimeUtc() != controllerStartFileTime')
     && windowsJobRunner.includes('Controller identity mismatch.')
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)")
+    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)")
     && windowsJobRunner.includes('WaitForSingleObject(controllerHandle, UInt32.MaxValue)')
     && windowsJobRunner.includes('Environment.Exit(126)')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken')
@@ -4093,7 +4100,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.temporal_identity?.startless_descendant_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
     && (process.platform === 'win32'
-      ? (testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
+      ? (testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.elapsed_ms < 750
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.control_environment_isolation?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.control_environment_isolation?.control_environment_inherited === false
+        && testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.normal?.stdout_line_count === 1
         && testResult?.cases?.windows_lifecycle?.normal?.stderr_line_count === 1
         && testResult?.cases?.windows_lifecycle?.timeout?.status === 'timed_out'
@@ -4145,6 +4161,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.interruption?.atomic_identity_before_observation === true
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
         && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.controller_terminated_before_watchdog === true
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.wrapper_gone === true
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.worker_executed === false
         && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.controller_terminated === true
         && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.wrapper_gone === true
         && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.atomic_child_gone === true
@@ -4207,9 +4226,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runControllerDeathWatchdogCase()')
     && lifecycleTest.includes("'--controller-watchdog-helper'")
     && lifecycleTest.includes('function runDelayedWrapperCloseCase()')
+    && lifecycleTest.includes('function runPreSpawnAbortCase()')
+    && lifecycleTest.includes('function runPreSpawnTimeoutCase()')
+    && lifecycleTest.includes('function runControlEnvironmentIsolationCase()')
+    && lifecycleTest.includes('function runControllerPreAcquireDeathCase()')
     && lifecycleTest.includes('function runCliPrimaryExitCase(expectedExitCode')
     && lifecycleTest.includes('await runCliPrimaryExitCase(124)')
     && lifecycleTest.includes('await runCliPrimaryExitCase(130, 750)')
+    && fixture.includes("mode === 'assert-control-env-absent'")
+    && fixture.includes("mode === 'write-marker'")
     && lifecycleTest.includes("fixturePath, 'spoof-drain-kill-wrapper'")
     && lifecycleTest.includes('function runStdinEarlyExitCase()')
     && lifecycleTest.includes('function runStdinTimeoutCase()')
@@ -4255,7 +4280,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('no supervisor acknowledgement is required for resume')
     && autonomy.includes('accepts only the first atomic-child marker')
     && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
-    && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before spawn')
+    && autonomy.includes('absolute timeout deadline and interrupt listener must be armed before controller identity lookup')
+    && autonomy.includes('identity lookup must race those guards')
+    && autonomy.includes('returns without creating a wrapper or worker')
+    && autonomy.includes('Behavioral validation must prove the worker inherits none of them')
     && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
     && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
     && autonomy.includes('final `worker.result` sink itself fails')
@@ -4292,7 +4320,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('without waiting for a supervisor acknowledgement')
     && decision.includes('accepts and locks only that first marker')
     && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
-    && decision.includes('absolute timeout deadline and interrupt listener are armed before spawn')
+    && decision.includes('absolute timeout deadline and interrupt listener are armed before controller identity lookup')
+    && decision.includes('identity lookup races those guards')
+    && decision.includes('returns without creating a wrapper or worker')
+    && decision.includes('behavioral fixture proves the worker inherits none of them')
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
     && decision.includes('final `worker.result` delivery fails')
@@ -4326,14 +4357,17 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('requires both values to match the process it opens')
     && spec.includes('retains that exact handle')
     && spec.includes('records `controller_watchdog_armed` and `wrapper_closed`')
-    && spec.includes('controller-process hard kill with wrapper and worker confirmed gone')
+    && spec.includes('controller death before watchdog acquisition with no worker side effect')
+    && spec.includes('controller-process hard kill after watchdog acquisition with wrapper and worker confirmed gone')
     && spec.includes('124 when timeout was the primary guard')
     && spec.includes('keeps 124 or 130 even when its detailed status is `cleanup_failed`')
     && spec.includes('every other observed descendant must appear exactly once')
     && spec.includes('Never signal an observed descendant by PID')
     && spec.includes('exact wrapper-handle stop and Job-handle close own termination')
     && spec.includes('unknown_after_cleanup')
-    && spec.includes('absolute timeout deadline and interrupt listener are armed before spawn')
+    && spec.includes('identity lookup races the already-armed timeout and interruption guards')
+    && spec.includes('creates no wrapper or worker')
+    && spec.includes('behavioral fixture verifies that the real worker inherits none of them')
     && spec.includes('prompt is required on stdin')
     && spec.includes('danger-full-access` is not accepted')
     && spec.includes('worker.result')
@@ -4462,6 +4496,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.deterministic_cases?.forged_drain_wrapper_kill === 'passed-unverified-containment-false'
     && guard.deterministic_cases?.controller_death_watchdog === 'passed-wrapper-and-atomic-child-confirmed-gone'
     && guard.deterministic_cases?.controller_identity_binding === 'passed-pid-and-creation-filetime-mismatch-rejected-before-worker-creation'
+    && guard.deterministic_cases?.pre_spawn_abort_guard === 'passed-interrupted-no-wrapper-no-worker'
+    && guard.deterministic_cases?.pre_spawn_identity_timeout_guard === 'passed-bounded-no-wrapper-no-worker'
+    && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
+    && guard.deterministic_cases?.control_environment_isolation === 'passed-token-pid-filetime-absent-in-real-worker'
     && guard.deterministic_cases?.exact_wrapper_close_required === 'passed-actual-close-event-required-no-exit-state-shortcut'
     && guard.deterministic_cases?.timeout_exit_classification === 'passed-real-cli-cleanup-failed-timeout-124-interruption-130'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
@@ -4493,6 +4531,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.severity === 'High'
     && reusedParentKi.owner === 'CODEX'
     && reusedParentKi.github_issue_number === 64
+    && reusedParentKi.trigger.includes('execute a worker after timeout or interruption already won before spawn')
     && reusedParentKi.trigger.includes('leave the wrapper and worker alive after controller death')
     && reusedParentKi.trigger.includes('bind the watchdog to a reused controller PID before handle acquisition')
     && reusedParentKi.trigger.includes('actual wrapper close event')
@@ -4511,6 +4550,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reusedParentKi.trigger.includes('signal an unrelated process after PID reuse between identity classification and termination')
     && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
     && reusedParentKi.trigger.includes('newly discovered descendant whose start time is unavailable')
+    && reusedParentKi.repayment_condition.includes('timeout or interruption that wins before spawn creates no wrapper or worker')
+    && reusedParentKi.repayment_condition.includes('controller death before watchdog acquisition creates no worker side effect')
+    && reusedParentKi.repayment_condition.includes('real worker inherits no control token, controller PID, or controller creation FILETIME')
     && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
     && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
     && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')

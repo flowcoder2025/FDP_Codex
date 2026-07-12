@@ -72,8 +72,14 @@ function buildSpawnInvocation(options, controlToken, controllerStartFileTime) {
 async function readWindowsControllerStartFileTime(pid) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const testDelayMs = process.env.NODE_ENV === 'test'
+    ? Number.parseInt(process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS || '', 10)
+    : Number.NaN;
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    ...(Number.isInteger(testDelayMs) && testDelayMs > 0
+      ? ['Start-Sleep -Milliseconds ' + testDelayMs]
+      : []),
     '$process = Get-Process -Id ' + pid,
     "$process.StartTime.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture)",
   ].join('; ');
@@ -560,9 +566,90 @@ export async function runManagedProcess(options) {
   const observationErrors = new Set();
   let observationSucceeded = false;
   let identityObservationIncomplete = false;
+  const returnBeforeSpawn = (outcome) => {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (removeAbortListener) removeAbortListener();
+    const timedOut = outcome.kind === 'timeout';
+    const interrupted = outcome.kind === 'interrupted';
+    emit({
+      type: timedOut ? 'worker.timeout' : 'worker.interrupted',
+      timestamp: new Date().toISOString(),
+      root_pid: null,
+      ...(timedOut ? { timeout_ms: options.timeoutMs } : {}),
+    });
+    const result = {
+      schema_version: 1,
+      kind: 'managed-worker-result',
+      status: timedOut ? 'timed_out' : 'interrupted',
+      ok: false,
+      root_pid: null,
+      observed_descendant_pids: [],
+      timed_out: timedOut,
+      interrupted,
+      exit_code: null,
+      signal: null,
+      stdout_line_count: 0,
+      stderr_line_count: 0,
+      event_errors: eventErrors,
+      stdin_errors: stdinErrors,
+      observation_verified: false,
+      observation_errors: [],
+      containment: {
+        mode: platformSupport.mode,
+        assigned: false,
+        drained: false,
+        verified: false,
+        controller_watchdog_armed: false,
+        wrapper_closed: false,
+        root_started_at: null,
+        atomic_child_pid: null,
+        atomic_child_started_at: null,
+        errors: [],
+      },
+      cleanup: {
+        required: false,
+        reason: null,
+        requested_pids: [],
+        confirmed_gone_pids: [],
+        identity_mismatch_pids: [],
+        alive_after_cleanup: [],
+        unknown_after_cleanup: [],
+        verified: true,
+        errors: [],
+      },
+    };
+    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+    if (eventFailureOutcome !== null) {
+      result.terminal_status_before_event_failure = result.status;
+      result.status = 'event_dispatch_failed';
+      result.ok = false;
+    }
+    return result;
+  };
+
+  const initialPreSpawnGuard = elapsedGuardOutcome();
+  if (initialPreSpawnGuard !== null) return returnBeforeSpawn(initialPreSpawnGuard);
+  const controllerIdentityOutcome = await Promise.race([
+    readWindowsControllerStartFileTime(process.pid).then(
+      (value) => ({ kind: 'controller-identity', value }),
+      (error) => ({ kind: 'controller-identity-failed', error }),
+    ),
+    timeoutPromise,
+    abortPromise,
+  ]);
+  if (controllerIdentityOutcome.kind === 'timeout' || controllerIdentityOutcome.kind === 'interrupted') {
+    return returnBeforeSpawn(controllerIdentityOutcome);
+  }
+  if (controllerIdentityOutcome.kind === 'controller-identity-failed') {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (removeAbortListener) removeAbortListener();
+    throw controllerIdentityOutcome.error;
+  }
+  const finalPreSpawnGuard = elapsedGuardOutcome();
+  if (finalPreSpawnGuard !== null) return returnBeforeSpawn(finalPreSpawnGuard);
+
   const controlToken = randomBytes(32).toString('hex');
-  const controllerStartFileTime = await readWindowsControllerStartFileTime(process.pid);
-  const invocation = buildSpawnInvocation(options, controlToken, controllerStartFileTime);
+  const invocation = buildSpawnInvocation(options, controlToken, controllerIdentityOutcome.value);
   const containment = {
     mode: invocation.containmentMode,
     assigned: false,

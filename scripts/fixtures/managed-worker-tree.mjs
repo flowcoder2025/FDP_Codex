@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const mode = process.argv[2] || 'complete';
@@ -21,6 +22,18 @@ if (mode === 'complete') {
     setInterval(() => {}, 1000);
   }, 50);
 } else if (mode === 'exit-immediately') {
+  process.exit(0);
+} else if (mode === 'assert-control-env-absent') {
+  const names = [
+    'FDP_JOB_CONTROL_TOKEN',
+    'FDP_JOB_CONTROLLER_PID',
+    'FDP_JOB_CONTROLLER_START_FILETIME',
+  ];
+  const inherited = names.filter((name) => process.env[name] !== undefined);
+  process.stdout.write(JSON.stringify({ fixture: 'assert-control-env-absent', inherited }) + '\n');
+  process.exit(inherited.length === 0 ? 0 : 3);
+} else if (mode === 'write-marker') {
+  writeFileSync(process.argv[3], 'worker-executed', 'utf8');
   process.exit(0);
 } else if (mode === 'root') {
   process.title = 'managed-worker-root';

@@ -248,7 +248,7 @@ public static class FdpWindowsJobRunner
         return false;
     }
 
-    public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, long controllerStartFileTime, string controlToken)
+    public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, long controllerStartFileTime, int controllerAcquireDelayMs, string controlToken)
     {
         int wrapperProcessId;
         using (var wrapper = Process.GetCurrentProcess())
@@ -256,6 +256,11 @@ public static class FdpWindowsJobRunner
             wrapperProcessId = wrapper.Id;
             Console.Error.WriteLine(
                 "FDP_JOB_RUNNER_ROOT:" + controlToken + "|" + wrapper.Id + "|" + wrapper.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'"));
+        }
+
+        if (controllerAcquireDelayMs > 0)
+        {
+            Thread.Sleep(controllerAcquireDelayMs);
         }
 
         if (controllerPid <= 0 || controllerPid == wrapperProcessId)
@@ -438,9 +443,11 @@ public static class FdpWindowsJobRunner
 $controlToken = [string]$env:FDP_JOB_CONTROL_TOKEN
 $controllerPidText = [string]$env:FDP_JOB_CONTROLLER_PID
 $controllerStartFileTimeText = [string]$env:FDP_JOB_CONTROLLER_START_FILETIME
+$controllerAcquireDelayText = [string]$env:FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)
 [Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)
 
 try {
     if ($controlToken -notmatch '^[a-f0-9]{64}$') {
@@ -453,6 +460,10 @@ try {
     $controllerStartFileTime = 0L
     if (-not [long]::TryParse($controllerStartFileTimeText, [ref]$controllerStartFileTime) -or $controllerStartFileTime -le 0) {
         throw 'Missing or invalid FDP Job controller start FILETIME.'
+    }
+    $controllerAcquireDelayMs = 0
+    if ($env:NODE_ENV -eq 'test' -and $controllerAcquireDelayText -match '^[1-9][0-9]{0,4}$') {
+        $controllerAcquireDelayMs = [int]$controllerAcquireDelayText
     }
     Add-Type -TypeDefinition $source -Language CSharp
     $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FDP_JOB_ARGS_B64))
@@ -467,6 +478,7 @@ try {
         $env:FDP_JOB_CWD,
         [int]$controllerPid,
         [long]$controllerStartFileTime,
+        [int]$controllerAcquireDelayMs,
         $controlToken
     )
     exit [int]$exitCode
