@@ -11,6 +11,7 @@ import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-in
 import {
   classifyControllerIdentityLookupCleanup,
   classifyProcessIdentity,
+  listProcessTable,
   managedProcessPlatformSupport,
   mergeObservedTree,
   runManagedProcess,
@@ -65,21 +66,79 @@ function runPidOnlySignalGuardCase() {
   return { direct_pid_signaling: false, termination_owner: 'exact-wrapper-handle-and-job-object' };
 }
 
-function isProcessAlive(pid) {
+function delay(timeoutMs) {
+  return new Promise((resolve) => setTimeout(resolve, timeoutMs));
+}
+
+async function listProcessTableForAssertion(deadlineAt) {
+  const injectionNames = [
+    'FDP_JOB_TEST_OBSERVATION_DELAY_MS',
+    'FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE',
+    'FDP_WORKER_TEST_IDENTITY_EXEC_THROW',
+    'FDP_WORKER_TEST_IDENTITY_RESULT_REJECT',
+  ];
+  const saved = new Map(injectionNames.map((name) => [name, process.env[name]]));
+  for (const name of injectionNames) delete process.env[name];
   try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'EPERM');
+    return await listProcessTable({ deadlineAt });
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 }
 
-async function waitForProcessGone(pid, timeoutMs = 3000) {
-  const deadline = Date.now() + timeoutMs;
-  while (isProcessAlive(pid) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 25));
+async function waitForProcessIdentity(pid, timeoutMs = 3000) {
+  const deadlineAt = Date.now() + timeoutMs;
+  while (Date.now() < deadlineAt) {
+    const table = await listProcessTableForAssertion(deadlineAt);
+    const current = table.find((entry) => entry.pid === pid);
+    if (current?.started_at) return current;
+    await delay(25);
   }
-  return !isProcessAlive(pid);
+  throw new Error('process identity was not observable for pid ' + pid);
+}
+
+async function assertProcessIdentitiesGone(expected, timeoutMs = 5000) {
+  const identities = expected.filter(Boolean);
+  const deadlineAt = Date.now() + timeoutMs;
+  let states = [];
+  do {
+    const table = await listProcessTableForAssertion(deadlineAt);
+    states = identities.map((identity) => {
+      assert(Number.isInteger(identity.pid) && identity.pid > 0);
+      assert.equal(typeof identity.started_at, 'string');
+      const current = table.find((entry) => entry.pid === identity.pid);
+      if (!current) return { pid: identity.pid, state: 'gone' };
+      return {
+        pid: identity.pid,
+        state: classifyProcessIdentity(identity, current),
+        expected_started_at: identity.started_at,
+        current_started_at: current.started_at,
+      };
+    });
+    if (states.every((entry) => ['gone', 'mismatch'].includes(entry.state))) return states;
+    await delay(25);
+  } while (Date.now() < deadlineAt);
+  assert.fail('managed process identities remain or are unknown: ' + JSON.stringify(states));
+}
+
+async function assertManagedResultIdentitiesGone(result, timeoutMs = 5000) {
+  const identities = [];
+  if (result.root_pid !== null) {
+    identities.push({
+      pid: result.root_pid,
+      started_at: result.containment.root_started_at,
+    });
+  }
+  if (result.containment.atomic_child_pid !== null) {
+    identities.push({
+      pid: result.containment.atomic_child_pid,
+      started_at: result.containment.atomic_child_started_at,
+    });
+  }
+  return assertProcessIdentitiesGone(identities, timeoutMs);
 }
 
 async function waitForFile(filePath, timeoutMs = 3000) {
@@ -683,7 +742,6 @@ async function runPreSpawnTimeoutCase() {
     assert.equal(result.cleanup.requested_pids.length, 1);
     assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
     assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
-    assert.equal(isProcessAlive(result.cleanup.requested_pids[0]), false);
     assert(elapsedMs < 750, 'controller identity query was not bounded by the timeout guard');
     assertNoWorkerSpawnEvents(events);
     return {
@@ -727,7 +785,6 @@ async function runPreSpawnIdentityAbortCase() {
     assert.equal(result.cleanup.requested_pids.length, 1);
     assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
     assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
-    assert.equal(isProcessAlive(result.cleanup.requested_pids[0]), false);
     assert(elapsedMs < 750, 'controller identity query was not cancelled after interruption');
     assertNoWorkerSpawnEvents(events);
     return {
@@ -863,7 +920,10 @@ async function runPrebuiltSetupBoundaryCase() {
     assert.equal(result.containment.atomic_child_pid, null);
     assert.deepEqual(result.observed_descendant_pids, []);
     assert.equal(existsSync(workerMarkerPath), false, 'worker executed during stalled pre-run setup');
-    assert.equal(await waitForProcessGone(verifiedWrapperPid), true);
+    await assertProcessIdentitiesGone([{
+      pid: verifiedWrapperPid,
+      started_at: directChildObservation.parent_started_at,
+    }]);
     const classified = [
       ...result.cleanup.confirmed_gone_pids,
       ...result.cleanup.identity_mismatch_pids,
@@ -1033,8 +1093,7 @@ async function runStartedCallbackDeadlineCase() {
   assert.equal(result.timed_out, true);
   assert.equal(result.ok, false);
   assert(elapsedMs >= 1500 && elapsedMs < 5000);
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  await assertManagedResultIdentitiesGone(result);
   const cleanupPartitionVerified = assertObservedCleanupPartition(result);
   return {
     ...result,
@@ -1070,8 +1129,7 @@ async function runThrowingStartedCallbackCase() {
   assert.equal(result.cleanup.verified, true);
   assert(result.event_errors.includes('intentional event sink failure'));
   assert.equal(atomicChildPid, result.containment.atomic_child_pid);
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(atomicChildPid), false);
+  await assertManagedResultIdentitiesGone(result);
   const cleanupPartitionVerified = assertObservedCleanupPartition(result);
   return {
     ...result,
@@ -1105,8 +1163,7 @@ async function runFinalResultCallbackIsolationCase() {
   assert(elapsedMs < 5000, `managed result returned after deadline: ${elapsedMs}ms`);
   assert.equal(result.containment.verified, true);
   assert.equal(result.cleanup.required, false);
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  await assertManagedResultIdentitiesGone(result);
   return {
     status: result.status,
     terminal_callback_invoked: false,
@@ -1163,8 +1220,7 @@ async function runSpoofedAtomicMarkerCase() {
   assert.deepEqual(result.containment.errors, []);
   assert(events.some((event) => event.type === 'worker.stderr'
     && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  await assertManagedResultIdentitiesGone(result);
   return { ...result, spoofed_marker_ignored: true };
 }
 
@@ -1186,8 +1242,7 @@ async function runSpoofedDrainWrapperKillCase() {
   assert.equal(result.containment.verified, false);
   assert(events.some((event) => event.type === 'worker.stderr'
     && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
-  assert.equal(isProcessAlive(result.root_pid), false);
-  assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+  await assertManagedResultIdentitiesGone(result);
   return { ...result, forged_drain_ignored: true };
 }
 
@@ -1207,10 +1262,7 @@ async function runStdinEarlyExitCase() {
   assert.equal(result.cleanup.required, true);
   assert.equal(result.cleanup.reason, 'stdin-failed');
   assert.equal(result.cleanup.verified, true);
-  assert.equal(isProcessAlive(result.root_pid), false);
-  if (result.containment.atomic_child_pid !== null) {
-    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
-  }
+  await assertManagedResultIdentitiesGone(result);
   const cleanupPartitionVerified = assertObservedCleanupPartition(result);
   return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
 }
@@ -1235,8 +1287,7 @@ async function runStdinTimeoutCase() {
     assert(result.stdin_errors.includes('test stdin failure after timeout selection'));
     assert.equal(result.cleanup.required, true);
     assert.equal(result.cleanup.verified, true);
-    assert.equal(isProcessAlive(result.root_pid), false);
-    assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
+    await assertManagedResultIdentitiesGone(result);
     const cleanupPartitionVerified = assertObservedCleanupPartition(result);
     return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
   } finally {
@@ -1281,6 +1332,7 @@ async function runInterruptionCase() {
 
 async function runOrphanContainmentCase() {
   const events = [];
+  let orphanIdentityPromise = null;
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'orphan-root'],
@@ -1288,7 +1340,16 @@ async function runOrphanContainmentCase() {
     pollIntervalMs: 100,
     terminationGraceMs: 100,
     verificationTimeoutMs: 5000,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      events.push(event);
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && payload && typeof payload === 'object'
+        && 'fixture' in payload && payload.fixture === 'orphan-root'
+        && 'child_pid' in payload && Number.isInteger(payload.child_pid)) {
+        orphanIdentityPromise = waitForProcessIdentity(Number(payload.child_pid));
+      }
+    },
   });
   assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, false);
@@ -1299,7 +1360,8 @@ async function runOrphanContainmentCase() {
   const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
     && event.payload?.fixture === 'orphan-root');
   assert(fixtureEvent?.payload?.child_pid);
-  assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
+  assert(orphanIdentityPromise);
+  await assertProcessIdentitiesGone([await orphanIdentityPromise]);
   return result;
 }
 
@@ -1317,7 +1379,8 @@ async function runControllerPreAcquireDeathCase() {
       windowsHide: true,
     });
     let buffered = '';
-    let wrapperPid = null;
+    /** @type {{pid: number, started_at: string} | null} */
+    let wrapperIdentity = null;
     const rootIdentityReady = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('pre-acquire helper did not emit root identity')), 10000);
       controller.stdout.on('data', (chunk) => {
@@ -1327,9 +1390,11 @@ async function runControllerPreAcquireDeathCase() {
         for (const line of lines) {
           if (!line) continue;
           const event = JSON.parse(line);
-          if (event.type === 'worker.root_identity') wrapperPid = event.pid;
+          if (event.type === 'worker.root_identity') {
+            wrapperIdentity = { pid: event.pid, started_at: event.started_at };
+          }
         }
-        if (Number.isInteger(wrapperPid)) {
+        if (Number.isInteger(wrapperIdentity?.pid) && wrapperIdentity.started_at) {
           clearTimeout(timer);
           resolve();
         }
@@ -1339,12 +1404,7 @@ async function runControllerPreAcquireDeathCase() {
     await rootIdentityReady;
     assert.equal(controller.kill(), true);
     await new Promise((resolve) => controller.once('close', resolve));
-    const deadline = Date.now() + 5000;
-    while (isProcessAlive(wrapperPid) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    assert.equal(isProcessAlive(wrapperPid), false);
+    await assertProcessIdentitiesGone([wrapperIdentity]);
     assert.equal(existsSync(markerPath), false, 'worker executed before controller identity acquisition');
     return {
       controller_terminated_before_watchdog: true,
@@ -1364,8 +1424,10 @@ async function runControllerDeathWatchdogCase() {
     windowsHide: true,
   });
   let buffered = '';
-  let wrapperPid = null;
-  let atomicChildPid = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let wrapperIdentity = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let atomicChildIdentity = null;
   const identitiesReady = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('controller watchdog helper did not emit identities')), 10000);
     controller.stdout.on('data', (chunk) => {
@@ -1375,10 +1437,17 @@ async function runControllerDeathWatchdogCase() {
       for (const line of lines) {
         if (!line) continue;
         const event = JSON.parse(line);
-        if (event.type === 'worker.started') wrapperPid = event.root_pid;
-        if (event.type === 'worker.atomic_child') atomicChildPid = event.pid;
+        if (event.type === 'worker.root_identity') {
+          wrapperIdentity = { pid: event.pid, started_at: event.started_at };
+        }
+        if (event.type === 'worker.atomic_child') {
+          atomicChildIdentity = { pid: event.pid, started_at: event.started_at };
+        }
       }
-      if (Number.isInteger(wrapperPid) && Number.isInteger(atomicChildPid)) {
+      if (Number.isInteger(wrapperIdentity?.pid)
+        && wrapperIdentity.started_at
+        && Number.isInteger(atomicChildIdentity?.pid)
+        && atomicChildIdentity.started_at) {
         clearTimeout(timer);
         resolve();
       }
@@ -1386,18 +1455,17 @@ async function runControllerDeathWatchdogCase() {
     controller.once('error', reject);
   });
   await identitiesReady;
+  assert(wrapperIdentity);
+  assert(atomicChildIdentity);
+  const confirmedWrapperIdentity = wrapperIdentity;
+  const confirmedAtomicChildIdentity = atomicChildIdentity;
   assert.equal(controller.kill(), true);
   await new Promise((resolve) => controller.once('close', resolve));
-  const deadline = Date.now() + 5000;
-  while ((isProcessAlive(wrapperPid) || isProcessAlive(atomicChildPid)) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  assert.equal(isProcessAlive(wrapperPid), false);
-  assert.equal(isProcessAlive(atomicChildPid), false);
+  await assertProcessIdentitiesGone([confirmedWrapperIdentity, confirmedAtomicChildIdentity]);
   return {
     controller_terminated: true,
-    wrapper_pid: wrapperPid,
-    atomic_child_pid: atomicChildPid,
+    wrapper_pid: confirmedWrapperIdentity.pid,
+    atomic_child_pid: confirmedAtomicChildIdentity.pid,
     wrapper_gone: true,
     atomic_child_gone: true,
   };
@@ -1439,8 +1507,7 @@ async function runAtomicWrapperKillCase() {
   const confirmedAtomicChildPid = Number(atomicChildPid);
   assert(Number.isInteger(confirmedWrapperPid) && confirmedWrapperPid > 0);
   assert(Number.isInteger(confirmedAtomicChildPid) && confirmedAtomicChildPid > 0);
-  assert.equal(isProcessAlive(confirmedWrapperPid), false);
-  assert.equal(isProcessAlive(confirmedAtomicChildPid), false);
+  await assertManagedResultIdentitiesGone(result);
   assert.equal(events.some((event) => (
     event.type === 'worker.stdout' && event.payload?.fixture === 'complete'
   )), false);
@@ -1468,8 +1535,7 @@ async function runObservationHangTimeoutCase() {
     assert.equal(result.timed_out, true);
     assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
-    assert.equal(await waitForProcessGone(result.root_pid), true);
-    assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
+    await assertManagedResultIdentitiesGone(result);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
@@ -1512,8 +1578,7 @@ async function runObservationHangInterruptionCase() {
     assert.equal(result.interrupted, true);
     assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
     assert(Number.isInteger(result.containment.atomic_child_pid));
-    assert.equal(await waitForProcessGone(result.root_pid), true);
-    assert.equal(await waitForProcessGone(result.containment.atomic_child_pid), true);
+    await assertManagedResultIdentitiesGone(result);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
     assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
     assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
@@ -1923,13 +1988,23 @@ async function runCliPromptBoundaryCase(expectedExitCode, abortAfterMs = null) {
 }
 async function runFastParentExitCase() {
   const events = [];
+  let orphanIdentityPromise = null;
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'fast-orphan-root'],
     timeoutMs: 5000,
     pollIntervalMs: 100,
     verificationTimeoutMs: 5000,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      events.push(event);
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && payload && typeof payload === 'object'
+        && 'fixture' in payload && payload.fixture === 'fast-orphan-root'
+        && 'child_pid' in payload && Number.isInteger(payload.child_pid)) {
+        orphanIdentityPromise = waitForProcessIdentity(Number(payload.child_pid));
+      }
+    },
   });
   assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, false);
@@ -1941,7 +2016,8 @@ async function runFastParentExitCase() {
   const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
     && event.payload?.fixture === 'fast-orphan-root');
   assert(fixtureEvent?.payload?.child_pid);
-  assert.equal(isProcessAlive(fixtureEvent.payload.child_pid), false);
+  assert(orphanIdentityPromise);
+  await assertProcessIdentitiesGone([await orphanIdentityPromise]);
   return result;
 }
 

@@ -46,6 +46,10 @@ const candidateFormattingBodies = [
 const ambiguousCandidateIssueBody = '- Current candidate:\nPR #65 awaits publication';
 const malformedCandidateIssueBody = '- Current candidate PR #65 awaits publication';
 const nonCandidateRevisionBody = '- Revision history: PR #65 was triaged';
+const currentCommitIssueBody = 'Current commit: ' + workerIssueCandidateHead + ' for PR #65';
+const staleCommitIssueBody = 'Current commit: ' + workerIssueStaleHead + ' for PR #65';
+const currentStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueCandidateHead + ' for PR #65';
+const staleStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueStaleHead + ' for PR #65';
 checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head',
   65,
@@ -77,6 +81,8 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   && findCandidateReferenceFields(multilineStaleCandidateIssueBody).length === 1
   && findCandidateReferenceFields(multilineCurrentShortCandidateIssueBody).length === 1
   && findCandidateReferenceFields(multilineStaleShortCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(currentCommitIssueBody).length === 1
+  && findCandidateReferenceFields(currentStatusCandidateIssueBody).length === 1
   && candidateFormattingBodies.every((body) =>
     hasCandidateReferenceCue(body)
     && findCandidateReferenceFields(body).length === 1
@@ -102,6 +108,14 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   )
   && !hasCandidateReferenceCue(nonCandidateRevisionBody)
   && findCandidateReferenceFields(nonCandidateRevisionBody).length === 0
+  && hasCandidateReferenceCue(currentCommitIssueBody)
+  && hasCandidateReferenceCue(staleCommitIssueBody)
+  && hasCandidateReferenceCue(currentStatusCandidateIssueBody)
+  && hasCandidateReferenceCue(staleStatusCandidateIssueBody)
+  && hasValidCandidateHeadReference(currentCommitIssueBody, 65, workerIssueCandidateHead)
+  && !hasValidCandidateHeadReference(staleCommitIssueBody, 65, workerIssueCandidateHead)
+  && hasValidCandidateHeadReference(currentStatusCandidateIssueBody, 65, workerIssueCandidateHead)
+  && !hasValidCandidateHeadReference(staleStatusCandidateIssueBody, 65, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(currentCandidateIssueBody, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(currentRevisionIssueBody, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(multilineCurrentCandidateIssueBody, workerIssueCandidateHead)
@@ -4120,6 +4134,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_EXEC_THROW')
     && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_RESULT_REJECT')
     && managedProcess.includes('controller_identity_failed')
+    && managedProcess.includes('async (error, stdout, stderr) =>')
+    && managedProcess.includes('await closed;')
     && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
@@ -4562,8 +4578,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes("event.type === 'worker.observation_started'")
     && lifecycleTest.includes('observationIndex > atomicChildIndex')
     && lifecycleTest.includes('observed_descendant_pids.includes(atomicChildPid)')
-    && lifecycleTest.includes("assert.equal(isProcessAlive(confirmedAtomicChildPid), false)")
-    && lifecycleTest.includes("assert.equal(isProcessAlive(result.containment.atomic_child_pid), false)")
+    && lifecycleTest.includes('function assertProcessIdentitiesGone(expected')
+    && lifecycleTest.includes('function assertManagedResultIdentitiesGone(result')
+    && lifecycleTest.includes('classifyProcessIdentity(identity, current)')
+    && lifecycleTest.includes('expected_started_at: identity.started_at')
+    && !lifecycleTest.includes('function isProcessAlive(')
+    && !lifecycleTest.includes('process.kill(pid, 0)')
     && lifecycleTest.includes('containment.verified')
     && fixture.includes("mode === 'grandchild'")
     && fixture.includes("mode === 'fast-orphan-root'");
@@ -5037,10 +5057,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && candidateAuditKi.severity === 'High'
     && candidateAuditKi.owner === 'CODEX'
     && candidateAuditKi.github_issue_number === 69
-    && candidateAuditKi.trigger.includes('multiline Current candidate')
-    && candidateAuditKi.trigger.includes('lazy, tabbed, plain, and malformed candidate metadata')
-    && candidateAuditKi.repayment_condition.includes('continuation lines')
-    && candidateAuditKi.repayment_condition.includes('ambiguous candidate cues')
+    && candidateAuditKi.trigger.includes('Current commit')
+    && candidateAuditKi.trigger.includes('candidate-bearing Status')
+    && candidateAuditKi.repayment_condition.includes('continuation, commit, and status fields')
+    && candidateAuditKi.repayment_condition.includes('ambiguous references fail closed')
     && candidateAuditKi.hard_stop.includes('before PR readiness')
     && candidateAuditKi.evidence === proofRecordPath
     && currentWi.includes('KI-CX-CONTROL-002 / Issue #69')
@@ -5052,9 +5072,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && workerRepeatabilityKi.severity === 'High'
     && workerRepeatabilityKi.owner === 'CODEX'
     && workerRepeatabilityKi.github_issue_number === 70
-    && workerRepeatabilityKi.trigger.includes('consecutive canonical Windows CI runs failed')
+    && workerRepeatabilityKi.trigger.includes('PID-only residual assertions')
     && workerRepeatabilityKi.repayment_condition.includes('bounded natural convergence')
-    && workerRepeatabilityKi.repayment_condition.includes('retries')
+    && workerRepeatabilityKi.repayment_condition.includes('observation helpers close before return')
+    && workerRepeatabilityKi.repayment_condition.includes('PID reuse')
     && workerRepeatabilityKi.hard_stop.includes('before PR readiness')
     && workerRepeatabilityKi.evidence === proofRecordPath
     && currentWi.includes('KI-CX-WORKER-008 / Issue #70')
@@ -5141,7 +5162,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.reported_alive_after_cleanup) === '[]'
     && !('cleanup_verified' in guard.live_model_smoke.layer2_dogfood_first_attempt)
     && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-after-current-explicit-user-approval'
-    && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true;
+    && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true
+    && guard.deterministic_cases?.commit_status_candidate_fields === 'passed-current-commit-and-review-candidate-status-exact-stale-rejected'
+    && guard.deterministic_cases?.identity_aware_residual_assertions === 'passed-pid-and-creation-time-gone-or-reused-never-pid-only'
+    && guard.deterministic_cases?.observation_helper_close === 'passed-result-settles-after-actual-helper-close';
   checks.worker_proof_known_issues = confinementKi?.severity === 'High'
     && confinementKi?.owner === 'CODEX'
     && confinementKi?.status === 'open'
@@ -5166,8 +5190,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAvailabilityKi?.trigger.includes('71576c0')
     && reviewAvailabilityKi?.defer_reason.includes('each remediated head requires a fresh review generation')
     && reviewAvailabilityKi?.repayment_condition.includes('PASS with no unresolved P0, P1, or P2 finding')
-    && reviewAvailabilityKi?.latest_review?.agent_id === '019f5b52-28c5-73b2-8eb2-cb03c9325e75'
-    && reviewAvailabilityKi?.latest_review?.github_review_id === 4684593492
+    && reviewAvailabilityKi?.latest_review?.agent_id === '019f5b8f-5b4f-7e92-b108-197c412ef805'
+    && reviewAvailabilityKi?.latest_review?.github_review_id === 4685108846
     && reviewAvailabilityKi?.latest_review?.verdict === 'FAIL'
     && state.control_plane?.independent_review?.availability_issue === 63
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
@@ -5216,10 +5240,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
       && attempt.reviewed_head === 'c6c7952fdbab2c6172aa2e1b2b8b3924985e2b6e'
       && attempt.github_review_id === 4684593492
       && attempt.result.includes('target-ancestor-command-substitution'))
-    && currentWi.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
-    && fixPlan.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
-    && proofRecord.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
-    && handoff.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b8f-5b4f-7e92-b108-197c412ef805'
+      && attempt.reviewed_head === '932adcdc088e5c41624338560a0fe3569bbc7562'
+      && attempt.github_review_id === 4685108846
+      && attempt.result.includes('pid-only-repeatability'))
+    && currentWi.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && fixPlan.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && proofRecord.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && handoff.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
     && workerControlAudit.includes('findCandidateReferenceFields')
     && workerControlAudit.includes('hasExactCandidateHeadReferences')
     && handoff.includes('PR #65 is already published')

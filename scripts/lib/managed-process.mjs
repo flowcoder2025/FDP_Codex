@@ -199,6 +199,11 @@ function startExecFileText(command, args, {
 } = {}) {
   /** @type {import('node:child_process').ChildProcess | undefined} */
   let child;
+  /** @type {(value: boolean) => void} */
+  let resolveClosed;
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve;
+  });
   /** @type {Promise<string>} */
   const result = new Promise((resolve, reject) => {
     if (process.env.NODE_ENV === 'test'
@@ -210,7 +215,8 @@ function startExecFileText(command, args, {
       maxBuffer: DEFAULT_MAX_BUFFER,
       timeout: timeoutMs,
       windowsHide: true,
-    }, (error, stdout, stderr) => {
+    }, async (error, stdout, stderr) => {
+      await closed;
       if (error) {
         const detail = String(stderr || '').trim();
         reject(new Error(detail ? `${error.message}: ${detail}` : error.message));
@@ -220,6 +226,7 @@ function startExecFileText(command, args, {
     });
   });
   if (!child) {
+    resolveClosed(true);
     return {
       pid: null,
       result,
@@ -233,9 +240,7 @@ function startExecFileText(command, args, {
       }),
     };
   }
-  const closed = new Promise((resolve) => {
-    child.once('close', () => resolve(true));
-  });
+  child.once('close', () => resolveClosed(true));
   const childPid = Number.isInteger(child.pid) && child.pid > 0 ? child.pid : null;
   return {
     pid: childPid,
