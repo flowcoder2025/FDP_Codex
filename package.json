@@ -10,6 +10,8 @@
     "worker:run": "node scripts/run-ephemeral-worker.mjs",
     "worker:smoke-local": "node scripts/smoke-ephemeral-worker-cli.mjs",
     "worker:test": "node scripts/test-ephemeral-worker-lifecycle.mjs",
+    "worker:build-windows-runner": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1",
+    "worker:verify-windows-runner-build": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1 -Verify",
     "audit:control-plane": "node scripts/audit-control-plane.mjs",
     "audit:independent-review": "node scripts/audit-independent-review.mjs",
     "layer2:generate": "node scripts/generate-layer2-scaffold.mjs",

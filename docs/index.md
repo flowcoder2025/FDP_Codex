@@ -144,6 +144,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/records/validation-wi-cx0057-docs.md`
 - `docs/records/validation-wi-cx0058-fix.md`
 - `docs/records/validation-wi-cx0059-fix.md`
+- `docs/records/validation-wi-cx0060-test.md`
 - `docs/records/validation-wi-cx0061-fix.md`
 - `docs/records/validation-wi-cx0062-fix.md`
 - `docs/records/validation-wi-cx0063-feat.md`
@@ -157,12 +158,18 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/report-type-strictness.mjs`
 - `scripts/generate-layer2-scaffold.mjs`
 - `scripts/validate-layer2-scaffold.mjs`
+- `docs/specifications/managed-worker-exec-policy.rules`
 - `scripts/lib/codex-invocation.mjs`
 - `scripts/lib/managed-process.mjs`
+- `scripts/build-windows-job-runner.ps1`
+- `scripts/windows-job-runner.cs`
+- `scripts/windows-job-runner.exe` (prebuilt from the audited C# source)
+- `scripts/windows-job-runner.manifest.json`
 - `scripts/run-ephemeral-worker.mjs`
 - `scripts/smoke-ephemeral-worker-cli.mjs`
 - `scripts/test-ephemeral-worker-lifecycle.mjs`
 - `scripts/fixtures/managed-worker-tree.mjs`
+- `scripts/lib/control-plane-issue.mjs`
 - `scripts/audit-control-plane.mjs`
 - `scripts/audit-independent-review.mjs`
 - `scripts/publish-independent-review-status.mjs`

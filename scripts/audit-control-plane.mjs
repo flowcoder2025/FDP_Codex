@@ -3,6 +3,14 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {
+  findCandidateReferenceFields,
+  findPinnedCandidateRefs,
+  hasCandidateReferenceCue,
+  hasExactCandidateHeadReferences,
+  hasLivePrOnlyCandidateReference,
+  hasValidCandidateHeadReference,
+} from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const state = JSON.parse(readFileSync(path.join(repoRoot, '.flowset', 'state.json'), 'utf8'));
@@ -162,7 +170,7 @@ function statusSourceMatches(pullRequestNumber, status) {
     && status.target_url === bootstrapStatusRun.url;
 }
 
-const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,labels,url']));
+const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,body,labels,url']));
 for (const knownIssue of state.known_issues || []) {
   const issue = issues.find((candidate) => candidate.number === knownIssue.github_issue_number);
   const labels = issue?.labels?.map((label) => label.name) || [];
@@ -185,7 +193,46 @@ for (const knownIssue of state.known_issues || []) {
   });
 }
 
+const workerFinalResultIssue = (state.known_issues || [])
+  .find((knownIssue) => knownIssue.id === 'KI-CX-WORKER-003');
+const liveWorkerFinalResultIssue = issues
+  .find((issue) => issue.number === workerFinalResultIssue?.github_issue_number);
+const pinnedCandidateRefs = findPinnedCandidateRefs(liveWorkerFinalResultIssue?.body);
+addCheck('ki.KI-CX-WORKER-003.live_pr_reference', Boolean(liveWorkerFinalResultIssue)
+  && hasLivePrOnlyCandidateReference(liveWorkerFinalResultIssue.body, 65), {
+  issue_number: workerFinalResultIssue?.github_issue_number || null,
+  references_pr_65: liveWorkerFinalResultIssue?.body?.includes('PR #65') || false,
+  requires_live_head_query: liveWorkerFinalResultIssue?.body?.includes('query the live PR head') || false,
+  pinned_candidate_refs: pinnedCandidateRefs,
+});
+
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
+for (const issue of issues.filter((candidate) => candidate.state === 'OPEN')) {
+  const candidateFields = findCandidateReferenceFields(issue.body);
+  const candidateCuePresent = hasCandidateReferenceCue(issue.body);
+  if (!candidateCuePresent) continue;
+  const referencedPrNumbers = [...new Set(
+    [...String(issue.body || '').matchAll(/\bPR #(\d+)\b/g)].map((match) => Number(match[1])),
+  )];
+  const candidatePr = referencedPrNumbers.length === 1
+    ? pullRequests.find((pullRequest) => pullRequest.number === referencedPrNumbers[0])
+    : null;
+  const livePrOnlyReference = Boolean(candidatePr)
+    && hasLivePrOnlyCandidateReference(issue.body, candidatePr.number);
+  addCheck(`ki.issue_${issue.number}.candidate_head`, Boolean(candidatePr)
+    && hasValidCandidateHeadReference(
+      issue.body,
+      candidatePr.number,
+      candidatePr.headRefOid,
+    ), {
+    issue_number: issue.number,
+    referenced_pr_numbers: referencedPrNumbers,
+    live_pr_head: candidatePr?.headRefOid || null,
+    candidate_cue_present: candidateCuePresent,
+    live_pr_only_reference: livePrOnlyReference,
+    candidate_fields: candidateFields,
+  });
+}
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;
 const independentReviewBaselinePr = state.control_plane?.independent_review?.pr_baseline_from ?? Number.POSITIVE_INFINITY;
 const requiredPrLabels = ['fdp:approved-work', 'needs:validator', 'pr:ready-for-review', 'pr:approved-merge'];

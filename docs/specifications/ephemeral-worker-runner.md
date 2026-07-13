@@ -4,7 +4,7 @@ Status: implemented-v1.
 
 ## Purpose
 
-Run one ephemeral Codex CLI worker with observable output, a finite deadline, and verified cleanup of its exact process tree.
+Run one ephemeral Codex CLI worker on Windows with observable output, a finite deadline, and verified process-lifetime containment through a Job Object. Other platforms fail closed before a worker process is spawned.
 
 ## Command
 
@@ -15,7 +15,7 @@ npm run worker:run -- --cwd <path> [--timeout-ms <ms>] [--sandbox read-only|work
 The prompt is required on stdin. `danger-full-access` is not accepted. The wrapper invokes:
 
 ```text
-codex exec --ephemeral --json --color never --sandbox <mode> -C <path> -
+codex exec --ephemeral --json --color never --disable multi_agent --sandbox <mode> -C <path> -
 ```
 
 The final `-` makes Codex read the prompt from stdin. The wrapper does not write a prompt file or include the prompt in argv.
@@ -23,21 +23,40 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 ## Input Limits
 
 - `--cwd` defaults to the current directory and must exist.
-- `--timeout-ms` defaults to 120000 and must be between 1000 and 1800000.
+- `--timeout-ms` defaults to 120000 and must be between 1000 and 1800000. The invocation deadline and interruption handling are armed before prompt input, bind a held-open stdin, and managed execution receives only the remaining time.
 - `--sandbox` defaults to `workspace-write` and accepts only `read-only` or `workspace-write`.
 - stdin must contain a non-empty UTF-8 prompt no larger than 1 MiB.
-- `CODEX_CLI_PATH` may identify an explicit Codex executable. On Windows, the npm-installed `codex.js` shim target is preferred when present.
+- `CODEX_CLI_PATH` may identify only an absolute Codex executable or absolute `codex.js` shim inside the standard Codex npm package or a controller-owned `FDP_CODEX_CLI_TRUST_ROOTS` allowlist. Relative overrides and Windows `.cmd` or `.bat` shims are rejected.
+- Before the target working directory is used, the controller canonicalizes the selected executable, shim, trust roots, and nearest Git repository boundary. Explicit and PATH candidates must remain outside that complete target boundary and inside an approved trust root. Symlink or junction resolution cannot move a target-controlled file into a trusted path. A nested target therefore cannot select a repository-ancestor or arbitrary sibling executable before the Codex sandbox starts.
+- Normal Windows completion gives Job accounting a bounded natural convergence window before treating remaining members as residual containment failure. Process-table acquisition retries transient failures only within an absolute per-observation deadline; persistent uncertainty still fails closed.
+- The target must be trusted by Codex. Generalized managed-worker use remains blocked while command re-entry confinement is unresolved.
+
+## Agent Confinement
+
+The managed worker disables the Codex `multi_agent` feature at invocation. This blocks built-in collaboration fan-out for that CLI process.
+
+A worker is instructed to finish its assigned task in its own ephemeral process and leave repository validation to the visible controller. This instruction is not a runtime command boundary: direct runtime, package-manager, shell, or nested Codex re-entry remains technically possible.
+
+Project-local `.codex/rules` cannot supply a worker-only fix because Codex loads trusted project rules for the visible controller too. The attempted deny rule blocked controller-owned validation after a new session loaded it. FDP_Codex therefore keeps only a non-active design fixture at `docs/specifications/managed-worker-exec-policy.rules`, installs no project rule, and treats command re-entry confinement as an open KI that blocks generalized or unattended worker authority.
+
+The official Codex rules documentation states that Codex scans `rules/` under every active config layer at startup and loads trusted project-local rules. The `codex exec` command exposes `--ignore-rules` to skip user and project rules, but it does not expose a flag that injects one worker-only rule file. See https://learn.chatgpt.com/docs/agent-configuration/rules#create-a-rules-file and https://learn.chatgpt.com/docs/developer-commands#codex-exec.
+
+Process-lifetime containment is separate and is currently implemented only by the Windows Job Object. Unsupported platforms return an `unsupported_platform` result before spawning a worker. The controller remains responsible for repository validation and any independent reviewer required by repository policy.
 
 ## Event Stream
 
 The wrapper writes one JSON object per line to stdout. Event types are:
 
 - `worker.started`
+- `worker.root_identity`
+- `worker.atomic_child`
 - `worker.stdout`
 - `worker.stderr`
+- `worker.stdin_error`
 - `worker.timeout`
 - `worker.interrupted`
 - `worker.observation_error`
+- `worker.observation_started`
 - `worker.result`
 - `worker.wrapper_error`
 
@@ -45,34 +64,39 @@ Codex JSONL stdout is parsed and nested under the `payload` field. Non-JSON stdo
 
 ## Process Tracking
 
-The direct child starts with `shell: false` and a hidden window on Windows. The supervisor periodically records the root and descendant process identities:
+The controller creates a 256-bit random control token for each invocation and passes it only to the native wrapper. The wrapper stores it locally and removes the token, controller PID, and controller creation FILETIME from the process environment before worker creation; a behavioral fixture verifies that the real worker inherits none of them. Before spawning the wrapper, the controller reads its own PID plus creation FILETIME. Before worker creation the wrapper opens one native controller process handle, reads and matches creation FILETIME from that same native process handle, fails closed on mismatch or absence, retains that exact handle, and arms a background watchdog; controller death terminates the Job and exits the wrapper. The supervisor records `controller_watchdog_armed`, `controller_watchdog_stopped`, and `wrapper_closed`; verified normal completion requires the stopped marker, and cleanup cannot verify without the exact wrapper's actual close event; an exit code or signal alone is insufficient. Root, assignment, atomic-child, drain, and error markers are control data only when they carry that exact token; unrecognized same-name worker stderr remains ordinary stderr. On Windows 10 or newer, the supervisor builds a `STARTUPINFOEX` attribute list containing `PROC_THREAD_ATTRIBUTE_JOB_LIST` and passes `EXTENDED_STARTUPINFO_PRESENT` to `CreateProcess`. The real worker is therefore assigned to the kill-on-close Job Object atomically at process creation rather than in a later API call. While the worker is suspended, the native wrapper writes its PID and operating-system start time to the supervisor and then resumes it without waiting for a supervisor acknowledgement; Job containment is already established. Because the native wrapper writes this marker while the worker is still suspended, it is the first same-prefix line on inherited stderr. The supervisor permanently locks the first marker it receives and rejects every later same-prefix stderr line, so worker output cannot replace the registered atomic identity. The supervisor does not start any process-table query until its stderr handler has registered both the immutable root identity and atomic worker identity in the observed set. Before wrapper spawn, the controller identity lookup races the already-armed timeout and interruption guards. A synchronous guard check follows identity lookup and another runs immediately before spawn after invocation environment materialization and handler preparation. A guard that wins returns a structured result with null root PID and creates no wrapper or worker. If the identity lookup process has already started, the supervisor terminates that exact owned child process, waits for its close event, and reports the helper cleanup truthfully before returning. A rejected termination request keeps cleanup unverified even if a later close event confirms the process is gone; a missing close keeps the helper PID unknown. Synchronous identity-helper start failures and asynchronous helper execution failures are consumed as structured `controller_identity_failed` results through the shared final publisher and create no wrapper. If the marker never becomes ready after spawn, the already-armed timeout, interruption, or wrapper exit wins and process-table observation fails closed. If the wrapper is forcibly terminated after creation, closing its Job handle terminates the atomically assigned child. Descendants inherit the Job Object, so a parent that creates a child and exits before the next metadata poll cannot leave that child outside the containment boundary. When the real worker root exits, the native wrapper queries the Job active-process count before cleanup. Any remaining Job process is a lifecycle violation: the wrapper terminates and drains the Job, emits the error, and does not return the root exit code as success. The Job Object is terminated and queried until its active-process count reaches zero before normal completion is accepted.
+
+The Windows wrapper is a checked-in prebuilt `WindowsApplication` executable generated from `scripts/windows-job-runner.cs` only by the explicit `worker:build-windows-runner` command. `scripts/windows-job-runner.manifest.json` locks the C# source and executable SHA-256 hashes. The visible Node controller verifies both hashes in-process before wrapper spawn; missing, malformed, or stale artifacts return `runner_artifact_failed` with a null root. Runtime `Add-Type`, compiler processes, and PowerShell wrapper hosts are forbidden. Both wrapper and worker avoid new console creation, and the deterministic pre-run stall case requires no temporally valid direct setup child after wrapper-start filtering; older stale-parent rows are excluded by creation time, no worker side effect, exact wrapper close within the finite bound, and one cleanup classification for the wrapper identity. Manifest schema 2 also records the deterministic Roslyn compiler and framework-reference hashes; `worker:verify-windows-runner-build` rebuilds in an isolated temporary directory and requires byte-for-byte equality with the checked executable. Native API failures preserve the operation name, Win32 error code, and operating-system message in the authenticated error marker.
+The Windows API basis is the Microsoft documentation for `InitializeProcThreadAttributeList` and `UpdateProcThreadAttribute`; the latter defines `PROC_THREAD_ATTRIBUTE_JOB_LIST` as a list of Job handles assigned to the child process at creation. See https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-initializeprocthreadattributelist and https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute.
+
+On supported Windows hosts, the supervisor also records root and descendant process identities for evidence and targeted cleanup:
 
 - pid
 - parent pid
 - executable name
 - process start time
-- process group id on POSIX
 
-Windows obtains process metadata from `Get-CimInstance Win32_Process`. POSIX starts the worker in its own process group and obtains metadata from `ps -eo pid=,ppid=,pgid=,lstart=,comm=`. The process group keeps already observed descendants discoverable after the root exits.
+Windows obtains general process metadata from `Get-CimInstance Win32_Process`; the atomically created real worker identity comes directly from the native creation handle. The absolute timeout deadline and interrupt listener are armed before spawn and before any event callback. All process-table queries require the registered atomic identity, and every query has a separate finite command timeout. `worker.observation_started` records the ordering evidence. A delayed synchronous event callback cannot convert an expired invocation into success; after control returns, the absolute deadline forces timeout cleanup. A throwing event sink is captured as `event_dispatch_failed`, recorded in `event_errors`, and routed through wrapper-first verified cleanup instead of escaping the supervisor. The synchronous `onEvent` callback contract is explicitly limited to non-terminal streaming events and never receives `worker.result`. Every return path yields one structured terminal result after guards and cleanup finish; the fixed CLI publisher then serializes exactly one `worker.result`. A callback that blocks, throws, or aborts only when presented with a terminal event is therefore never invoked, cannot delay the return beyond the deadline, and cannot mutate the managed outcome. Stdin stream errors are captured in `stdin_errors`; an error that wins before another terminal guard returns `stdin_failed`, while timeout or interruption remains primary when already selected. On timeout or interruption, the exact spawned wrapper is stopped even if metadata observation is delayed or unavailable. Metadata polling remains evidence and defense in depth; successful cleanup still requires observable proof, while Job membership closes the worker process tree when the wrapper exits.
 
-The first root observation must not depend on a mutable executable label. It confirms the spawned pid against the supervisor parent pid and, on POSIX, the dedicated process group id before recording the operating-system start time and current name. Later observations use the recorded start time first and the executable name only as a fallback, protecting against both runtime title changes and terminating an unrelated process after pid reuse. New descendants of already observed processes are added while the run is active, but a candidate with a parseable start time earlier than its observed parent or process-group root is rejected as stale parent-pid metadata.
+The native wrapper emits its own PID and operating-system start time before creating the worker. The supervisor accepts only the first root marker, requires its PID to equal the exact spawned wrapper PID, normalizes native start times to CIM-compatible microsecond precision, and records that immutable identity before process-table observation. An uninitialized root is never adopted from process-table parent or executable name; a missing, invalid, duplicate, or mismatched root marker keeps observation unavailable and excludes same-supervisor PID reuse from targeted cleanup. Later observations require the recorded start time to match. If the current row has no start time, identity is unknown rather than matched by executable name; that PID cannot acquire descendants or receive a targeted signal, and verification remains failed. A newly discovered descendant must also provide start-time metadata before entering the observed tree. Otherwise its PID is reported as an unobserved unknown candidate, cannot acquire descendants or receive a targeted signal, and permanently makes observation for that invocation unverified. New descendants of already observed processes are added while the run is active only when the currently live parent row still matches the observed parent identity. This prevents a reused PID on Windows from attaching an unrelated process to the worker tree. A candidate with a parseable start time earlier than its observed parent or root is also rejected as stale parent-pid metadata.
 
 ## Completion And Cleanup
 
-Normal completion succeeds only when the root exits with code 0, process observation succeeds, and no observed descendant remains.
+Normal completion succeeds only when the real worker exits with code 0, process observation succeeds, and Windows Job Object containment is verified through successful assignment and a zero-active-process drain marker. The wrapper must then signal a separate watchdog cancellation event, join the watchdog, emit the authenticated stopped marker, and close the Job, cancellation, and controller handles only after that join. Other platforms cannot produce a successful managed-worker result.
 
-Timeout and interruption cleanup:
+Windows timeout, interruption, event-dispatch-failure, and stdin-failure cleanup:
 
-1. Refresh the observed process tree.
-2. Match current processes against observed identities.
-3. Signal deepest descendants before parents.
-4. Wait for the grace period.
-5. Force remaining matched processes where the platform supports a distinct force signal.
-6. Re-observe until every matched identity is gone or the verification deadline expires.
+1. Stop the exact spawned wrapper so its kill-on-close Job handle terminates every atomically assigned member even when process-table observation is unavailable.
+2. Refresh the observed process tree through a command-bounded query.
+3. Match current processes against observed identities.
+4. Never signal an observed descendant by PID; exact wrapper-handle stop and Job-handle close own termination.
+5. Wait for the grace period and re-observe immutable identities until every tracked identity is gone or the verification deadline expires.
 
-The final result contains root and descendant pids, line counts, timeout/interruption flags, exit information, observation errors, cleanup targets, confirmed-gone pids, identity mismatches, residual pids, and cleanup verification status.
+The final result contains root and descendant pids, line counts, timeout/interruption flags, exit information, event delivery errors, stdin errors, observation errors, containment mode, watchdog armed/stopped state, and verification status, cleanup targets, confirmed-gone pids, identity mismatches, alive pids, unknown pids, and cleanup verification status. Prompt timeout and interruption use the same schema and explicitly report both `controller_watchdog_armed: false` and `controller_watchdog_stopped: false` when no wrapper was created. On every cleanup result, the wrapper root, the atomically created worker, and every other observed descendant must appear exactly once across confirmed gone, identity mismatch, alive after cleanup, or unknown after cleanup. An observation failure places unobservable identities in `unknown_after_cleanup`, never `alive_after_cleanup`, and keeps cleanup unverified.
 
-Exit codes are 0 for verified normal completion, 124 for timeout, 130 for interruption, and 1 for wrapper, worker, observation, residual-process, or cleanup failure.
+Invocation resolution and other setup failures after argument handling use the same complete null-root result schema with `status: setup_failed`. They publish exactly one `worker.result`, may also publish one diagnostic `worker.wrapper_error`, and never create a wrapper.
+
+Exit codes are 0 for verified normal completion, 124 when timeout was the primary guard, 130 when interruption was the primary guard, and 1 for other wrapper, worker, event-dispatch, observation, residual-process, or cleanup failure. A timed-out or interrupted result keeps 124 or 130 even when its detailed status is `cleanup_failed`.
 
 ## Local Verification
 
@@ -81,8 +105,10 @@ npm run worker:test
 npm run worker:smoke-local
 ```
 
-`worker:test` uses a deterministic Node fixture that creates a root, child, and grandchild. It validates normal output capture, timeout cleanup, and interruption cleanup. `worker:smoke-local` runs `codex exec --help` through the same supervisor without sending a repository prompt to a model provider.
+`worker:test` uses deterministic Node fixtures that create root, child, grandchild, detached-child, and immediate-parent-exit cases. It validates the built-in fan-out flag, normal output capture, timeout cleanup, interruption cleanup, Windows Job Object inheritance, verified drain after a real parent exits before polling can observe its child, exact terminal classification including unknown observer-failure state, `worker.root_identity` then `worker.atomic_child` before `worker.observation_started` ordering with both identities registered, rejection of worker-forged root, atomic-child, and drain markers, including a forged drain followed by wrapper termination without verified containment, pre-spawn abort, identity-query timeout/interruption, and invocation-materialization timeout/interruption with no wrapper or worker execution, controller death before watchdog acquisition with no worker side effect, controller-process hard kill after watchdog acquisition with wrapper and worker confirmed gone, a same-native-handle open/FILETIME/retention source contract plus creation-FILETIME mismatch rejection before worker creation, cancellation-event and join ordering plus a delayed watchdog-cancellation normal-teardown runtime case, delayed-close, kill-rejection, and close-timeout cases proving exit state cannot substitute for the actual wrapper close event and failed stop evidence remains explicit, unknown and unverified classification when a known identity loses current start-time metadata, rejection of a newly discovered startless descendant from observation and any PID-only termination path, a blocking `worker.started` callback that cannot bypass the absolute timeout outcome, a throwing `worker.started` callback that returns `event_dispatch_failed` after verified cleanup, final-result callback isolation for normal completion and spawn failure, exactly one CLI-published `worker.result`, rejection of relative overrides and target-cwd PATH shadowing with trusted absolute fallback selection, native error operation/code/message preservation, a real-worker environment fixture proving control token and controller identity fields are absent, real CLI child-process cases that hold stdin open and observe complete null-root no-spawn result schemas with exits 124 and 130 before prompt EOF, plus exits 124 and 130 while post-spawn cleanup is failed, and a 1 MiB early-exit stdin case plus test-only post-timeout stdin error injection that proves error retention and timeout precedence without claiming a real pending write, while preserving the structured result. `worker:smoke-local` builds the real ephemeral worker argument list, replaces only the final stdin prompt marker with `--help`, and verifies that the installed Codex CLI accepts `--disable multi_agent`, sandbox, cwd, and related flags through the same supervisor without sending a repository prompt to a model provider. It does not claim command re-entry enforcement.
+
+The deterministic CLI suite also proves that relative and missing command overrides each exit 1 with exactly one complete null-root `setup_failed` result and no wrapper creation.
 
 A live model smoke is a separate data and network boundary. It must be explicitly approved when the execution environment requires that approval.
 
-The controller must use the wrapper's internal timeout or an interrupt signal as the normal stop path. Force-killing the wrapper itself cannot guarantee that asynchronous cleanup code runs.
+The controller must use the wrapper's internal timeout or an interrupt signal as the normal stop path. Force-killing the wrapper is not a successful result path. Windows Job Object close still terminates assigned processes, but an externally killed wrapper cannot emit a verified final result; controllers must use the internal timeout or interrupt path.

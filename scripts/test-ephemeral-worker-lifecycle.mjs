@@ -1,10 +1,470 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { copyFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mergeObservedTree, runManagedProcess } from './lib/managed-process.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
+import {
+  classifyControllerIdentityLookupCleanup,
+  classifyProcessIdentity,
+  listProcessTable,
+  managedProcessPlatformSupport,
+  mergeObservedTree,
+  runManagedProcess,
+  stopExactWrapperForCleanup,
+} from './lib/managed-process.mjs';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
+const workerCliPath = fileURLToPath(new URL('./run-ephemeral-worker.mjs', import.meta.url));
+const windowsJobRunnerNativePath = fileURLToPath(new URL('./windows-job-runner.cs', import.meta.url));
+const windowsJobRunnerExecutablePath = fileURLToPath(new URL('./windows-job-runner.exe', import.meta.url));
+const windowsJobRunnerManifestPath = fileURLToPath(new URL('./windows-job-runner.manifest.json', import.meta.url));
+const windowsJobRunnerBuildPath = fileURLToPath(new URL('./build-windows-job-runner.ps1', import.meta.url));
+const testScriptPath = fileURLToPath(import.meta.url);
+const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
+const windowsJobRunnerNativeSource = readFileSync(windowsJobRunnerNativePath, 'utf8');
+const windowsJobRunnerBuildSource = readFileSync(windowsJobRunnerBuildPath, 'utf8');
+const windowsJobRunnerSource = windowsJobRunnerNativeSource;
+const OBSERVATION_HANG_FINITE_BOUND_MS = 8000;
+const STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024;
 
+async function runControllerWatchdogHelper(preAcquire = false, markerPath = null) {
+  await runManagedProcess({
+    command: process.execPath,
+    args: preAcquire ? [fixturePath, 'write-marker', markerPath] : [fixturePath, 'root'],
+    env: preAcquire ? {
+      NODE_ENV: 'test',
+      FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS: '1000',
+    } : undefined,
+    timeoutMs: 30000,
+    pollIntervalMs: 100,
+    onEvent: (event) => {
+      if (['worker.started', 'worker.root_identity', 'worker.atomic_child'].includes(event.type)) {
+        process.stdout.write(JSON.stringify(event) + '\n');
+      }
+    },
+  });
+}
+
+if (process.argv[2] === '--controller-watchdog-helper') {
+  await runControllerWatchdogHelper();
+  process.exit(0);
+}
+if (process.argv[2] === '--controller-pre-acquire-helper') {
+  await runControllerWatchdogHelper(true, process.argv[3]);
+  process.exit(0);
+}
+
+function runPidOnlySignalGuardCase() {
+  assert(managedProcessSource.includes('PID-only signaling is forbidden'));
+  assert.equal(managedProcessSource.includes('process.kill(entry.pid'), false);
+  assert.equal(managedProcessSource.includes('signalProcesses('), false);
+  return { direct_pid_signaling: false, termination_owner: 'exact-wrapper-handle-and-job-object' };
+}
+
+function delay(timeoutMs) {
+  return new Promise((resolve) => setTimeout(resolve, timeoutMs));
+}
+
+async function listProcessTableForAssertion(deadlineAt) {
+  const injectionNames = [
+    'FDP_JOB_TEST_OBSERVATION_DELAY_MS',
+    'FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE',
+    'FDP_WORKER_TEST_IDENTITY_EXEC_THROW',
+    'FDP_WORKER_TEST_IDENTITY_RESULT_REJECT',
+  ];
+  const saved = new Map(injectionNames.map((name) => [name, process.env[name]]));
+  for (const name of injectionNames) delete process.env[name];
+  try {
+    return await listProcessTable({ deadlineAt });
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+}
+
+async function waitForProcessIdentity(pid, timeoutMs = 3000) {
+  const deadlineAt = Date.now() + timeoutMs;
+  while (Date.now() < deadlineAt) {
+    const table = await listProcessTableForAssertion(deadlineAt);
+    const current = table.find((entry) => entry.pid === pid);
+    if (current?.started_at) return current;
+    await delay(25);
+  }
+  throw new Error('process identity was not observable for pid ' + pid);
+}
+
+async function assertProcessIdentitiesGone(expected, timeoutMs = 5000) {
+  const identities = expected.filter(Boolean);
+  const deadlineAt = Date.now() + timeoutMs;
+  let states = [];
+  do {
+    const table = await listProcessTableForAssertion(deadlineAt);
+    states = identities.map((identity) => {
+      assert(Number.isInteger(identity.pid) && identity.pid > 0);
+      assert.equal(typeof identity.started_at, 'string');
+      const current = table.find((entry) => entry.pid === identity.pid);
+      if (!current) return { pid: identity.pid, state: 'gone' };
+      return {
+        pid: identity.pid,
+        state: classifyProcessIdentity(identity, current),
+        expected_started_at: identity.started_at,
+        current_started_at: current.started_at,
+      };
+    });
+    if (states.every((entry) => ['gone', 'mismatch'].includes(entry.state))) return states;
+    await delay(25);
+  } while (Date.now() < deadlineAt);
+  assert.fail('managed process identities remain or are unknown: ' + JSON.stringify(states));
+}
+
+async function assertManagedResultIdentitiesGone(result, timeoutMs = 5000) {
+  const identities = [];
+  if (result.root_pid !== null) {
+    identities.push({
+      pid: result.root_pid,
+      started_at: result.containment.root_started_at,
+    });
+  }
+  if (result.containment.atomic_child_pid !== null) {
+    identities.push({
+      pid: result.containment.atomic_child_pid,
+      started_at: result.containment.atomic_child_started_at,
+    });
+  }
+  return assertProcessIdentitiesGone(identities, timeoutMs);
+}
+
+async function waitForFile(filePath, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(filePath) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return existsSync(filePath);
+}
+
+async function listWindowsDirectChildren(parentPid) {
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$parent = Get-CimInstance Win32_Process -Filter "ProcessId = ${parentPid}"`,
+    "if ($null -eq $parent) { throw 'wrapper process row missing' }",
+    '$items = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = ' + parentPid + '" | ForEach-Object { [PSCustomObject]@{ pid = [int]$_.ProcessId; name = [string]$_.Name; started_at = ([DateTime]$_.CreationDate).ToUniversalTime().ToString("o") } })',
+    '$observation = [PSCustomObject]@{ parent_started_at = ([DateTime]$parent.CreationDate).ToUniversalTime().ToString("o"); children = $items }',
+    'ConvertTo-Json -Compress -Depth 3 -InputObject $observation',
+  ].join('; ');
+  const child = spawn(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', script,
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 0, JSON.stringify(result, null, 2));
+  const parsed = JSON.parse(result.stdout.trim());
+  assert.equal(typeof parsed.parent_started_at, 'string');
+  assert(Array.isArray(parsed.children));
+  return parsed;
+}
+
+function assertObservedCleanupPartition(result) {
+  const observedPids = [result.root_pid, ...result.observed_descendant_pids]
+    .sort((a, b) => a - b);
+  const atomicChildPid = result.containment.atomic_child_pid;
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
+  assert.equal(typeof result.containment.root_started_at, 'string');
+  assert(Number.isInteger(atomicChildPid) && atomicChildPid > 0);
+  assert.equal(typeof result.containment.atomic_child_started_at, 'string');
+  assert(result.observed_descendant_pids.includes(atomicChildPid));
+  const classifiedPids = [
+    ...result.cleanup.confirmed_gone_pids,
+    ...result.cleanup.identity_mismatch_pids,
+    ...result.cleanup.alive_after_cleanup,
+    ...result.cleanup.unknown_after_cleanup,
+  ].sort((a, b) => a - b);
+
+  assert.equal(
+    new Set(classifiedPids).size,
+    classifiedPids.length,
+    'cleanup classified a PID more than once: ' + JSON.stringify(result.cleanup),
+  );
+  assert.deepEqual(classifiedPids, observedPids);
+  return true;
+}
+
+function assertManagedIdentitiesBeforeObservation(events, result) {
+  const rootIdentityIndex = events.findIndex((event) => event.type === 'worker.root_identity');
+  const atomicChildIndex = events.findIndex((event) => event.type === 'worker.atomic_child');
+  const observationIndex = events.findIndex((event) => event.type === 'worker.observation_started');
+  assert(rootIdentityIndex >= 0);
+  assert(atomicChildIndex > rootIdentityIndex);
+  assert(observationIndex > atomicChildIndex);
+  const rootIdentity = events[rootIdentityIndex];
+  const observation = events[observationIndex];
+  assert.equal(rootIdentity.pid, result.root_pid);
+  assert.equal(rootIdentity.started_at, result.containment.root_started_at);
+  assert.equal(observation.root_identity_registered, true);
+  assert.equal(observation.atomic_child_registered, true);
+  assert.equal(observation.atomic_child_pid, result.containment.atomic_child_pid);
+  return true;
+}
+
+function busyWait(milliseconds) {
+  const deadline = Date.now() + milliseconds;
+  while (Date.now() < deadline) {
+    // Deliberately block to prove user event handlers cannot bypass the absolute deadline outcome.
+  }
+}
+
+function captureChild(child, stdinText = null) {
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+  });
+  if (stdinText !== null) child.stdin.end(stdinText);
+  return new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
+  });
+}
+
+async function getWindowsProcessCreationFileTime(pid) {
+  const powershell = path.join(
+    process.env.SystemRoot || 'C:\\Windows',
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  );
+  const child = spawn(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    '(Get-Process -Id ' + pid + ' -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()',
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 0, JSON.stringify(result, null, 2));
+  const value = result.stdout.trim();
+  assert(/^\d+$/.test(value), JSON.stringify(result, null, 2));
+  return value;
+}
+
+async function runDelayedWrapperCloseCase() {
+  let killCalled = false;
+  const closePromise = new Promise((resolve) => {
+    setTimeout(resolve, 75);
+  });
+  const startedAt = Date.now();
+  const result = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: 0,
+      signalCode: null,
+      kill: () => {
+        killCalled = true;
+        return true;
+      },
+    },
+    closePromise,
+    terminationGraceMs: 500,
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(result.alreadyExited, true);
+  assert.equal(result.killAccepted, null);
+  assert.equal(result.wrapperClosed, true);
+  assert.equal(killCalled, false);
+  assert(elapsedMs >= 50, 'wrapper close helper returned from exit state before the close event');
+  return {
+    exit_state_did_not_substitute_for_close: true,
+    elapsed_ms: elapsedMs,
+  };
+}
+async function runWrapperStopFailureCases() {
+  const killRejected = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: null,
+      signalCode: null,
+      kill: () => false,
+    },
+    closePromise: new Promise((resolve) => setTimeout(resolve, 20)),
+    terminationGraceMs: 200,
+  });
+  assert.equal(killRejected.alreadyExited, false);
+  assert.equal(killRejected.killAccepted, false);
+  assert.equal(killRejected.wrapperClosed, true);
+
+  const closeTimedOut = await stopExactWrapperForCleanup({
+    child: {
+      exitCode: null,
+      signalCode: null,
+      kill: () => true,
+    },
+    closePromise: new Promise(() => {}),
+    terminationGraceMs: 25,
+  });
+  assert.equal(closeTimedOut.alreadyExited, false);
+  assert.equal(closeTimedOut.killAccepted, true);
+  assert.equal(closeTimedOut.wrapperClosed, false);
+
+  return {
+    kill_rejection_exposed: true,
+    close_timeout_exposed: true,
+  };
+}
+function runIdentityLookupCleanupClassificationCase() {
+  const killRejected = classifyControllerIdentityLookupCleanup(41001, {
+    alreadyExited: false,
+    killAccepted: false,
+    wrapperClosed: true,
+  });
+  assert.equal(killRejected.required, true);
+  assert.equal(killRejected.verified, false);
+  assert.deepEqual(killRejected.confirmed_gone_pids, [41001]);
+  assert(killRejected.errors.includes('controller identity lookup termination request was rejected'));
+
+  const closeTimedOut = classifyControllerIdentityLookupCleanup(41002, {
+    alreadyExited: false,
+    killAccepted: true,
+    wrapperClosed: false,
+  });
+  assert.equal(closeTimedOut.required, true);
+  assert.equal(closeTimedOut.verified, false);
+  assert.deepEqual(closeTimedOut.unknown_after_cleanup, [41002]);
+  assert(closeTimedOut.errors.includes('controller identity lookup did not close after termination'));
+
+  return {
+    kill_rejection_failed_closed: true,
+    close_timeout_failed_closed: true,
+  };
+}
+function runBuiltinFanoutFlagCase() {
+  const args = buildEphemeralWorkerArgs({
+    argsPrefix: ['codex.js'],
+    sandbox: 'read-only',
+    cwd: 'C:\\repo',
+  });
+  assert.deepEqual(args.slice(0, 8), [
+    'codex.js',
+    'exec',
+    '--ephemeral',
+    '--json',
+    '--color', 'never',
+    '--disable', 'multi_agent',
+  ]);
+  assert.deepEqual(args.slice(8), ['--sandbox', 'read-only', '-C', 'C:\\repo', '-']);
+  assert.equal(args.filter((arg) => arg === 'multi_agent').length, 1);
+  return { multi_agent_disabled: true };
+}
+
+function runControllerSameHandleBindingCase() {
+  const openIndex = windowsJobRunnerSource.indexOf('var controllerHandle = OpenProcess(');
+  const timeIndex = windowsJobRunnerSource.indexOf('GetProcessTimes(', openIndex);
+  const returnIndex = windowsJobRunnerSource.indexOf('return controllerHandle;', timeIndex);
+  assert(openIndex >= 0);
+  assert(timeIndex > openIndex);
+  assert(returnIndex > timeIndex);
+  assert(windowsJobRunnerSource.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)'));
+  assert(!windowsJobRunnerSource.includes('Process.GetProcessById(controllerPid)'));
+  const cancelIndex = windowsJobRunnerSource.indexOf('SetEvent(watchdogCancellation)');
+  const joinIndex = windowsJobRunnerSource.indexOf('controllerWatchdog.Join(5000)', cancelIndex);
+  const closeJobIndex = windowsJobRunnerSource.indexOf('CloseHandle(job);', joinIndex);
+  const closeControllerIndex = windowsJobRunnerSource.indexOf('CloseHandle(controllerHandle);', joinIndex);
+  assert(windowsJobRunnerSource.includes('WaitForMultipleObjects('));
+  assert(cancelIndex >= 0);
+  assert(joinIndex > cancelIndex);
+  assert(closeJobIndex > joinIndex);
+  assert(closeControllerIndex > joinIndex);
+  return {
+    same_native_handle_verified_and_retained: true,
+    managed_process_lookup_absent: true,
+    watchdog_cancelled_and_joined_before_handle_close: true,
+  };
+}
+
+function sha256File(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function runPrebuiltRunnerArtifactCase() {
+  const manifest = JSON.parse(readFileSync(windowsJobRunnerManifestPath, 'utf8'));
+  assert.equal(manifest.schema_version, 2);
+  assert.equal(manifest.source, 'windows-job-runner.cs');
+  assert.equal(manifest.executable, 'windows-job-runner.exe');
+  assert.equal(manifest.source_sha256, sha256File(windowsJobRunnerNativePath));
+  assert.equal(manifest.executable_sha256, sha256File(windowsJobRunnerExecutablePath));
+  assert.equal(manifest.build.tool, 'dotnet-roslyn-csc');
+  assert.equal(manifest.build.deterministic, true);
+  assert.equal(manifest.build.target, 'winexe');
+  assert.equal(manifest.build.path_map, '/src');
+  assert.equal(manifest.build.framework, 'netfx-v4.0.30319');
+  assert.match(manifest.build.compiler_sha256, /^[a-f0-9]{64}$/);
+  for (const name of ['mscorlib.dll', 'System.dll', 'System.Core.dll']) {
+    assert.match(manifest.build.reference_sha256[name], /^[a-f0-9]{64}$/);
+  }
+  assert.equal(windowsJobRunnerNativeSource.includes('Add-Type'), false);
+  assert.equal(windowsJobRunnerBuildSource.includes('Add-Type'), false);
+  assert(managedProcessSource.includes('verifyWindowsJobRunnerArtifact()'));
+  assert(managedProcessSource.includes("new URL('../windows-job-runner.exe'"));
+  assert(windowsJobRunnerBuildSource.includes("'/deterministic+'"));
+  assert(windowsJobRunnerBuildSource.includes("tool = 'dotnet-roslyn-csc'"));
+  assert(windowsJobRunnerBuildSource.includes("throw 'The checked Windows Job runner is not reproducible"));
+  return {
+    runtime_compiler_absent: true,
+    source_manifest_verified: true,
+    executable_manifest_verified: true,
+    build_boundary_explicit: true,
+    deterministic_build_receipt_verified: true,
+  };
+}
+
+function runPlatformSupportCase() {
+  assert.deepEqual(managedProcessPlatformSupport('win32'), {
+    supported: true,
+    mode: 'windows-job-object',
+    reason: null,
+  });
+  const posix = managedProcessPlatformSupport('linux');
+  assert.equal(posix.supported, false);
+  assert.equal(posix.mode, 'unsupported-fail-closed');
+  assert.match(posix.reason, /not implemented for platform linux/);
+  return { windows: 'supported', posix: posix.mode };
+}
+
+async function runUnsupportedPlatformCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'fast-orphan-root'],
+    timeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'unsupported_platform');
+  assert.equal(result.ok, false);
+  assert.equal(result.root_pid, null);
+  assert.equal(result.containment.mode, 'unsupported-fail-closed');
+  assert.equal(result.containment.verified, false);
+  assert.equal(events.length, 0);
+  return result;
+}
 function runTemporalIdentityCase() {
   const rootPid = 50000;
   const root = {
@@ -42,7 +502,450 @@ function runTemporalIdentityCase() {
   assert.equal(observed.has(50001), false);
   assert.equal(observed.has(50002), true);
   assert.equal(observed.has(50003), true);
-  return { stale_excluded: true, descendant_count: observed.size - 1 };
+
+  const reusedRootObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    {
+      pid: rootPid,
+      ppid: 12345,
+      pgid: rootPid,
+      name: 'reused-root',
+      started_at: '2026-07-10T11:00:00.000Z',
+    },
+    {
+      pid: 50004,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'unrelated-child',
+      started_at: '2026-07-10T11:00:00.100Z',
+    },
+  ], rootPid, reusedRootObserved, 'linux');
+  assert.equal(reusedRootObserved.has(50004), false);
+
+  const absentRootObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    {
+      pid: 50009,
+      ppid: 12345,
+      pgid: rootPid,
+      name: 'unrelated-reused-group-member',
+      started_at: '2026-07-10T11:00:00.100Z',
+    },
+  ], rootPid, absentRootObserved, 'linux');
+  assert.equal(absentRootObserved.has(50009), false);
+
+  const missingStartCurrentRoot = {
+    pid: rootPid,
+    ppid: 12345,
+    pgid: rootPid,
+    name: 'node',
+    started_at: null,
+  };
+  assert.equal(classifyProcessIdentity(root, missingStartCurrentRoot), 'unknown');
+  const missingStartObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    missingStartCurrentRoot,
+    {
+      pid: 50006,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'unrelated-missing-start-child',
+      started_at: null,
+    },
+  ], rootPid, missingStartObserved);
+  assert.equal(missingStartObserved.has(50006), false);
+
+  const startlessDescendantObserved = new Map([[rootPid, root]]);
+  const startlessUnknownPids = mergeObservedTree([
+    root,
+    {
+      pid: 50007,
+      ppid: rootPid,
+      pgid: rootPid,
+      name: 'startless-descendant',
+      started_at: null,
+    },
+  ], rootPid, startlessDescendantObserved);
+  assert.deepEqual(startlessUnknownPids, [50007]);
+  assert.equal(startlessDescendantObserved.has(50007), false);
+
+  const uninitializedRootObserved = new Map([[rootPid, {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'powershell.exe',
+    started_at: null,
+  }]]);
+  mergeObservedTree([
+    { pid: rootPid, ppid: 12345, pgid: rootPid, name: 'powershell.exe', started_at: '2026-07-10T12:00:00.000Z' },
+    { pid: 50005, ppid: rootPid, pgid: rootPid, name: 'unrelated-child', started_at: '2026-07-10T12:00:00.100Z' },
+  ], rootPid, uninitializedRootObserved);
+  assert.equal(uninitializedRootObserved.get(rootPid)?.started_at, null);
+  assert.equal(uninitializedRootObserved.has(50005), false);
+
+  const sameSupervisorReuseObserved = new Map([[rootPid, {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'powershell.exe',
+    started_at: null,
+  }]]);
+  const sameSupervisorReuse = {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: 'unrelated.exe',
+    started_at: '2026-07-10T13:00:00.000Z',
+  };
+  assert.equal(classifyProcessIdentity(sameSupervisorReuseObserved.get(rootPid), sameSupervisorReuse), 'unknown');
+  mergeObservedTree([
+    sameSupervisorReuse,
+    {
+      pid: 50008,
+      ppid: rootPid,
+      pgid: null,
+      name: 'unrelated-same-supervisor-child',
+      started_at: '2026-07-10T13:00:00.100Z',
+    },
+  ], rootPid, sameSupervisorReuseObserved);
+  assert.equal(sameSupervisorReuseObserved.get(rootPid)?.started_at, null);
+  assert.equal(sameSupervisorReuseObserved.has(50008), false);
+
+  return {
+    stale_excluded: true,
+    reused_parent_identity_excluded: true,
+    posix_group_reused_root_excluded: true,
+    posix_group_absent_root_excluded: true,
+    known_start_missing_current_start_unknown: true,
+    known_start_missing_current_start_child_excluded: true,
+    startless_descendant_unknown: true,
+    startless_descendant_excluded: true,
+    uninitialized_root_reuse_excluded: true,
+    same_supervisor_root_reuse_excluded: true,
+    descendant_count: observed.size - 1,
+  };
+}
+
+function assertNoWorkerSpawnEvents(events) {
+  const forbidden = new Set([
+    'worker.started',
+    'worker.root_identity',
+    'worker.atomic_child',
+    'worker.stdout',
+    'worker.stderr',
+  ]);
+  assert.deepEqual(events.filter((event) => forbidden.has(event.type)), []);
+}
+
+async function runPreSpawnAbortCase() {
+  const events = [];
+  const abortController = new AbortController();
+  abortController.abort('already-aborted');
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 5000,
+    signal: abortController.signal,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+  assert.equal(result.interrupted, true);
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return {
+    status: result.status,
+    wrapper_spawned: false,
+    worker_executed: false,
+  };
+}
+
+async function runControllerIdentityStartFailureCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousFailure = process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      onEvent: (event) => events.push(event),
+    });
+    assert.equal(result.status, 'controller_identity_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.verified, true);
+    assert(result.observation_errors.includes('test controller identity helper start failure'));
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 0);
+    assertNoWorkerSpawnEvents(events);
+    return { status: result.status, structured_result: true, wrapper_spawned: false };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousFailure === undefined) delete process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW;
+    else process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW = previousFailure;
+  }
+}
+
+async function runControllerIdentityResultFailureCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousFailure = process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      onEvent: (event) => events.push(event),
+    });
+    assert.equal(result.status, 'controller_identity_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, false);
+    assert.equal(result.cleanup.verified, true);
+    assert(result.observation_errors.some((error) => error.includes('test controller identity helper result failure')));
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 0);
+    assertNoWorkerSpawnEvents(events);
+    return { status: result.status, structured_result: true, wrapper_spawned: false };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousFailure === undefined) delete process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT;
+    else process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT = previousFailure;
+  }
+}
+
+async function runPreSpawnTimeoutCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDelay = process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = '1000';
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 100,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+    assert.equal(result.timed_out, true);
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, true);
+    assert.equal(result.cleanup.verified, true);
+    assert.equal(result.cleanup.requested_pids.length, 1);
+    assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
+    assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
+    assert(elapsedMs < 750, 'controller identity query was not bounded by the timeout guard');
+    assertNoWorkerSpawnEvents(events);
+    return {
+      status: result.status,
+      elapsed_ms: elapsedMs,
+      wrapper_spawned: false,
+      worker_executed: false,
+      identity_lookup_closed: true,
+    };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDelay === undefined) delete process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+    else process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = previousDelay;
+  }
+}
+
+async function runPreSpawnIdentityAbortCase() {
+  const events = [];
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDelay = process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = '1000';
+  const abortController = new AbortController();
+  const abortHandle = setTimeout(() => abortController.abort('identity-lookup-abort'), 100);
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      signal: abortController.signal,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+    assert.equal(result.interrupted, true);
+    assert.equal(result.root_pid, null);
+    assert.equal(result.cleanup.required, true);
+    assert.equal(result.cleanup.verified, true);
+    assert.equal(result.cleanup.requested_pids.length, 1);
+    assert.deepEqual(result.cleanup.confirmed_gone_pids, result.cleanup.requested_pids);
+    assert.deepEqual(result.cleanup.unknown_after_cleanup, []);
+    assert(elapsedMs < 750, 'controller identity query was not cancelled after interruption');
+    assertNoWorkerSpawnEvents(events);
+    return {
+      status: result.status,
+      elapsed_ms: elapsedMs,
+      wrapper_spawned: false,
+      worker_executed: false,
+      identity_lookup_closed: true,
+    };
+  } finally {
+    clearTimeout(abortHandle);
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDelay === undefined) delete process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS;
+    else process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS = previousDelay;
+  }
+}
+
+/** @returns {NodeJS.ProcessEnv} */
+function delayedInvocationEnvironment(delayMs, onRead = null) {
+  /** @type {NodeJS.ProcessEnv} */
+  const env = {};
+  Object.defineProperty(env, 'FDP_TEST_DELAYED_ENV', {
+    enumerable: true,
+    get: () => {
+      busyWait(delayMs);
+      if (onRead) onRead();
+      return '1';
+    },
+  });
+  return env;
+}
+
+async function runFinalSpawnTimeoutGuardCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: delayedInvocationEnvironment(1500),
+    timeoutMs: 1000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return { status: result.status, wrapper_spawned: false, worker_executed: false };
+}
+
+async function runFinalSpawnAbortGuardCase() {
+  const events = [];
+  const abortController = new AbortController();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: delayedInvocationEnvironment(25, () => abortController.abort('during-invocation-build')),
+    timeoutMs: 5000,
+    signal: abortController.signal,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'interrupted', JSON.stringify(result, null, 2));
+  assert.equal(result.root_pid, null);
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+  assertNoWorkerSpawnEvents(events);
+  return { status: result.status, wrapper_spawned: false, worker_executed: false };
+}
+async function runControlEnvironmentIsolationCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'assert-control-env-absent'],
+    timeoutMs: 5000,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'assert-control-env-absent');
+  assert(fixtureEvent);
+  assert.deepEqual(fixtureEvent.payload.inherited, []);
+  return {
+    status: result.status,
+    control_environment_inherited: false,
+  };
+}
+async function runPrebuiltSetupBoundaryCase() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-prebuilt-setup-'));
+  const setupReadyPath = path.join(tempRoot, 'setup-ready.txt');
+  const workerMarkerPath = path.join(tempRoot, 'worker-executed.txt');
+  let execution = null;
+  let result = null;
+  let wrapperPid = null;
+  const startedAt = Date.now();
+  try {
+    execution = runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'write-marker', workerMarkerPath],
+      env: {
+        NODE_ENV: 'test',
+        FDP_JOB_TEST_SETUP_DELAY_MS: '30000',
+        FDP_JOB_TEST_SETUP_READY_FILE: setupReadyPath,
+      },
+      timeoutMs: 6000,
+      pollIntervalMs: 100,
+      verificationTimeoutMs: 3000,
+      onEvent: (event) => {
+        if (event.type === 'worker.started') wrapperPid = event.root_pid;
+      },
+    });
+
+    assert.equal(await waitForFile(setupReadyPath, 4000), true, 'pre-run setup hook did not become ready');
+    const verifiedWrapperPid = Number(wrapperPid);
+    assert(Number.isInteger(verifiedWrapperPid) && verifiedWrapperPid > 0);
+    assert.equal(Number.parseInt(readFileSync(setupReadyPath, 'utf8'), 10), verifiedWrapperPid);
+    const directChildObservation = await listWindowsDirectChildren(verifiedWrapperPid);
+    const parentStartedAt = Date.parse(directChildObservation.parent_started_at);
+    assert(Number.isFinite(parentStartedAt));
+    const runtimeDirectChildren = directChildObservation.children.filter((entry) => {
+      const childStartedAt = Date.parse(entry.started_at);
+      return !Number.isFinite(childStartedAt) || childStartedAt >= parentStartedAt;
+    });
+    assert.deepEqual(runtimeDirectChildren, [], 'prebuilt setup spawned an unmanaged child: '
+      + JSON.stringify(runtimeDirectChildren));
+
+    result = await execution;
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.ok, false);
+    assert.equal(result.timed_out, true);
+    assert.equal(result.containment.assigned, false);
+    assert.equal(result.containment.wrapper_closed, true);
+    assert.equal(result.containment.atomic_child_pid, null);
+    assert.deepEqual(result.observed_descendant_pids, []);
+    assert.equal(existsSync(workerMarkerPath), false, 'worker executed during stalled pre-run setup');
+    await assertProcessIdentitiesGone([{
+      pid: verifiedWrapperPid,
+      started_at: directChildObservation.parent_started_at,
+    }]);
+    const classified = [
+      ...result.cleanup.confirmed_gone_pids,
+      ...result.cleanup.identity_mismatch_pids,
+      ...result.cleanup.alive_after_cleanup,
+      ...result.cleanup.unknown_after_cleanup,
+    ];
+    assert.deepEqual(classified, [verifiedWrapperPid]);
+    assert(elapsedMs < 12000, 'pre-run setup timeout exceeded finite bound: ' + elapsedMs + 'ms');
+    return {
+      status: result.status,
+      wrapper_pid: verifiedWrapperPid,
+      runtime_compiler_children: runtimeDirectChildren,
+      stale_direct_child_rows_ignored: directChildObservation.children.length - runtimeDirectChildren.length,
+      worker_executed: false,
+      wrapper_closed: true,
+      cleanup_classification: 'complete',
+      elapsed_ms: elapsedMs,
+    };
+  } finally {
+    if (execution && !result) await execution.catch(() => null);
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 }
 
 async function runNormalCase() {
@@ -54,17 +957,94 @@ async function runNormalCase() {
     pollIntervalMs: 100,
     onEvent: (event) => events.push(event),
   });
-  assert.equal(result.status, 'completed');
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, true);
   assert.equal(result.exit_code, 0);
   assert.equal(result.cleanup.required, false);
+  assert.equal(result.containment.controller_watchdog_stopped, true);
   assert.equal(result.observation_verified, true);
+  assertManagedIdentitiesBeforeObservation(events, result);
   assert(events.some((event) => event.type === 'worker.stdout' && event.payload?.fixture === 'complete'));
   assert(events.some((event) => event.type === 'worker.stderr' && event.payload === 'fixture stderr visible'));
   return result;
 }
 
+async function runWatchdogTeardownRaceCase() {
+  let workerCompletedAt = null;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: {
+      NODE_ENV: 'test',
+      FDP_JOB_TEST_WATCHDOG_CANCEL_DELAY_MS: '250',
+    },
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    residualGraceMs: 0,
+    onEvent: (event) => {
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && typeof payload === 'object'
+        && payload !== null
+        && 'fixture' in payload
+        && payload.fixture === 'complete') {
+        workerCompletedAt = Date.now();
+      }
+    },
+  });
+  const returnedAt = Date.now();
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.equal(result.containment.controller_watchdog_stopped, true);
+  if (workerCompletedAt === null) throw new Error(
+'worker completion event was not observed'
+);
+  const cancellationDelayObservedMs = returnedAt - /** @type {number} */ (workerCompletedAt);
+  assert(cancellationDelayObservedMs >= 200,
+    'wrapper returned before the delayed watchdog cancellation path could join');
+  return {
+    status: result.status,
+    watchdog_stopped: true,
+    cancellation_delay_observed_ms: cancellationDelayObservedMs,
+  };
+}
+
+async function runTransientObservationRetryCase() {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousInjection = process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE;
+  const injectionToken = `transient-observation-${process.pid}-${Date.now()}`;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE = injectionToken;
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      pollIntervalMs: 100,
+    });
+    assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, true);
+    assert.equal(result.observation_verified, true);
+    assert.equal(
+      result.observation_errors.some((message) =>
+        message.includes('test transient process-table acquisition failure')),
+      false,
+    );
+    return {
+      status: result.status,
+      transient_failure_retried: true,
+      absolute_retry_deadline_enforced: true,
+    };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousInjection === undefined) delete process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE;
+    else process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE = previousInjection;
+  }
+}
+
 async function runTimeoutCase() {
+  const events = [];
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'root'],
@@ -72,19 +1052,253 @@ async function runTimeoutCase() {
     pollIntervalMs: 100,
     terminationGraceMs: 100,
     verificationTimeoutMs: 5000,
+    onEvent: (event) => events.push(event),
   });
   assert.equal(result.status, 'timed_out');
   assert.equal(result.timed_out, true);
-  assert(result.observed_descendant_pids.length >= 2);
+  assert(result.observed_descendant_pids.length >= 2, JSON.stringify(result, null, 2));
   assert.equal(result.cleanup.required, true);
   assert.equal(result.cleanup.reason, 'timeout');
   assert.equal(result.cleanup.verified, true);
   assert.deepEqual(result.cleanup.alive_after_cleanup, []);
-  assert(result.cleanup.confirmed_gone_pids.includes(result.root_pid));
-  return result;
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
+  return {
+    ...result,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    atomic_identity_before_observation: atomicIdentityBeforeObservation,
+  };
 }
 
+async function runStartedCallbackDeadlineCase() {
+  let callbackBlocked = false;
+  const startedAt = Date.now();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 500,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+    onEvent: (event) => {
+      if (event.type === 'worker.started' && !callbackBlocked) {
+        callbackBlocked = true;
+        busyWait(1500);
+      }
+    },
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(callbackBlocked, true);
+  assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+  assert.equal(result.timed_out, true);
+  assert.equal(result.ok, false);
+  assert(elapsedMs >= 1500 && elapsedMs < 5000);
+  await assertManagedResultIdentitiesGone(result);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return {
+    ...result,
+    elapsed_ms: elapsedMs,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    deadline_outcome_preserved: true,
+  };
+}
+
+async function runThrowingStartedCallbackCase() {
+  let callbackThrew = false;
+  let atomicChildPid = null;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 2000,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+    onEvent: (event) => {
+      if (event.type === 'worker.atomic_child') atomicChildPid = event.pid;
+      if (event.type === 'worker.started' && !callbackThrew) {
+        callbackThrew = true;
+        throw new Error('intentional event sink failure');
+      }
+    },
+  });
+  assert.equal(callbackThrew, true);
+  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.cleanup.required, true);
+  assert.equal(result.cleanup.reason, 'event-dispatch-failed');
+  assert.equal(result.cleanup.verified, true);
+  assert(result.event_errors.includes('intentional event sink failure'));
+  assert.equal(atomicChildPid, result.containment.atomic_child_pid);
+  await assertManagedResultIdentitiesGone(result);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return {
+    ...result,
+    cleanup_partition_verified: cleanupPartitionVerified,
+    event_sink_failure_contained: true,
+  };
+}
+
+async function runFinalResultCallbackIsolationCase() {
+  const abortController = new AbortController();
+  let terminalCallbackCount = 0;
+  const startedAt = Date.now();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    signal: abortController.signal,
+    onEvent: (event) => {
+      if (event.type !== 'worker.result') return;
+      terminalCallbackCount += 1;
+      abortController.abort('terminal-callback-should-not-run');
+      busyWait(6000);
+    },
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(terminalCallbackCount, 0);
+  assert.equal(abortController.signal.aborted, false);
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert(elapsedMs < 5000, `managed result returned after deadline: ${elapsedMs}ms`);
+  assert.equal(result.containment.verified, true);
+  assert.equal(result.cleanup.required, false);
+  await assertManagedResultIdentitiesGone(result);
+  return {
+    status: result.status,
+    terminal_callback_invoked: false,
+    signal_aborted: false,
+    returned_before_deadline: true,
+    containment_verified: result.containment.verified,
+  };
+}
+
+async function runSpawnFailureResultCallbackIsolationCase() {
+  const missingCwd = path.join(os.tmpdir(), 'fdp-codex-missing-spawn-cwd-' + process.pid + '-' + Date.now());
+  let terminalCallbackCount = 0;
+  const startedAt = Date.now();
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    cwd: missingCwd,
+    timeoutMs: 5000,
+    onEvent: (event) => {
+      if (event.type !== 'worker.result') return;
+      terminalCallbackCount += 1;
+      busyWait(6000);
+    },
+  });
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(terminalCallbackCount, 0);
+  assert.equal(result.status, 'spawn_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.root_pid, null);
+  assert(elapsedMs < 5000, `spawn failure result returned after deadline: ${elapsedMs}ms`);
+  return {
+    status: result.status,
+    terminal_callback_invoked: false,
+    returned_before_deadline: true,
+  };
+}
+async function runSpoofedAtomicMarkerCase() {
+  const spoofedPid = 424242;
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'spoof-marker'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.notEqual(result.containment.atomic_child_pid, spoofedPid);
+  assert.equal(result.observed_descendant_pids.includes(spoofedPid), false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
+  assert.equal(typeof result.containment.root_started_at, 'string');
+  assert.deepEqual(result.containment.errors, []);
+  assert(events.some((event) => event.type === 'worker.stderr'
+    && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
+  await assertManagedResultIdentitiesGone(result);
+  return { ...result, spoofed_marker_ignored: true };
+}
+
+async function runSpoofedDrainWrapperKillCase() {
+  const events = [];
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'spoof-drain-kill-wrapper'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    onEvent: (event) => events.push(event),
+  });
+  assert.notEqual(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
+  assert.equal(result.containment.verified, false);
+  assert(events.some((event) => event.type === 'worker.stderr'
+    && event.payload === 'FDP_JOB_RUNNER_DRAINED:forged-token'));
+  await assertManagedResultIdentitiesGone(result);
+  return { ...result, forged_drain_ignored: true };
+}
+
+async function runStdinEarlyExitCase() {
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'exit-immediately'],
+    stdinText: 'x'.repeat(1024 * 1024),
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    terminationGraceMs: 100,
+    verificationTimeoutMs: 2000,
+  });
+  assert.equal(result.status, 'stdin_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert(result.stdin_errors.length >= 1);
+  assert.equal(result.cleanup.required, true);
+  assert.equal(result.cleanup.reason, 'stdin-failed');
+  assert.equal(result.cleanup.verified, true);
+  await assertManagedResultIdentitiesGone(result);
+  const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+  return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+}
+
+async function runStdinTimeoutCase() {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousInjection = process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT = '1';
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      stdinText: 'x'.repeat(1024 * 1024),
+      timeoutMs: 5000,
+      pollIntervalMs: 100,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 5000,
+    });
+    assert.equal(result.status, 'timed_out', JSON.stringify(result, null, 2));
+    assert.equal(result.timed_out, true);
+    assert(result.stdin_errors.includes('test stdin failure after timeout selection'));
+    assert.equal(result.cleanup.required, true);
+    assert.equal(result.cleanup.verified, true);
+    await assertManagedResultIdentitiesGone(result);
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    return { ...result, cleanup_partition_verified: cleanupPartitionVerified };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousInjection === undefined) delete process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT;
+    else process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT = previousInjection;
+  }
+}
 async function runInterruptionCase() {
+  const events = [];
   const abortController = new AbortController();
   const timer = setTimeout(() => abortController.abort('test-interruption'), 1500);
   try {
@@ -96,20 +1310,29 @@ async function runInterruptionCase() {
       terminationGraceMs: 100,
       verificationTimeoutMs: 5000,
       signal: abortController.signal,
+      onEvent: (event) => events.push(event),
     });
     assert.equal(result.status, 'interrupted');
     assert.equal(result.interrupted, true);
-    assert(result.observed_descendant_pids.length >= 2);
+    assert(result.observed_descendant_pids.length >= 2, JSON.stringify(result, null, 2));
     assert.equal(result.cleanup.reason, 'interrupted');
     assert.equal(result.cleanup.verified, true);
     assert.deepEqual(result.cleanup.alive_after_cleanup, []);
-    return result;
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
+    return {
+      ...result,
+      cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
+    };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function runResidualCase() {
+async function runOrphanContainmentCase() {
+  const events = [];
+  let orphanIdentityPromise = null;
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'orphan-root'],
@@ -117,45 +1340,903 @@ async function runResidualCase() {
     pollIntervalMs: 100,
     terminationGraceMs: 100,
     verificationTimeoutMs: 5000,
+    onEvent: (event) => {
+      events.push(event);
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && payload && typeof payload === 'object'
+        && 'fixture' in payload && payload.fixture === 'orphan-root'
+        && 'child_pid' in payload && Number.isInteger(payload.child_pid)) {
+        orphanIdentityPromise = waitForProcessIdentity(Number(payload.child_pid));
+      }
+    },
   });
-  assert.equal(result.status, 'residual_processes');
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, false);
-  assert(result.observed_descendant_pids.length >= 2);
-  assert.equal(result.cleanup.reason, 'residual-processes-after-root-exit');
-  assert.equal(result.cleanup.verified, true);
-  assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+  assert.equal(result.containment.mode, 'windows-job-object');
+  assert.equal(result.containment.drained, true);
+  assert.equal(result.containment.verified, false);
+  assert(result.containment.errors.some((error) => error.includes('Worker root exited while')));
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'orphan-root');
+  assert(fixtureEvent?.payload?.child_pid);
+  assert(orphanIdentityPromise);
+  await assertProcessIdentitiesGone([await orphanIdentityPromise]);
   return result;
 }
 
+async function runControllerPreAcquireDeathCase() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-controller-pre-acquire-'));
+  const markerPath = path.join(tempRoot, 'worker-executed.txt');
+  let controller = null;
+  try {
+    controller = spawn(process.execPath, [
+      testScriptPath,
+      '--controller-pre-acquire-helper',
+      markerPath,
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let buffered = '';
+    /** @type {{pid: number, started_at: string} | null} */
+    let wrapperIdentity = null;
+    const rootIdentityReady = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('pre-acquire helper did not emit root identity')), 10000);
+      controller.stdout.on('data', (chunk) => {
+        buffered += String(chunk);
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line) continue;
+          const event = JSON.parse(line);
+          if (event.type === 'worker.root_identity') {
+            wrapperIdentity = { pid: event.pid, started_at: event.started_at };
+          }
+        }
+        if (Number.isInteger(wrapperIdentity?.pid) && wrapperIdentity.started_at) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      controller.once('error', reject);
+    });
+    await rootIdentityReady;
+    assert.equal(controller.kill(), true);
+    await new Promise((resolve) => controller.once('close', resolve));
+    await assertProcessIdentitiesGone([wrapperIdentity]);
+    assert.equal(existsSync(markerPath), false, 'worker executed before controller identity acquisition');
+    return {
+      controller_terminated_before_watchdog: true,
+      wrapper_gone: true,
+      worker_executed: false,
+    };
+  } finally {
+    if (controller && controller.exitCode === null && controller.signalCode === null) {
+      controller.kill();
+    }
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+async function runControllerDeathWatchdogCase() {
+  const controller = spawn(process.execPath, [testScriptPath, '--controller-watchdog-helper'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let buffered = '';
+  /** @type {{pid: number, started_at: string} | null} */
+  let wrapperIdentity = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let atomicChildIdentity = null;
+  const identitiesReady = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('controller watchdog helper did not emit identities')), 10000);
+    controller.stdout.on('data', (chunk) => {
+      buffered += String(chunk);
+      const lines = buffered.split(/\r?\n/);
+      buffered = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'worker.root_identity') {
+          wrapperIdentity = { pid: event.pid, started_at: event.started_at };
+        }
+        if (event.type === 'worker.atomic_child') {
+          atomicChildIdentity = { pid: event.pid, started_at: event.started_at };
+        }
+      }
+      if (Number.isInteger(wrapperIdentity?.pid)
+        && wrapperIdentity.started_at
+        && Number.isInteger(atomicChildIdentity?.pid)
+        && atomicChildIdentity.started_at) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+    controller.once('error', reject);
+  });
+  await identitiesReady;
+  assert(wrapperIdentity);
+  assert(atomicChildIdentity);
+  const confirmedWrapperIdentity = wrapperIdentity;
+  const confirmedAtomicChildIdentity = atomicChildIdentity;
+  assert.equal(controller.kill(), true);
+  await new Promise((resolve) => controller.once('close', resolve));
+  await assertProcessIdentitiesGone([confirmedWrapperIdentity, confirmedAtomicChildIdentity]);
+  return {
+    controller_terminated: true,
+    wrapper_pid: confirmedWrapperIdentity.pid,
+    atomic_child_pid: confirmedAtomicChildIdentity.pid,
+    wrapper_gone: true,
+    atomic_child_gone: true,
+  };
+}
+
+async function runAtomicWrapperKillCase() {
+  const events = [];
+  let wrapperPid = null;
+  let atomicChildPid = null;
+  let wrapperKilled = false;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: { FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE: '1' },
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    verificationTimeoutMs: 5000,
+    onEvent: (event) => {
+      events.push(event);
+      if (event.type === 'worker.started') wrapperPid = event.root_pid;
+      if (event.type === 'worker.atomic_child') {
+        atomicChildPid = event.pid;
+        assert(Number.isInteger(wrapperPid) && wrapperPid > 0);
+        process.kill(wrapperPid, 'SIGTERM');
+        wrapperKilled = true;
+      }
+    },
+  });
+  assert.equal(wrapperKilled, true);
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, false);
+  assert.equal(result.containment.controller_watchdog_armed, true);
+  assert.equal(result.containment.wrapper_closed, true);
+  assert.equal(result.containment.verified, false);
+  assert.equal(result.containment.atomic_child_pid, atomicChildPid);
+  const confirmedWrapperPid = Number(wrapperPid);
+  const confirmedAtomicChildPid = Number(atomicChildPid);
+  assert(Number.isInteger(confirmedWrapperPid) && confirmedWrapperPid > 0);
+  assert(Number.isInteger(confirmedAtomicChildPid) && confirmedAtomicChildPid > 0);
+  await assertManagedResultIdentitiesGone(result);
+  assert.equal(events.some((event) => (
+    event.type === 'worker.stdout' && event.payload?.fixture === 'complete'
+  )), false);
+  return { ...result, wrapper_pid: wrapperPid };
+}
+
+async function runObservationHangTimeoutCase() {
+  const events = [];
+  const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+  process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      timeoutMs: 3000,
+      pollIntervalMs: 100,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 3000,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, false);
+    assert.equal(result.timed_out, true);
+    assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang exceeded finite bound: ${elapsedMs}ms`);
+    assert(Number.isInteger(result.containment.atomic_child_pid));
+    await assertManagedResultIdentitiesGone(result);
+    assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+    assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
+    assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
+    assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
+    return {
+      ...result,
+      elapsed_ms: elapsedMs,
+      cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
+    };
+  } finally {
+    if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+    else process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = previousDelay;
+  }
+}
+
+async function runObservationHangInterruptionCase() {
+  const events = [];
+  const previousDelay = process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+  process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = '10000';
+  const abortController = new AbortController();
+  const abortTimer = setTimeout(() => abortController.abort('observer-hang-test'), 3000);
+  const startedAt = Date.now();
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'root'],
+      timeoutMs: 10000,
+      pollIntervalMs: 100,
+      terminationGraceMs: 500,
+      verificationTimeoutMs: 3000,
+      signal: abortController.signal,
+      onEvent: (event) => events.push(event),
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.status, 'cleanup_failed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, false);
+    assert.equal(result.interrupted, true);
+    assert(elapsedMs < OBSERVATION_HANG_FINITE_BOUND_MS, `observation hang interruption exceeded finite bound: ${elapsedMs}ms`);
+    assert(Number.isInteger(result.containment.atomic_child_pid));
+    await assertManagedResultIdentitiesGone(result);
+    assert.deepEqual(result.cleanup.alive_after_cleanup, []);
+    assert(result.cleanup.unknown_after_cleanup.includes(result.root_pid));
+    assert(result.cleanup.unknown_after_cleanup.includes(result.containment.atomic_child_pid));
+    assert(result.observation_errors.length > 0, JSON.stringify(result, null, 2));
+    const cleanupPartitionVerified = assertObservedCleanupPartition(result);
+    const atomicIdentityBeforeObservation = assertManagedIdentitiesBeforeObservation(events, result);
+    return {
+      ...result,
+      elapsed_ms: elapsedMs,
+      cleanup_partition_verified: cleanupPartitionVerified,
+      atomic_identity_before_observation: atomicIdentityBeforeObservation,
+    };
+  } finally {
+    clearTimeout(abortTimer);
+    if (previousDelay === undefined) delete process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS;
+    else process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS = previousDelay;
+  }
+}
+
+function parseWorkerResult(stdout) {
+  const results = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      const event = JSON.parse(line);
+      if (event.type === 'worker.result') results.push(event.result);
+    } catch {
+      // Non-JSON fixture output is surfaced separately by the managed worker.
+    }
+  }
+  assert.equal(results.length, 1, `expected exactly one worker.result event:\n${stdout}`);
+  return results[0];
+}
+
+function assertNullRootTerminalResult(result, expectedStatus) {
+  assert.equal(result.schema_version, 1);
+  assert.equal(result.kind, 'managed-worker-result');
+  assert.equal(result.status, expectedStatus);
+  assert.equal(result.ok, false);
+  assert.equal(result.root_pid, null);
+  assert.deepEqual(result.observed_descendant_pids, []);
+  assert.equal(result.observation_verified, false);
+  assert.deepEqual(result.containment, {
+    mode: 'windows-job-object',
+    assigned: false,
+    drained: false,
+    verified: false,
+    controller_watchdog_armed: false,
+    controller_watchdog_stopped: false,
+    wrapper_closed: false,
+    root_started_at: null,
+    atomic_child_pid: null,
+    atomic_child_started_at: null,
+    errors: [],
+  });
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+}
+
+async function runControllerIdentityMismatchCase() {
+  const token = 'b'.repeat(64);
+  const child = spawn(windowsJobRunnerExecutablePath, [
+    process.execPath,
+    process.cwd(),
+    fixturePath,
+    'complete',
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      FDP_JOB_CONTROL_TOKEN: token,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: '1',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 125, JSON.stringify(result, null, 2));
+  assert(result.stderr.includes('Controller identity mismatch.'), JSON.stringify(result, null, 2));
+  assert.equal(result.stderr.includes('FDP_JOB_RUNNER_ASSIGNED:' + token), false);
+  assert.equal(result.stderr.includes('FDP_JOB_RUNNER_ATOMIC_CHILD:' + token), false);
+  return {
+    exit_code: result.code,
+    mismatch_rejected_before_worker_creation: true,
+  };
+}
+
+async function runCodexInvocationResolutionCases() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-codex-invocation-'));
+  const targetRoot = path.join(tempRoot, 'target');
+  const nestedTarget = path.join(targetRoot, 'nested', 'work');
+  const trustedRoot = path.join(tempRoot, 'trusted');
+  const unapprovedRoot = path.join(tempRoot, 'unapproved');
+  const targetShadow = path.join(targetRoot, 'codex.exe');
+  const trustedExecutable = path.join(trustedRoot, 'codex.exe');
+  const unapprovedExecutable = path.join(unapprovedRoot, 'codex.exe');
+  const targetJunction = path.join(trustedRoot, 'target-junction');
+  try {
+    await mkdir(path.join(targetRoot, '.git'), { recursive: true });
+    await mkdir(nestedTarget, { recursive: true });
+    await mkdir(trustedRoot);
+    await mkdir(unapprovedRoot);
+    await writeFile(targetShadow, 'target-controlled shadow executable\n', 'utf8');
+    const targetShim = path.join(targetRoot, 'codex.js');
+    await writeFile(targetShim, 'console.log("target-controlled shim");\n', 'utf8');
+    await copyFile(windowsJobRunnerExecutablePath, trustedExecutable);
+    await copyFile(windowsJobRunnerExecutablePath, unapprovedExecutable);
+    await symlink(targetRoot, targetJunction, 'junction');
+    const trustEnv = { FDP_CODEX_CLI_TRUST_ROOTS: trustedRoot };
+
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { CODEX_CLI_PATH: 'codex.exe' },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: targetRoot,
+      }),
+      /must be an absolute/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, CODEX_CLI_PATH: targetShadow },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /must not resolve inside the target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, CODEX_CLI_PATH: targetShim },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /must not resolve inside the target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: {
+          ...trustEnv,
+          CODEX_CLI_PATH: path.join(targetJunction, 'codex.exe'),
+        },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /must not resolve inside the target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, CODEX_CLI_PATH: unapprovedExecutable },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /approved Codex installation/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: {
+          FDP_CODEX_CLI_TRUST_ROOTS: tempRoot,
+          CODEX_CLI_PATH: targetShadow,
+        },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, PATH: targetRoot + path.delimiter + unapprovedRoot },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /trusted absolute path/,
+    );
+
+    const fallback = resolveCodexInvocation({
+      env: {
+        ...trustEnv,
+        PATH: targetRoot + path.delimiter + unapprovedRoot + path.delimiter + trustedRoot,
+      },
+      platform: 'win32',
+      execPath: process.execPath,
+      targetCwd: nestedTarget,
+    });
+    assert.equal(path.resolve(fallback.command), path.resolve(trustedExecutable));
+    assert.deepEqual(fallback.argsPrefix, []);
+    assert.notEqual(path.resolve(fallback.command), path.resolve(targetShadow));
+
+    return {
+      relative_override_rejected: true,
+      target_cwd_override_rejected: true,
+      target_repository_ancestor_rejected: true,
+      arbitrary_executable_rejected: true,
+      overlapping_trust_root_rejected: true,
+      junction_escape_rejected: true,
+      target_cwd_shadow_rejected: true,
+      controller_trust_root_required: true,
+      path_fallback_absolute: path.isAbsolute(fallback.command),
+      trusted_fallback_selected: true,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
+async function runNativeErrorDetailCase() {
+  const token = 'c'.repeat(64);
+  const missingExecutable = path.join(os.tmpdir(), 'fdp-codex-command-does-not-exist.exe');
+  const child = spawn(windowsJobRunnerExecutablePath, [
+    missingExecutable,
+    process.cwd(),
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      FDP_JOB_CONTROL_TOKEN: token,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: await getWindowsProcessCreationFileTime(process.pid),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 125, JSON.stringify(result, null, 2));
+  assert(result.stderr.includes('CreateProcess failed with Win32 error 2:'), JSON.stringify(result, null, 2));
+  return {
+    exit_code: result.code,
+    operation_preserved: true,
+    win32_error_code_preserved: true,
+    native_message_preserved: true,
+  };
+}
+
+async function runCliSetupFailureCase(override, expectedMessage) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-setup-failure-'));
+  try {
+    const child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', '1000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        CODEX_CLI_PATH: override,
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const captured = await captureChild(child, 'setup failure terminal result regression\n');
+    assert.equal(captured.code, 1, JSON.stringify(captured, null, 2));
+    assert.equal(captured.signal, null);
+    const result = parseWorkerResult(captured.stdout);
+    assertNullRootTerminalResult(result, 'setup_failed');
+    assert(result.observation_errors.some((message) => message.includes(expectedMessage)), JSON.stringify(result, null, 2));
+    const events = captured.stdout.split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line));
+    assert.equal(events.filter((event) => event.type === 'worker.wrapper_error').length, 1);
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assert.equal(events.some((event) => event.type === 'worker.started'), false);
+    return {
+      exit_code: captured.code,
+      status: result.status,
+      root_pid: result.root_pid,
+      wrapper_spawned: false,
+      terminal_schema_complete: true,
+      result_event_count: 1,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
+async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-exit-'));
+  try {
+    await writeFile(path.join(tempRoot, 'exec'), 'setInterval(() => {}, 1000);\n', 'utf8');
+    /** @type {NodeJS.ProcessEnv} */
+    const env = {
+      ...process.env,
+      NODE_ENV: 'test',
+      CODEX_CLI_PATH: process.execPath,
+      FDP_CODEX_CLI_TRUST_ROOTS: path.dirname(process.execPath),
+      FDP_JOB_TEST_OBSERVATION_DELAY_MS: '10000',
+    };
+    delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
+    if (abortAfterMs !== null) {
+      env.FDP_WORKER_TEST_ABORT_AFTER_MS = String(abortAfterMs);
+    }
+    const child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', expectedExitCode === 124 ? '1000' : '10000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const result = await captureChild(child, 'deterministic CLI exit regression\n');
+    assert.equal(result.code, expectedExitCode, JSON.stringify(result, null, 2));
+    assert.equal(result.signal, null);
+    const workerResult = parseWorkerResult(result.stdout);
+    assert(workerResult, result.stdout);
+    assert.equal(workerResult.status, 'cleanup_failed', JSON.stringify(workerResult, null, 2));
+    assert.equal(workerResult.ok, false);
+    assert.equal(workerResult.cleanup.verified, false);
+    if (expectedExitCode === 124) {
+      assert.equal(workerResult.timed_out, true);
+      assert.equal(workerResult.interrupted, false);
+    } else {
+      assert.equal(workerResult.timed_out, false);
+      assert.equal(workerResult.interrupted, true);
+    }
+    return {
+      exit_code: result.code,
+      detailed_status: workerResult.status,
+      cleanup_verified: workerResult.cleanup.verified,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+async function runCliPromptBoundaryCase(expectedExitCode, abortAfterMs = null) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-prompt-boundary-'));
+  let child;
+  let guardTimer;
+  try {
+    await writeFile(path.join(tempRoot, 'exec'), 'setInterval(() => {}, 1000);\n', 'utf8');
+    /** @type {NodeJS.ProcessEnv} */
+    const env = {
+      ...process.env,
+      NODE_ENV: 'test',
+      CODEX_CLI_PATH: process.execPath,
+      FDP_CODEX_CLI_TRUST_ROOTS: path.dirname(process.execPath),
+    };
+    delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
+    if (abortAfterMs !== null) env.FDP_WORKER_TEST_ABORT_AFTER_MS = String(abortAfterMs);
+    child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', expectedExitCode === 124 ? '1000' : '10000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const startedAt = Date.now();
+    const result = await Promise.race([
+      captureChild(child),
+      new Promise((resolve, reject) => {
+        guardTimer = setTimeout(() => {
+          child.kill();
+          reject(new Error('prompt boundary CLI did not terminate'));
+        }, 5000);
+      }),
+    ]);
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.code, expectedExitCode, JSON.stringify(result, null, 2));
+    assert.equal(result.signal, null);
+    assert(elapsedMs < 5000, 'prompt boundary exceeded finite guard: ' + elapsedMs + 'ms');
+    const workerResult = parseWorkerResult(result.stdout);
+    assert(workerResult, result.stdout);
+    assert.equal(workerResult.status, expectedExitCode === 124 ? 'timed_out' : 'interrupted');
+    assert.equal(workerResult.root_pid, null);
+    assert.equal(workerResult.cleanup.required, false);
+    assert.equal(workerResult.cleanup.verified, true);
+    assert.deepEqual(workerResult.containment, {
+      mode: 'windows-job-object',
+      assigned: false,
+      drained: false,
+      verified: false,
+      controller_watchdog_armed: false,
+      controller_watchdog_stopped: false,
+      wrapper_closed: false,
+      root_started_at: null,
+      atomic_child_pid: null,
+      atomic_child_started_at: null,
+      errors: [],
+    });
+    assert.equal(result.stdout.includes('"type":"worker.started"'), false);
+    return {
+      exit_code: result.code,
+      status: workerResult.status,
+      root_pid: workerResult.root_pid,
+      wrapper_spawned: false,
+      terminal_schema_complete: true,
+      controller_watchdog_stopped: workerResult.containment.controller_watchdog_stopped,
+      elapsed_ms: elapsedMs,
+    };
+  } finally {
+    if (guardTimer) clearTimeout(guardTimer);
+    if (child && child.exitCode === null && child.signalCode === null) child.kill();
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+async function runFastParentExitCase() {
+  const events = [];
+  let orphanIdentityPromise = null;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'fast-orphan-root'],
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    verificationTimeoutMs: 5000,
+    onEvent: (event) => {
+      events.push(event);
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && payload && typeof payload === 'object'
+        && 'fixture' in payload && payload.fixture === 'fast-orphan-root'
+        && 'child_pid' in payload && Number.isInteger(payload.child_pid)) {
+        orphanIdentityPromise = waitForProcessIdentity(Number(payload.child_pid));
+      }
+    },
+  });
+  assert.equal(result.status, 'containment_failed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, false);
+  assert.equal(result.containment.mode, 'windows-job-object');
+  assert.equal(result.containment.assigned, true);
+  assert.equal(result.containment.drained, true);
+  assert.equal(result.containment.verified, false);
+  assert(result.containment.errors.some((error) => error.includes('Worker root exited while')));
+  const fixtureEvent = events.find((event) => event.type === 'worker.stdout'
+    && event.payload?.fixture === 'fast-orphan-root');
+  assert(fixtureEvent?.payload?.child_pid);
+  assert(orphanIdentityPromise);
+  await assertProcessIdentitiesGone([await orphanIdentityPromise]);
+  return result;
+}
+
+const pidOnlySignalGuard = runPidOnlySignalGuardCase();
+const delayedWrapperClose = await runDelayedWrapperCloseCase();
+const wrapperStopFailures = await runWrapperStopFailureCases();
+const identityLookupCleanupClassification = runIdentityLookupCleanupClassificationCase();
+const builtinFanoutFlag = runBuiltinFanoutFlagCase();
+const platformSupport = runPlatformSupportCase();
+const controllerSameHandleBinding = runControllerSameHandleBindingCase();
+const prebuiltRunnerArtifact = runPrebuiltRunnerArtifactCase();
 const temporalIdentity = runTemporalIdentityCase();
-const normal = await runNormalCase();
-const timeout = await runTimeoutCase();
-const interruption = await runInterruptionCase();
-const residual = await runResidualCase();
+const windowsCases = process.platform === 'win32' ? {
+  preSpawnAbort: await runPreSpawnAbortCase(),
+  controllerIdentityStartFailure: await runControllerIdentityStartFailureCase(),
+  controllerIdentityResultFailure: await runControllerIdentityResultFailureCase(),
+  preSpawnTimeout: await runPreSpawnTimeoutCase(),
+  preSpawnIdentityAbort: await runPreSpawnIdentityAbortCase(),
+  finalSpawnTimeout: await runFinalSpawnTimeoutGuardCase(),
+  finalSpawnAbort: await runFinalSpawnAbortGuardCase(),
+  controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
+  prebuiltSetupBoundary: await runPrebuiltSetupBoundaryCase(),
+  normal: await runNormalCase(),
+  watchdogTeardownRace: await runWatchdogTeardownRaceCase(),
+  transientObservationRetry: await runTransientObservationRetryCase(),
+  timeout: await runTimeoutCase(),
+  startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
+  throwingStartedCallback: await runThrowingStartedCallbackCase(),
+  finalResultCallbackIsolation: await runFinalResultCallbackIsolationCase(),
+  spawnFailureResultCallbackIsolation: await runSpawnFailureResultCallbackIsolationCase(),
+  spoofedAtomicMarker: await runSpoofedAtomicMarkerCase(),
+  spoofedDrainWrapperKill: await runSpoofedDrainWrapperKillCase(),
+  stdinEarlyExit: await runStdinEarlyExitCase(),
+  stdinTimeout: await runStdinTimeoutCase(),
+  interruption: await runInterruptionCase(),
+  orphanContainment: await runOrphanContainmentCase(),
+  controllerPreAcquireDeath: await runControllerPreAcquireDeathCase(),
+  controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
+  controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
+  codexInvocationResolution: await runCodexInvocationResolutionCases(),
+  nativeErrorDetail: await runNativeErrorDetailCase(),
+  cliRelativeOverrideFailure: await runCliSetupFailureCase('codex.exe', 'must be an absolute'),
+  cliMissingOverrideFailure: await runCliSetupFailureCase(
+    path.join(os.tmpdir(), 'fdp-codex-command-does-not-exist.exe'),
+    'does not identify a readable absolute Codex command',
+  ),
+  cliPromptTimeout: await runCliPromptBoundaryCase(124),
+  cliPromptInterruption: await runCliPromptBoundaryCase(130, 750),
+  cliTimeoutExit: await runCliPrimaryExitCase(124),
+  cliInterruptionExit: await runCliPrimaryExitCase(130, 750),
+  atomicWrapperKill: await runAtomicWrapperKillCase(),
+  observationHangTimeout: await runObservationHangTimeoutCase(),
+  observationHangInterruption: await runObservationHangInterruptionCase(),
+  fastParentExit: await runFastParentExitCase(),
+} : null;
+const unsupportedPlatform = process.platform === 'win32'
+  ? null
+  : await runUnsupportedPlatformCase();
 
 console.log(JSON.stringify({
   ok: true,
   cases: {
+    pid_only_signal_guard: pidOnlySignalGuard,
+    delayed_wrapper_close: delayedWrapperClose,
+    wrapper_stop_failures: wrapperStopFailures,
+    identity_lookup_cleanup_classification: identityLookupCleanupClassification,
+    builtin_fanout_flag: builtinFanoutFlag,
+    platform_support: platformSupport,
+    controller_same_handle_binding: controllerSameHandleBinding,
+    prebuilt_runner_artifact: prebuiltRunnerArtifact,
     temporal_identity: temporalIdentity,
-    normal: {
-      status: normal.status,
-      stdout_line_count: normal.stdout_line_count,
-      stderr_line_count: normal.stderr_line_count,
+    unsupported_platform: unsupportedPlatform && {
+      status: unsupportedPlatform.status,
+      containment_mode: unsupportedPlatform.containment.mode,
     },
-    timeout: {
-      status: timeout.status,
-      observed_descendant_count: timeout.observed_descendant_pids.length,
-      cleanup_verified: timeout.cleanup.verified,
-    },
-    interruption: {
-      status: interruption.status,
-      observed_descendant_count: interruption.observed_descendant_pids.length,
-      cleanup_verified: interruption.cleanup.verified,
-    },
-    residual: {
-      status: residual.status,
-      observed_descendant_count: residual.observed_descendant_pids.length,
-      cleanup_verified: residual.cleanup.verified,
+    windows_lifecycle: windowsCases && {
+      pre_spawn_abort: windowsCases.preSpawnAbort,
+      controller_identity_start_failure: windowsCases.controllerIdentityStartFailure,
+      controller_identity_result_failure: windowsCases.controllerIdentityResultFailure,
+      pre_spawn_timeout: windowsCases.preSpawnTimeout,
+      pre_spawn_identity_abort: windowsCases.preSpawnIdentityAbort,
+      final_spawn_timeout: windowsCases.finalSpawnTimeout,
+      final_spawn_abort: windowsCases.finalSpawnAbort,
+      control_environment_isolation: windowsCases.controlEnvironmentIsolation,
+      prebuilt_setup_boundary: windowsCases.prebuiltSetupBoundary,
+      normal: {
+        status: windowsCases.normal.status,
+        stdout_line_count: windowsCases.normal.stdout_line_count,
+        stderr_line_count: windowsCases.normal.stderr_line_count,
+        watchdog_stopped: windowsCases.normal.containment.controller_watchdog_stopped,
+      },
+      watchdog_teardown_race: windowsCases.watchdogTeardownRace,
+      transient_observation_retry: windowsCases.transientObservationRetry,
+      timeout: {
+        status: windowsCases.timeout.status,
+        observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,
+        cleanup_verified: windowsCases.timeout.cleanup.verified,
+        cleanup_partition_verified: windowsCases.timeout.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.timeout.observed_descendant_pids
+          .includes(windowsCases.timeout.containment.atomic_child_pid),
+        atomic_identity_before_observation: windowsCases.timeout.atomic_identity_before_observation,
+        controller_watchdog_armed: windowsCases.timeout.containment.controller_watchdog_armed,
+        wrapper_closed: windowsCases.timeout.containment.wrapper_closed,
+      },
+      started_callback_deadline: {
+        status: windowsCases.startedCallbackDeadline.status,
+        timed_out: windowsCases.startedCallbackDeadline.timed_out,
+        elapsed_ms: windowsCases.startedCallbackDeadline.elapsed_ms,
+        deadline_outcome_preserved: windowsCases.startedCallbackDeadline.deadline_outcome_preserved,
+        cleanup_partition_verified: windowsCases.startedCallbackDeadline.cleanup_partition_verified,
+      },
+      throwing_started_callback: {
+        status: windowsCases.throwingStartedCallback.status,
+        cleanup_verified: windowsCases.throwingStartedCallback.cleanup.verified,
+        cleanup_partition_verified: windowsCases.throwingStartedCallback.cleanup_partition_verified,
+        event_sink_failure_contained: windowsCases.throwingStartedCallback.event_sink_failure_contained,
+        event_error_count: windowsCases.throwingStartedCallback.event_errors.length,
+      },
+      final_result_callback_isolation: windowsCases.finalResultCallbackIsolation,
+      spawn_failure_result_callback_isolation: windowsCases.spawnFailureResultCallbackIsolation,
+      spoofed_atomic_marker: {
+        status: windowsCases.spoofedAtomicMarker.status,
+        spoofed_marker_ignored: windowsCases.spoofedAtomicMarker.spoofed_marker_ignored,
+        spoofed_pid_observed: windowsCases.spoofedAtomicMarker.observed_descendant_pids.includes(424242),
+        containment_verified: windowsCases.spoofedAtomicMarker.containment.verified,
+      },
+      spoofed_drain_wrapper_kill: {
+        status: windowsCases.spoofedDrainWrapperKill.status,
+        forged_drain_ignored: windowsCases.spoofedDrainWrapperKill.forged_drain_ignored,
+        containment_assigned: windowsCases.spoofedDrainWrapperKill.containment.assigned,
+        containment_drained: windowsCases.spoofedDrainWrapperKill.containment.drained,
+        containment_verified: windowsCases.spoofedDrainWrapperKill.containment.verified,
+      },
+      stdin_early_exit: {
+        status: windowsCases.stdinEarlyExit.status,
+        cleanup_verified: windowsCases.stdinEarlyExit.cleanup.verified,
+        cleanup_partition_verified: windowsCases.stdinEarlyExit.cleanup_partition_verified,
+        stdin_error_count: windowsCases.stdinEarlyExit.stdin_errors.length,
+      },
+      stdin_timeout: {
+        status: windowsCases.stdinTimeout.status,
+        timed_out: windowsCases.stdinTimeout.timed_out,
+        cleanup_verified: windowsCases.stdinTimeout.cleanup.verified,
+        cleanup_partition_verified: windowsCases.stdinTimeout.cleanup_partition_verified,
+        stdin_error_count: windowsCases.stdinTimeout.stdin_errors.length,
+      },
+      interruption: {
+        status: windowsCases.interruption.status,
+        observed_descendant_count: windowsCases.interruption.observed_descendant_pids.length,
+        cleanup_verified: windowsCases.interruption.cleanup.verified,
+        cleanup_partition_verified: windowsCases.interruption.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.interruption.observed_descendant_pids
+          .includes(windowsCases.interruption.containment.atomic_child_pid),
+        atomic_identity_before_observation: windowsCases.interruption.atomic_identity_before_observation,
+      },
+      orphan_containment: {
+        status: windowsCases.orphanContainment.status,
+        containment_mode: windowsCases.orphanContainment.containment.mode,
+        containment_verified: windowsCases.orphanContainment.containment.verified,
+      },
+      controller_pre_acquire_death: windowsCases.controllerPreAcquireDeath,
+      controller_death_watchdog: {
+        controller_terminated: windowsCases.controllerDeathWatchdog.controller_terminated,
+        wrapper_gone: windowsCases.controllerDeathWatchdog.wrapper_gone,
+        atomic_child_gone: windowsCases.controllerDeathWatchdog.atomic_child_gone,
+      },
+      controller_identity_mismatch: windowsCases.controllerIdentityMismatch,
+      codex_invocation_resolution: windowsCases.codexInvocationResolution,
+      native_error_detail: windowsCases.nativeErrorDetail,
+      cli_relative_override_failure: windowsCases.cliRelativeOverrideFailure,
+      cli_missing_override_failure: windowsCases.cliMissingOverrideFailure,
+      cli_prompt_timeout: windowsCases.cliPromptTimeout,
+      cli_prompt_interruption: windowsCases.cliPromptInterruption,
+      cli_timeout_exit: windowsCases.cliTimeoutExit,
+      cli_interruption_exit: windowsCases.cliInterruptionExit,
+      atomic_wrapper_kill: {
+        status: windowsCases.atomicWrapperKill.status,
+        wrapper_pid: windowsCases.atomicWrapperKill.wrapper_pid,
+        atomic_child_pid: windowsCases.atomicWrapperKill.containment.atomic_child_pid,
+        containment_assigned: windowsCases.atomicWrapperKill.containment.assigned,
+        containment_verified: windowsCases.atomicWrapperKill.containment.verified,
+      },
+      observation_hang_timeout: {
+        status: windowsCases.observationHangTimeout.status,
+        elapsed_ms: windowsCases.observationHangTimeout.elapsed_ms,
+        finite_bound_ms: OBSERVATION_HANG_FINITE_BOUND_MS,
+        timed_out: windowsCases.observationHangTimeout.timed_out,
+        atomic_child_pid: windowsCases.observationHangTimeout.containment.atomic_child_pid,
+        cleanup_partition_verified: windowsCases.observationHangTimeout.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.observationHangTimeout.observed_descendant_pids
+          .includes(windowsCases.observationHangTimeout.containment.atomic_child_pid),
+        atomic_identity_before_observation:
+          windowsCases.observationHangTimeout.atomic_identity_before_observation,
+        alive_after_cleanup_count:
+          windowsCases.observationHangTimeout.cleanup.alive_after_cleanup.length,
+        unknown_after_cleanup_count:
+          windowsCases.observationHangTimeout.cleanup.unknown_after_cleanup.length,
+      },
+      observation_hang_interruption: {
+        status: windowsCases.observationHangInterruption.status,
+        elapsed_ms: windowsCases.observationHangInterruption.elapsed_ms,
+        finite_bound_ms: OBSERVATION_HANG_FINITE_BOUND_MS,
+        interrupted: windowsCases.observationHangInterruption.interrupted,
+        atomic_child_pid: windowsCases.observationHangInterruption.containment.atomic_child_pid,
+        cleanup_partition_verified: windowsCases.observationHangInterruption.cleanup_partition_verified,
+        atomic_child_observed: windowsCases.observationHangInterruption.observed_descendant_pids
+          .includes(windowsCases.observationHangInterruption.containment.atomic_child_pid),
+        atomic_identity_before_observation:
+          windowsCases.observationHangInterruption.atomic_identity_before_observation,
+        alive_after_cleanup_count:
+          windowsCases.observationHangInterruption.cleanup.alive_after_cleanup.length,
+        unknown_after_cleanup_count:
+          windowsCases.observationHangInterruption.cleanup.unknown_after_cleanup.length,
+      },
+      fast_parent_exit: {
+        status: windowsCases.fastParentExit.status,
+        containment_mode: windowsCases.fastParentExit.containment.mode,
+        containment_verified: windowsCases.fastParentExit.containment.verified,
+      },
     },
   },
 }, null, 2));

@@ -1647,6 +1647,19 @@ chunks:
       - tooling
       - handoff
     body_carryover: forbidden
+  - id: spec.managed-worker-exec-design
+    title: Managed Worker Exec Policy Design Fixture
+    source: docs/specifications/managed-worker-exec-policy.rules
+    type: specification
+    layer: layer1
+    status: blocked
+    loads_for:
+      - automation-planning
+      - command-execution
+      - target-project-generation
+      - validation
+      - handoff
+    body_carryover: forbidden
   - id: record.validation-wi-cx0055-feat
     title: WI-CX0055-feat Validation Record
     source: docs/records/validation-wi-cx0055-feat.md
@@ -1784,6 +1797,40 @@ chunks:
       - validation
       - tooling
     body_carryover: forbidden
+  - id: tool.windows-job-runner
+    title: Prebuilt Windows Job Object Runner Source
+    source: scripts/windows-job-runner.cs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.build-windows-job-runner
+    title: Windows Job Object Runner Build Tool
+    source: scripts/build-windows-job-runner.ps1
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: lock.windows-job-runner-artifact
+    title: Windows Job Object Runner Reproducible Build Receipt And Hash Lock
+    source: scripts/windows-job-runner.manifest.json
+    type: tool-lock
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - validation
+      - tooling
+    body_carryover: forbidden
   - id: tool.run-ephemeral-worker
     title: Ephemeral Worker Runner
     source: scripts/run-ephemeral-worker.mjs
@@ -1847,6 +1894,21 @@ chunks:
       - handoff
       - wi-start
     body_carryover: forbidden
+  - id: record.validation-wi-cx0060-test
+    title: WI-CX0060-test Validation Record
+    source: docs/records/validation-wi-cx0060-test.md
+    type: record
+    layer: layer1
+    status: evidence
+    loads_for:
+      - audit
+      - ephemeral-worker-process-lifecycle
+      - worker-process-cleanup
+      - target-project-generation
+      - validation
+      - handoff
+      - wi-start
+    body_carryover: forbidden
   - id: record.validation-wi-cx0061-fix
     title: WI-CX0061-fix Validation Record
     source: docs/records/validation-wi-cx0061-fix.md
@@ -1885,6 +1947,18 @@ chunks:
       - control-plane-integrity
       - github-governance
       - post-merge-closeout
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.control-plane-issue
+    title: Control-Plane Issue Reference Parser
+    source: scripts/lib/control-plane-issue.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - control-plane-integrity
+      - github-governance
       - validation
       - tooling
     body_carryover: forbidden

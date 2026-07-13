@@ -1,13 +1,140 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import {
+  findCandidateReferenceFields,
+  findPinnedCandidateRefs,
+  hasCandidateReferenceCue,
+  hasExactCandidateHeadReferences,
+  hasLivePrOnlyCandidateReference,
+  hasValidCandidateHeadReference,
+} from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const errors = [];
 const warnings = [];
 const checks = {};
+
+const workerIssueCandidateHead = 'a'.repeat(40);
+const workerIssueStaleHead = 'b'.repeat(40);
+const currentCandidateIssueBody = [
+  '## KI fields',
+  '- Related WI / evidence: WI-CX0060-test; PR #65; current candidate ' + workerIssueCandidateHead + '; record.',
+].join('\n');
+const staleCandidateIssueBody = currentCandidateIssueBody.replace(workerIssueCandidateHead, workerIssueStaleHead);
+const currentRevisionIssueBody = '- Current revision: ' + workerIssueCandidateHead;
+const multilineCurrentCandidateIssueBody = [
+  '- Current candidate:',
+  '  PR #65 at ' + workerIssueCandidateHead,
+].join('\n');
+const multilineStaleCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueStaleHead);
+const multilineCurrentShortCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueCandidateHead.slice(0, 7));
+const multilineStaleShortCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueStaleHead.slice(0, 7));
+const candidateFormattingBodies = [
+  '- Current candidate:\n PR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\nPR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\n\tPR #65 at ' + workerIssueCandidateHead,
+  'Current candidate: PR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\nThe active PR #65 is at ' + workerIssueCandidateHead,
+];
+const ambiguousCandidateIssueBody = '- Current candidate:\nPR #65 awaits publication';
+const malformedCandidateIssueBody = '- Current candidate PR #65 awaits publication';
+const nonCandidateRevisionBody = '- Revision history: PR #65 was triaged';
+const currentCommitIssueBody = 'Current commit: ' + workerIssueCandidateHead + ' for PR #65';
+const staleCommitIssueBody = 'Current commit: ' + workerIssueStaleHead + ' for PR #65';
+const currentStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueCandidateHead + ' for PR #65';
+const staleStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueStaleHead + ' for PR #65';
+const historicalCandidateParserNarratives = [
+  '- Trigger: Review 4685108846 found Current commit and candidate-bearing Status fields could retain a stale SHA.',
+  '- Live evidence: Candidate Actions run 29104125595 proved candidate workflow code can publish a shared context.',
+  '- Trigger: The target repository was clean at committed head a2702ab4 while the handoff was stale.',
+];
+checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head',
+  65,
+) && hasValidCandidateHeadReference(
+  'PR #65; query the live PR head',
+  65,
+  workerIssueCandidateHead,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head; current candidate 6675269',
+  65,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head; current candidate dead',
+  65,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head\n- Current revision: 376e82',
+  65,
+) && JSON.stringify(findPinnedCandidateRefs(
+  'PR #65; query the live PR head; current candidate 6675269',
+)) === '["6675269"]'
+  && JSON.stringify(findPinnedCandidateRefs(
+    'PR #65; query the live PR head; current candidate dead',
+  )) === '["dead"]'
+  && JSON.stringify(findPinnedCandidateRefs(
+    'PR #65; query the live PR head\n- Current revision: 376e82',
+  )) === '["376e82"]'
+  && findCandidateReferenceFields(currentCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(currentRevisionIssueBody).length === 1
+  && findCandidateReferenceFields(multilineCurrentCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineStaleCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineCurrentShortCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineStaleShortCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(currentCommitIssueBody).length === 1
+  && findCandidateReferenceFields(currentStatusCandidateIssueBody).length === 1
+  && candidateFormattingBodies.every((body) =>
+    hasCandidateReferenceCue(body)
+    && findCandidateReferenceFields(body).length === 1
+    && hasExactCandidateHeadReferences(body, workerIssueCandidateHead))
+  && candidateFormattingBodies.every((body) =>
+    !hasExactCandidateHeadReferences(
+      body.replace(workerIssueCandidateHead, workerIssueStaleHead),
+      workerIssueCandidateHead,
+    ))
+  && hasCandidateReferenceCue(ambiguousCandidateIssueBody)
+  && findCandidateReferenceFields(ambiguousCandidateIssueBody).length === 0
+  && hasCandidateReferenceCue(malformedCandidateIssueBody)
+  && findCandidateReferenceFields(malformedCandidateIssueBody).length === 0
+  && !hasValidCandidateHeadReference(
+    malformedCandidateIssueBody,
+    65,
+    workerIssueCandidateHead,
+  )
+  && !hasValidCandidateHeadReference(
+    ambiguousCandidateIssueBody,
+    65,
+    workerIssueCandidateHead,
+  )
+  && !hasCandidateReferenceCue(nonCandidateRevisionBody)
+  && findCandidateReferenceFields(nonCandidateRevisionBody).length === 0
+  && hasCandidateReferenceCue(currentCommitIssueBody)
+  && hasCandidateReferenceCue(staleCommitIssueBody)
+  && hasCandidateReferenceCue(currentStatusCandidateIssueBody)
+  && hasCandidateReferenceCue(staleStatusCandidateIssueBody)
+  && historicalCandidateParserNarratives.every((body) =>
+    !hasCandidateReferenceCue(body)
+    && findCandidateReferenceFields(body).length === 0)
+  && hasValidCandidateHeadReference(currentCommitIssueBody, 65, workerIssueCandidateHead)
+  && !hasValidCandidateHeadReference(staleCommitIssueBody, 65, workerIssueCandidateHead)
+  && hasValidCandidateHeadReference(currentStatusCandidateIssueBody, 65, workerIssueCandidateHead)
+  && !hasValidCandidateHeadReference(staleStatusCandidateIssueBody, 65, workerIssueCandidateHead)
+  && hasExactCandidateHeadReferences(currentCandidateIssueBody, workerIssueCandidateHead)
+  && hasExactCandidateHeadReferences(currentRevisionIssueBody, workerIssueCandidateHead)
+  && hasExactCandidateHeadReferences(multilineCurrentCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(staleCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineStaleCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineCurrentShortCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineStaleShortCandidateIssueBody, workerIssueCandidateHead);
+const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
+
+const hasSingleExactClaim = (text, exactClaim, mention) => text.includes(exactClaim)
+  && text.split(mention).length === 2;
 
 const allowedCategories = new Set([
   'feat',
@@ -77,6 +204,7 @@ const requiredFiles = [
   'docs/decisions/2026-07-10-independent-blind-adversarial-review-gate.md',
   'docs/specifications/independent-review-evidence.md',
   'docs/specifications/ephemeral-worker-runner.md',
+  'docs/specifications/managed-worker-exec-policy.rules',
   '.flowset/current-wi.md',
   '.flowset/fix_plan.md',
   '.flowset/handoff.md',
@@ -102,10 +230,15 @@ const requiredFiles = [
   'scripts/validate-layer2-scaffold.mjs',
   'scripts/lib/codex-invocation.mjs',
   'scripts/lib/managed-process.mjs',
+  'scripts/build-windows-job-runner.ps1',
+  'scripts/windows-job-runner.cs',
+  'scripts/windows-job-runner.exe',
+  'scripts/windows-job-runner.manifest.json',
   'scripts/run-ephemeral-worker.mjs',
   'scripts/smoke-ephemeral-worker-cli.mjs',
   'scripts/test-ephemeral-worker-lifecycle.mjs',
   'scripts/fixtures/managed-worker-tree.mjs',
+  'scripts/lib/control-plane-issue.mjs',
   'scripts/audit-control-plane.mjs',
   'scripts/audit-independent-review.mjs',
   'scripts/publish-independent-review-status.mjs',
@@ -114,6 +247,7 @@ const requiredFiles = [
   'docs/records/validation-wi-cx0057-docs.md',
   'docs/records/validation-wi-cx0058-fix.md',
   'docs/records/validation-wi-cx0059-fix.md',
+  'docs/records/validation-wi-cx0060-test.md',
   'docs/records/validation-wi-cx0061-fix.md',
   'docs/records/validation-wi-cx0062-fix.md',
   'docs/records/validation-wi-cx0063-feat.md',
@@ -185,6 +319,7 @@ const requiredChunkIds = [
   'decision.autonomous-work-exhaustion-stop-gate',
   'decision.a2-worktree-isolation-repair-gate',
   'decision.control-plane-operational-integrity',
+  'tool.control-plane-issue',
   'tool.audit-control-plane',
   'record.validation-wi-cx0062-fix',
   'github.workflow.independent-review',
@@ -193,6 +328,7 @@ const requiredChunkIds = [
   'tool.audit-independent-review',
   'tool.publish-independent-review-status',
   'record.validation-wi-cx0063-feat',
+  'record.validation-wi-cx0060-test',
   'record.session-orchestration-control-plane-audit',
   'record.validation-wi-cx0047-test',
   'spec.runtime-snapshot',
@@ -269,6 +405,7 @@ const requiredChunkIds = [
   'record.validation-wi-cx0046-test',
   'decision.ephemeral-worker-process-lifecycle-guard',
   'spec.ephemeral-worker-runner',
+  'spec.managed-worker-exec-design',
   'tool.codex-invocation',
   'tool.managed-process',
   'tool.run-ephemeral-worker',
@@ -709,6 +846,21 @@ function validateFlowState() {
     && snapshotBlocks.includes('runner reactivation')
     && fixPlanText.includes(`${snapshotPriority.wi_id} ${snapshotPriority.item}`)
     && handoffText.includes(snapshotPriority.wi_id);
+  const snapshotPriorityMatchesUserBlockedWi = snapshotPriority.kind === 'wi'
+    && snapshotPriority.wi_id === currentPriorityWiId
+    && snapshotPriority.state === 'blocked-user-approval'
+    && snapshotPriority.owner_gate === 'USER'
+    && snapshotPriority.lock_blocker === 'yes'
+    && snapshotPriority.strategy?.PSC
+    && snapshotPriority.strategy?.WTC
+    && snapshotPriority.strategy?.Risk
+    && snapshotPriority.strategy?.ESC
+    && currentPriorityMatches.length === 1
+    && snapshotBlocks.includes('dogfood continuation')
+    && snapshotBlocks.includes('runner reactivation')
+    && fixPlanText.includes(`${snapshotPriority.wi_id} ${snapshotPriority.item}`)
+    && handoffText.includes(snapshotPriority.wi_id)
+    && handoffText.includes('explicit user approval');
   const snapshotPriorityMatchesWi = snapshotPriority.kind === 'wi'
     && snapshotPriority.wi_id === currentPriorityWiId
     && snapshotPriority.state === 'ready'
@@ -723,7 +875,8 @@ function validateFlowState() {
     && handoffText.includes(snapshotPriority.wi_id);
   checks.flow_state_snapshot_priority = snapshotPriorityMatchesUserDecision
     || snapshotPriorityMatchesWi
-    || snapshotPriorityMatchesExternalBlockedWi;
+    || snapshotPriorityMatchesExternalBlockedWi
+    || snapshotPriorityMatchesUserBlockedWi;
   const snapshotHasRetiredRunner = snapshotTriggeredWork.length === 0
     && stateSnapshot.control_plane?.automation?.status === 'RETIRED'
     && fixPlanText.includes('The hourly worktree runner is retired')
@@ -1261,7 +1414,7 @@ function validateAutonomousWorkExhaustionStopGate() {
     && policy.includes('Codex must not start another independent WI merely to avoid stopping')
     && policy.includes('A new autonomous WI may start only when the user supplies a decision or approval');
   checks.autonomous_exhaustion_current_wi = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && (currentWi.includes('ESC: E1+E3+E5+E6')
       || currentWi.includes('ESC: E1+E2+E3+E5+E6'))
     && record.includes('WI: WI-CX0046-test')
@@ -1291,7 +1444,10 @@ function validateAutonomousWorkExhaustionStopGate() {
     && ((fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
       && fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision'))
       || (retiredRunnerFlow
-        && fixPlan.includes('None while KI-CX-PROVIDER-001 / Issue #55 blocks the goal-critical worker proof')));
+        && (fixPlan.includes('None while KI-CX-PROVIDER-001 / Issue #55 blocks the goal-critical worker proof')
+          || fixPlan.includes('None while WI-CX0060-test is active')
+          || fixPlan.includes('None while WI-CX0060-test is externally blocked')
+          || fixPlan.includes('WI-CX0064-docs Local v0.1 Self-Hosting Completion Contract'))));
   checks.autonomous_exhaustion_handoff = handoff.includes('Autonomous work exhaustion stop gate is accepted')
     && handoff.includes('No further independent autonomous WI should start unless')
     && (handoff.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review is blocked')
@@ -1672,7 +1828,7 @@ function validateToolingStrictnessProbe() {
     && decisionsReadme.includes('docs/decisions/2026-07-08-tooling-strictness-probe.md')
     && recordsReadme.includes('docs/records/validation-wi-cx0040-chore.md');
   checks.ts_strictness_probe_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('Strict TypeScript source conversion or strict-mode tightening. | DQ-DEBT | CODEX | no | Probe installed by WI-CX0040')
     && handoff.includes('WI-CX0040-chore: Tooling Strictness Probe')
     && handoff.includes('npm run typecheck:strict-probe')
@@ -2070,7 +2226,7 @@ function validateAutomationRunnerS2ReviewPacket() {
     && !fixPlan.includes('S2 blind review repayment for the automation runner')
     && handoff.includes('WI-CX0042 is obsolete rather than passed');
   checks.automation_s2_packet_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0041-docs: Automation Runner S2 Review Packet')
     && handoff.includes(packetPath)
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
@@ -2154,7 +2310,7 @@ function validatePostBootstrapAutomationCadenceHandback() {
     && !fixPlan.includes('Long-lived post-bootstrap automation cadence and authority. | DQ-USER')
     && handoff.includes('old cadence decision inactive');
   checks.automation_cadence_handback_flow = /^WI id: WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0043-docs: Post-Bootstrap Automation Cadence Decision Handback')
     && /^WI-CX\d{4}-(?:feat|fix|docs|style|refactor|test|chore|perf|ci|revert)$/.test(state.current_wi?.id ?? '')
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2439,7 +2595,7 @@ function validateLayer2ScopeCodeAcceptedDecision() {
     && state.layer2_target?.wi_pattern === 'WI-FCDNNNN-category'
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status);
   checks.layer2_scope_accepted_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && (fixPlan.includes('WI-CX0055-feat First Layer 2 Dogfood Scaffold Generation')
       || fixPlan.includes('WI-CX0056-test Layer 2 Fresh-Context Handoff Continuation Proof')
       || fixPlan.includes('WI-CX0057-docs Ephemeral Worker Controller Boundary Contract')
@@ -2537,7 +2693,7 @@ function validateSessionOrchestrationControlPlaneAudit() {
       || handoff.includes('WI-CX0054-fix: Runtime Snapshot State Reconciliation'))
     && exists('.flowset/runtime-snapshot.json');
   checks.session_orchestration_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
     && state.current_priority?.owner_gate
@@ -2706,7 +2862,7 @@ function validateRuntimeSnapshotValidator() {
     && recordsReadme.includes(recordPath)
     && recordsReadme.includes(reconciliationRecordPath);
   checks.runtime_snapshot_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2824,7 +2980,7 @@ function validateA2HandoffReceiverContract() {
   checks.a2_receiver_contract_indexes = docsIndex.includes(contractPath)
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_receiver_contract_flow = currentWi.includes('Status: validated')
+  checks.a2_receiver_contract_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_wi?.validation_record
     && ['user_decision', 'wi'].includes(state.current_priority?.kind)
@@ -2890,7 +3046,7 @@ function validateWorktreeIsolationVerification() {
     && manifest.includes(recordPath);
   checks.worktree_isolation_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.worktree_isolation_flow = currentWi.includes('Status: validated')
+  checks.worktree_isolation_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === 'docs/records/validation-wi-cx0052-test.md'
@@ -2955,7 +3111,7 @@ function validateA2WorktreeIsolationRepairGate() {
   const repairValidationPath = 'docs/records/validation-wi-cx0052-test.md';
   const repairValidation = exists(repairValidationPath) ? read(repairValidationPath) : '';
   const repairGateWaiting = currentWi.includes('WI id: WI-CX0051-test')
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && state.current_wi?.id === 'WI-CX0051-test'
     && state.current_wi?.validation_record === recordPath
     && state.current_priority?.kind === 'user_decision'
@@ -2964,7 +3120,7 @@ function validateA2WorktreeIsolationRepairGate() {
     && fixPlan.includes('Waiting for user decision: repair the A2 worktree execution surface')
     && handoff.includes('WI-CX0051-test Worktree Isolation Repair Gate')
     && handoff.includes('user/control-plane repair');
-  const repairGateRepaid = currentWi.includes('Status: validated')
+  const repairGateRepaid = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === repairValidationPath
@@ -3027,7 +3183,7 @@ function validateA2WorktreeIsolationRepairValidation() {
     && manifest.includes(recordPath);
   checks.a2_worktree_repair_validation_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.a2_worktree_repair_validation_flow = currentWi.includes('Status: validated')
+  checks.a2_worktree_repair_validation_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.control_plane?.worktree_isolation?.status === 'proven'
     && state.control_plane?.worktree_isolation?.evidence === recordPath
@@ -3096,7 +3252,7 @@ function validateStrategicGoalSteeringContract() {
     && manifest.includes(recordPath);
   checks.goal_steering_indexes = docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
-  checks.goal_steering_flow = currentWi.includes('Status: validated')
+  checks.goal_steering_flow = hasActiveWiStatus(currentWi)
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && (state.current_priority?.wi_id === 'WI-CX0038-docs'
       || state.current_priority?.wi_id === 'WI-CX0055-feat'
@@ -3138,6 +3294,7 @@ function validateLayer2ScaffoldGenerator() {
   const recordPath = 'docs/records/validation-wi-cx0055-feat.md';
   const generator = read(generatorPath);
   const scaffoldValidator = read(scaffoldValidatorPath);
+  const managedWorkerPolicy = read('docs/specifications/managed-worker-exec-policy.rules');
   const spec = read('docs/specifications/layer-2-knowledge-scaffold.md');
   const pkg = JSON.parse(read('package.json'));
   const currentWi = read('.flowset/current-wi.md');
@@ -3200,10 +3357,13 @@ function validateLayer2ScaffoldGenerator() {
   checks.layer2_generator_scripts = generator.includes('Refusing to overwrite non-empty output directory')
     && generator.includes("add('.flowset/context-ledger.jsonl'")
     && generator.includes("add('docs/manifest.yaml'")
+    && generator.includes("add('docs/policies/managed-worker-boundary.md'")
     && scaffoldValidator.includes('manifest_hash_failures')
     && scaffoldValidator.includes('forbiddenLedgerKeys')
     && scaffoldValidator.includes('verification_debt_registry')
-    && scaffoldValidator.includes('layer1_provenance');
+    && scaffoldValidator.includes('layer1_provenance')
+    && scaffoldValidator.includes('managed_worker_boundary')
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path');
   checks.layer2_generator_command_surface = pkg.scripts?.['layer2:generate'] === 'node scripts/generate-layer2-scaffold.mjs'
     && pkg.scripts?.['layer2:validate'] === 'node scripts/validate-layer2-scaffold.mjs'
     && spec.includes('## Command Surface')
@@ -3214,6 +3374,7 @@ function validateLayer2ScaffoldGenerator() {
     && generated?.project_scope_code === 'SMK'
     && generated?.file_count >= 15
     && validated?.ok === true
+    && validated?.checks?.managed_worker_boundary === true
     && Array.isArray(validated?.checks?.manifest_hash_failures)
     && validated.checks.manifest_hash_failures.length === 0
     && overwriteRejected;
@@ -3221,14 +3382,17 @@ function validateLayer2ScaffoldGenerator() {
     && manifest.includes(generatorPath)
     && manifest.includes('id: tool.validate-layer2-scaffold')
     && manifest.includes(scaffoldValidatorPath)
+    && manifest.includes('id: spec.managed-worker-exec-design')
+    && manifest.includes('docs/specifications/managed-worker-exec-policy.rules')
     && manifest.includes('id: record.validation-wi-cx0055-feat')
     && manifest.includes(recordPath)
     && docsIndex.includes(generatorPath)
     && docsIndex.includes(scaffoldValidatorPath)
+    && docsIndex.includes('docs/specifications/managed-worker-exec-policy.rules')
     && docsIndex.includes(recordPath)
     && recordsReadme.includes(recordPath);
   checks.layer2_generator_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('The first Layer 2 scaffold is generated and validated at `C:\\dev\\FDP_Codex_Dogfood`')
     && state.current_priority?.wi_id === 'WI-CX0060-test'
@@ -3318,7 +3482,7 @@ function validateLayer2FreshContextContinuation() {
     && record.includes('controller pre-created the target branch')
     && record.includes('does not support a claim that the worker can own the full Git lifecycle');
   checks.layer2_fresh_context_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && fixPlan.includes('WI-CX0059-fix Ephemeral Worker Process Lifecycle Guard')
     && handoff.includes('WI-CX0056-test: Layer 2 Fresh-Context Handoff Continuation Proof')
     && handoff.includes('Fresh-context continuation is proven')
@@ -3477,22 +3641,30 @@ function validateEphemeralWorkerControllerBoundary() {
   checks.ephemeral_worker_policy = autonomy.includes('### Controller And Ephemeral Worker Split')
     && autonomy.includes('one visible control task')
     && autonomy.includes('codex exec --ephemeral')
-    && autonomy.includes('The controller owns branch creation and commit')
-    && autonomy.includes('The worker owns repository reconstruction, worktree edits, and validation')
+    && autonomy.includes('The controller owns repository-supplied script execution and canonical validation')
+    && autonomy.includes('The worker owns repository reconstruction and worktree edits')
+    && autonomy.includes('This is not runtime command confinement')
+    && autonomy.includes('visible controller runs canonical validation after worker exit')
     && autonomy.includes('must not create user-owned Codex app tasks')
     && autonomy.includes('must not use `danger-full-access` solely to write Git metadata')
     && (autonomy.includes('A2 runner remains paused') || autonomy.includes('A2 runner was paused'))
   checks.ephemeral_worker_git_policy = gitPolicy.includes('## Controller-Owned Git Boundary For Ephemeral Workers')
-    && gitPolicy.includes('controller owns branch creation, staged review, commit, push, PR, and merge')
-    && gitPolicy.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && gitPolicy.includes('The controller owns repository validation, branch creation, staged review, commit, push, PR, and merge')
+    && gitPolicy.includes('worker owns repository reconstruction and worktree edits')
+    && gitPolicy.includes('is instructed not to execute repository-supplied scripts or package managers')
+    && gitPolicy.includes('This is not runtime command confinement')
+    && gitPolicy.includes('controller owns repository validation')
     && gitPolicy.includes('Do not grant `danger-full-access` solely')
     && gitPolicy.includes('not an exception that permits implementation on `main`');
   checks.ephemeral_worker_decision = decision.includes('Status: accepted-v0')
     && decision.includes('one visible control task plus ephemeral CLI workers')
     && decision.includes('codex exec --ephemeral')
     && decision.includes('without creating a user-owned Codex app task')
-    && decision.includes('controller owns branch creation and commit')
-    && decision.includes('worker owns repository reconstruction, worktree edits, and validation')
+    && decision.includes('The controller owns repository-supplied script execution and canonical validation')
+    && decision.includes('worker owns repository reconstruction and worktree edits')
+    && decision.includes('controller owns repository-supplied script execution and canonical validation')
+    && decision.includes('workspace-write worker could rewrite any allowed validation script')
+    && decision.includes('project-local deny rules also restrict the visible controller')
     && decision.includes('must not use `danger-full-access` solely to write Git metadata')
     && decision.includes('without persistent app task fan-out')
     && decision.includes('repays KI-CX-DOGFOOD-001');
@@ -3523,7 +3695,8 @@ function validateEphemeralWorkerControllerBoundary() {
     && topology.worker_surface === 'codex-cli-ephemeral'
     && topology.worker_sandbox === 'workspace-write'
     && JSON.stringify(topology.controller_git_ownership) === JSON.stringify(['branch', 'stage', 'commit', 'push', 'pr', 'merge'])
-    && JSON.stringify(topology.worker_ownership) === JSON.stringify(['reconstruct', 'edit', 'validate'])
+    && JSON.stringify(topology.controller_validation_ownership) === JSON.stringify(['repository-supplied-scripts', 'canonical-validation'])
+    && JSON.stringify(topology.worker_ownership) === JSON.stringify(['reconstruct', 'edit'])
     && topology.app_task_fanout === 'forbidden'
     && topology.decision_ref === decisionPath;
   checks.ephemeral_worker_known_issues = dogfoodKi?.status === 'repaid'
@@ -3752,17 +3925,28 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const decisionPath = 'docs/decisions/2026-07-10-ephemeral-worker-process-lifecycle-guard.md';
   const specPath = 'docs/specifications/ephemeral-worker-runner.md';
   const recordPath = 'docs/records/validation-wi-cx0059-fix.md';
+  const proofRecordPath = 'docs/records/validation-wi-cx0060-test.md';
   const temporalRecordPath = 'docs/records/validation-wi-cx0061-fix.md';
   const decision = read(decisionPath);
   const spec = read(specPath);
   const record = read(recordPath);
+  const proofRecord = read(proofRecordPath);
   const temporalRecord = read(temporalRecordPath);
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const managedProcess = read('scripts/lib/managed-process.mjs');
+  const windowsJobRunnerBuild = read('scripts/build-windows-job-runner.ps1');
+  const windowsJobRunner = read('scripts/windows-job-runner.cs');
+  const windowsJobRunnerArtifactManifest = readJson('scripts/windows-job-runner.manifest.json');
+  const windowsJobRunnerSourceSha256 = createHash('sha256')
+    .update(readFileSync(relPath('scripts/windows-job-runner.cs'))).digest('hex');
+  const windowsJobRunnerExecutableSha256 = createHash('sha256')
+    .update(readFileSync(relPath('scripts/windows-job-runner.exe'))).digest('hex');
   const codexInvocation = read('scripts/lib/codex-invocation.mjs');
+  const managedWorkerPolicy = read('docs/specifications/managed-worker-exec-policy.rules');
   const runner = read('scripts/run-ephemeral-worker.mjs');
   const localSmoke = read('scripts/smoke-ephemeral-worker-cli.mjs');
   const lifecycleTest = read('scripts/test-ephemeral-worker-lifecycle.mjs');
+  const workerControlAudit = read('scripts/audit-control-plane.mjs');
   const fixture = read('scripts/fixtures/managed-worker-tree.mjs');
   const manifest = read('docs/manifest.yaml');
   const docsIndex = read('docs/index.md');
@@ -3787,17 +3971,53 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && entry.timestamp === '2026-07-10T09:50:04.441Z');
   const temporalContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0061-fix'
     && entry.timestamp === '2026-07-10T10:52:06.771Z');
+  const proofContextPackEntries = ledgerEntries.filter((entry) => entry.wi_id === 'WI-CX0060-test'
+    && entry.timestamp === '2026-07-10T17:32:49.743Z');
   const knownIssues = Array.isArray(state.known_issues) ? state.known_issues : [];
   const workerKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-001');
   const providerKi = knownIssues.find((item) => item.id === 'KI-CX-PROVIDER-001');
   const temporalKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-002');
+  const reusedParentKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-004');
+  const commandPathKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-005');
+  const promptSchemaKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-006');
+  const setupResultKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-007');
+  const candidateAuditKi = knownIssues.find((item) => item.id === 'KI-CX-CONTROL-002');
+  const workerRepeatabilityKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-008');
+  const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
+  const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
+  const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
   const topology = state.control_plane?.worker_topology ?? {};
   const guard = topology.managed_guard ?? {};
+  const noProviderWorkaroundBoundary = '- No release, deployment, package publication, OSS submission, production dependency, public API or external contract change, A2/A3 authority expansion, destructive operation, or provider-policy workaround occurred.';
+  const providerWorkaroundMentions = proofRecord.match(/provider-policy workaround occurred/g) ?? [];
+  const reviewAttempts = state.control_plane?.independent_review?.last_local_review_attempts ?? [];
   const runnerConfigPath = 'C:\\Users\\User\\.codex\\automations\\fdp-codex-a2-worktree-wi-runner\\automation.toml';
   let liveRunnerStatus = 'not-present';
   if (existsSync(runnerConfigPath)) {
     const runnerConfig = readFileSync(runnerConfigPath, 'utf8');
     liveRunnerStatus = /^status\s*=\s*"PAUSED"\s*$/m.test(runnerConfig) ? 'paused' : 'not-paused';
+  }
+
+  let reproducibleBuildResult = null;
+  let reproducibleBuildError = null;
+  if (process.platform === 'win32') {
+    try {
+      reproducibleBuildResult = JSON.parse(execFileSync('powershell.exe', [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', 'scripts/build-windows-job-runner.ps1',
+        '-Verify',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30000,
+      }));
+    } catch (validationError) {
+      reproducibleBuildError = validationError.stderr?.toString().trim() || validationError.message;
+    }
   }
 
   let testResult = null;
@@ -3807,7 +4027,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
       cwd: repoRoot,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 30000,
+      timeout: 90000,
     }));
   } catch (validationError) {
     testError = validationError.stderr?.toString().trim() || validationError.message;
@@ -3817,8 +4037,19 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes(decisionPath)
     && manifest.includes('id: spec.ephemeral-worker-runner')
     && manifest.includes(specPath)
+    && manifest.includes('id: spec.managed-worker-exec-design')
     && manifest.includes('id: tool.codex-invocation')
     && manifest.includes('id: tool.managed-process')
+    && manifest.includes('id: tool.windows-job-runner')
+    && manifest.includes('scripts/windows-job-runner.cs')
+    && manifest.includes('id: tool.build-windows-job-runner')
+    && manifest.includes('scripts/build-windows-job-runner.ps1')
+    && manifest.includes('id: lock.windows-job-runner-artifact')
+    && manifest.includes('scripts/windows-job-runner.manifest.json')
+    && docsIndex.includes('scripts/build-windows-job-runner.ps1')
+    && docsIndex.includes('scripts/windows-job-runner.cs')
+    && docsIndex.includes('scripts/windows-job-runner.exe')
+    && docsIndex.includes('scripts/windows-job-runner.manifest.json')
     && manifest.includes('id: tool.run-ephemeral-worker')
     && manifest.includes('id: tool.smoke-ephemeral-worker-cli')
     && manifest.includes('id: tool.test-ephemeral-worker-lifecycle')
@@ -3834,6 +4065,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes(temporalRecordPath)
     && docsIndex.includes(temporalRecordPath)
     && recordsReadme.includes(temporalRecordPath);
+  checks.worker_proof_registration = manifest.includes('id: record.validation-wi-cx0060-test')
+    && manifest.includes(proofRecordPath)
+    && docsIndex.includes(proofRecordPath)
+    && recordsReadme.includes(proofRecordPath);
   checks.worker_lifecycle_ledger = wiContextPackEntries.length === 17
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
     && wiContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
@@ -3847,86 +4082,734 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
     && temporalRecord.includes('17 metadata-only entries')
     && temporalRecord.includes('contains_chunk_bodies: false');
+  checks.worker_proof_ledger = proofContextPackEntries.length === 27
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'root.agents')
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'registry.manifest')
+    && proofContextPackEntries.some((entry) => entry.chunk_id === 'tool.run-ephemeral-worker')
+    && proofContextPackEntries.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry))
+    && proofRecord.includes('27 metadata-only ledger entries')
+    && proofRecord.includes('contains_chunk_bodies: false');
   checks.worker_lifecycle_supervisor = managedProcess.includes('Get-CimInstance Win32_Process')
-    && managedProcess.includes("'ps', ['-eo', 'pid=,ppid=,pgid=,lstart=,comm=']")
+    && managedProcess.includes('managedProcessPlatformSupport')
+    && managedProcess.includes('DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS')
+    && managedProcess.includes('const readinessOutcome = elapsedGuardOutcome() ?? await Promise.race')
+    && managedProcess.includes('const timeoutDeadlineAt = Date.now() + options.timeoutMs')
+    && managedProcess.indexOf('const timeoutDeadlineAt = Date.now() + options.timeoutMs') < managedProcess.indexOf('const child = spawn(')
+    && managedProcess.includes("if (Date.now() >= timeoutDeadlineAt) return { kind: 'timeout' }")
+    && managedProcess.includes('unknown_after_cleanup')
+    && managedProcess.includes('await stopRootWrapper()')
+    && managedProcess.includes("mode: 'unsupported-fail-closed'")
+    && managedProcess.includes('verifyWindowsJobRunnerArtifact()')
+    && managedProcess.includes("new URL('../windows-job-runner.exe'")
+    && managedProcess.includes("? 'runner_artifact_failed'")
+    && windowsJobRunnerArtifactManifest.schema_version === 2
+    && windowsJobRunnerArtifactManifest.source === 'windows-job-runner.cs'
+    && windowsJobRunnerArtifactManifest.source_sha256 === windowsJobRunnerSourceSha256
+    && windowsJobRunnerArtifactManifest.executable === 'windows-job-runner.exe'
+    && windowsJobRunnerArtifactManifest.executable_sha256 === windowsJobRunnerExecutableSha256
+    && windowsJobRunnerArtifactManifest.build?.tool === 'dotnet-roslyn-csc'
+    && typeof windowsJobRunnerArtifactManifest.build?.compiler_version === 'string'
+    && /^[a-f0-9]{64}$/.test(windowsJobRunnerArtifactManifest.build?.compiler_sha256 || '')
+    && windowsJobRunnerArtifactManifest.build?.deterministic === true
+    && windowsJobRunnerArtifactManifest.build?.target === 'winexe'
+    && windowsJobRunnerArtifactManifest.build?.path_map === '/src'
+    && windowsJobRunnerArtifactManifest.build?.framework === 'netfx-v4.0.30319'
+    && ['mscorlib.dll', 'System.dll', 'System.Core.dll'].every((name) =>
+      /^[a-f0-9]{64}$/.test(windowsJobRunnerArtifactManifest.build?.reference_sha256?.[name] || ''))
+    && !windowsJobRunnerBuild.includes('Add-Type')
+    && windowsJobRunnerBuild.includes("'/deterministic+'")
+    && windowsJobRunnerBuild.includes("tool = 'dotnet-roslyn-csc'")
+    && windowsJobRunnerBuild.includes("throw 'The checked Windows Job runner is not reproducible")
+    && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.includes('started_at')
-    && managedProcess.includes('process.kill(entry.pid, signal)')
+    && managedProcess.includes('PID-only signaling is forbidden')
+    && managedProcess.includes('verifyObservedTreeTermination')
+    && !managedProcess.includes('process.kill(entry.pid')
+    && !managedProcess.includes('signalProcesses(')
+    && managedProcess.includes("randomBytes(32).toString('hex')")
+    && managedProcess.includes('[WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken')
+    && managedProcess.includes('authenticatedAssignedMarker')
+    && managedProcess.includes('authenticatedDrainedMarker')
+    && managedProcess.includes('authenticatedControllerWatchdogMarker')
+    && managedProcess.includes('FDP_JOB_CONTROLLER_PID: String(process.pid)')
+    && managedProcess.includes('FDP_JOB_CONTROLLER_START_FILETIME: controllerStartFileTime')
+    && managedProcess.includes('startWindowsControllerStartFileTimeLookup(process.pid)')
+    && managedProcess.includes('const controllerIdentityOutcome = await Promise.race([')
+    && managedProcess.includes('controllerIdentityLookup.terminateAndWait()')
+    && managedProcess.includes('controller identity lookup did not close after termination')
+    && managedProcess.includes('controller identity lookup termination request was rejected')
+    && managedProcess.includes('classifyControllerIdentityLookupCleanup')
+    && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_EXEC_THROW')
+    && managedProcess.includes('FDP_WORKER_TEST_IDENTITY_RESULT_REJECT')
+    && managedProcess.includes('controller_identity_failed')
+    && managedProcess.includes('async (error, stdout, stderr) =>')
+    && managedProcess.includes('await closed;')
+    && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
+    && managedProcess.includes('return finalizeResult(result)')
+    && !managedProcess.includes("type: 'worker.result'")
+    && managedProcess.includes('return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup)')
+    && managedProcess.includes('root_pid: null')
+    && managedProcess.indexOf('const finalPreSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
+    && managedProcess.indexOf('const finalSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
+    && managedProcess.indexOf('const timeoutDeadlineAt = Date.now() + options.timeoutMs') < managedProcess.indexOf('startWindowsControllerStartFileTimeLookup(process.pid)')
+    && managedProcess.includes('export async function stopExactWrapperForCleanup(options)')
+    && managedProcess.includes('const killAccepted = alreadyExited ? null : options.child.kill()')
+    && managedProcess.includes('closePromise.then(() => true)')
+    && managedProcess.includes('containment.wrapper_closed = wrapperClosed')
+    && managedProcess.includes("errors.push('exact wrapper close was not observed')")
+    && managedProcess.includes('containment.controller_watchdog_armed')
+    && managedProcess.includes('&& containment.wrapper_closed')
+    && managedProcess.includes('authenticatedRootPrefix')
+    && managedProcess.includes('authenticatedAtomicChildPrefix')
+    && managedProcess.includes('authenticatedErrorPrefix')
     && managedProcess.includes("type: 'worker.timeout'")
     && managedProcess.includes("type: 'worker.interrupted'")
     && managedProcess.includes('worker.${streamName}')
     && managedProcess.includes('alive_after_cleanup')
+    && managedProcess.includes('const confirmedGone = [...options.observed.keys()]')
+    && managedProcess.includes('!mismatchPids.includes(pid)')
     && managedProcess.includes('shell: false')
     && managedProcess.includes('residual-processes-after-root-exit')
-    && managedProcess.includes('observationSucceeded && (!cleanup.required || cleanup.verified)');
+    && managedProcess.includes('const observationVerified = observationSucceeded')
+    && managedProcess.includes('containment.verified')
+    && managedProcess.includes("eventFailureOutcome = { kind: 'event-dispatch-failed'")
+    && managedProcess.includes("status = 'event_dispatch_failed'")
+    && managedProcess.includes("reason: 'event-dispatch-failed'")
+    && managedProcess.includes('atomicChildMarkerLocked')
+    && managedProcess.includes('duplicate atomic child marker rejected')
+    && managedProcess.includes('event_errors: eventErrors')
+    && managedProcess.includes("stdinFailureOutcome = { kind: 'stdin-failed'")
+    && managedProcess.includes("status = 'stdin_failed'")
+    && managedProcess.includes("reason: 'stdin-failed'")
+    && managedProcess.includes('stdin_errors: stdinErrors')
+    && managedProcess.includes("result.terminal_status_before_event_failure = result.status")
+    && managedProcess.includes("result.status = 'event_dispatch_failed'")
+    && managedProcess.includes('result.ok = false');
+  checks.worker_lifecycle_reproducible_build = process.platform !== 'win32'
+    ? windowsJobRunnerBuild.includes("'/deterministic+'")
+    : reproducibleBuildResult?.ok === true
+      && reproducibleBuildResult?.verified === true
+      && reproducibleBuildResult?.deterministic === true
+      && reproducibleBuildResult?.source_sha256 === windowsJobRunnerSourceSha256
+      && reproducibleBuildResult?.executable_sha256 === windowsJobRunnerExecutableSha256;
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
-    && managedProcess.includes('const belongsToObservedParent = parentPids.has(entry.ppid) && isNotOlderThan(entry, parent)')
+    && managedProcess.includes('const hasObservedParent = parentPids.has(entry.ppid)')
+    && managedProcess.includes('const belongsToObservedParent = hasObservedParent && isNotOlderThan(entry, parent)')
+    && managedProcess.includes('currentParent !== undefined')
     && managedProcess.includes('isNotOlderThan(entry, observedRoot)')
     && lifecycleTest.includes('function runTemporalIdentityCase()')
     && lifecycleTest.includes('assert.equal(observed.has(50001), false)')
     && lifecycleTest.includes('assert.equal(observed.has(50002), true)')
-    && lifecycleTest.includes('assert.equal(observed.has(50003), true)');
+    && lifecycleTest.includes('assert.equal(observed.has(50003), true)')
+    && lifecycleTest.includes("classifyProcessIdentity(root, missingStartCurrentRoot), 'unknown'")
+    && lifecycleTest.includes('assert.equal(missingStartObserved.has(50006), false)')
+    && lifecycleTest.includes('assert.deepEqual(startlessUnknownPids, [50007])')
+    && lifecycleTest.includes('assert.equal(startlessDescendantObserved.has(50007), false)')
+    && lifecycleTest.includes("classifyProcessIdentity(sameSupervisorReuseObserved.get(rootPid), sameSupervisorReuse), 'unknown'")
+    && lifecycleTest.includes('assert.equal(sameSupervisorReuseObserved.has(50008), false)')
+    && lifecycleTest.includes('assert.equal(observation.root_identity_registered, true)')
+    && managedProcess.includes('sameIdentity(parent, currentParent)')
+    && managedProcess.includes('expected.started_at === null')
+    && managedProcess.includes("if (expected.started_at === null) return 'unknown'")
+    && managedProcess.includes('rootMarker.pid !== spawnedRootPid')
+    && managedProcess.includes('duplicate root identity marker rejected')
+    && managedProcess.includes('rootIdentityRegistered && atomicIdentityRegistered')
+    && managedProcess.includes("if (current.started_at === null) return 'unknown'")
+    && managedProcess.includes("else unknownPids.push(expected.pid)")
+    && managedProcess.includes('unknown_after_cleanup: unknownPids')
+    && managedProcess.includes('const unknownCandidatePids = new Set()')
+    && managedProcess.includes("if (entry.started_at === null && (hasObservedParent || hasPosixGroup))")
+    && managedProcess.includes('identityObservationIncomplete = true')
+    && managedProcess.includes("status === 'completed' && identityObservationIncomplete")
+    && managedProcess.includes("containmentMode: 'windows-job-object'")
+    && managedProcess.includes('containment.drained')
+    && windowsJobRunner.includes('CREATE_SUSPENDED')
+    && windowsJobRunner.includes('CREATE_NO_WINDOW')
+    && windowsJobRunner.includes('CREATE_SUSPENDED | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT')
+    && windowsJobRunner.includes('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
+    && windowsJobRunner.includes('PROC_THREAD_ATTRIBUTE_JOB_LIST')
+    && windowsJobRunner.includes('EXTENDED_STARTUPINFO_PRESENT')
+    && windowsJobRunner.includes('InitializeProcThreadAttributeList')
+    && windowsJobRunner.includes('UpdateProcThreadAttribute')
+    && !windowsJobRunner.includes('AssignProcessToJobObject')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_ROOT:')
+    && windowsJobRunner.indexOf('FDP_JOB_RUNNER_ROOT:') < windowsJobRunner.indexOf('if (!CreateProcess(')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_ATOMIC_CHILD:')
+    && windowsJobRunner.indexOf('FDP_JOB_RUNNER_ATOMIC_CHILD:') < windowsJobRunner.indexOf('ResumeThread(processInfo.hThread)')
+    && windowsJobRunner.includes("wrapper.StartTime.ToUniversalTime().ToString(\"yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'\")")
+    && windowsJobRunner.includes("atomicChild.StartTime.ToUniversalTime().ToString(\"yyyy-MM-dd'T'HH:mm:ss.ffffff'0Z'\")")
+    && managedProcess.includes('atomic_child_started_at')
+    && managedProcess.includes('observed.set(atomicChildMarker.pid')
+    && managedProcess.includes('const managedIdentitiesReadyPromise = new Promise')
+    && managedProcess.includes("readinessOutcome.kind === 'managed-identities-ready'")
+    && managedProcess.includes('if (!rootIdentityRegistered || !atomicIdentityRegistered)')
+    && managedProcess.includes("readinessOutcome.kind === 'managed-identities-ready'")
+    && managedProcess.includes("type: 'worker.observation_started'")
+    && managedProcess.indexOf('managedIdentitiesReadyPromise,') < managedProcess.indexOf('const initialObservation = observeNow()')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
+    && windowsJobRunner.includes('activeProcessesAfterRootExit = GetActiveProcessCount(job)')
+    && windowsJobRunner.includes('Worker root exited while')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN", null);')
+    && windowsJobRunner.indexOf('Environment.SetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN", null);') < windowsJobRunner.indexOf('return Run(')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_ASSIGNED:" + controlToken')
+    && windowsJobRunner.includes('Console.Error.WriteLine("FDP_JOB_RUNNER_ERROR:" + controlToken')
+    && windowsJobRunner.includes('operation + " failed with Win32 error " + errorCode + ": " + nativeError.Message')
+    && windowsJobRunner.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)')
+    && windowsJobRunner.includes('var controllerHandle = OpenProcess(')
+    && windowsJobRunner.includes('GetProcessTimes(')
+    && windowsJobRunner.includes('FileTimeToLong(creationTime) != controllerStartFileTime')
+    && !windowsJobRunner.includes('Process.GetProcessById(controllerPid)')
+    && windowsJobRunner.includes('Controller identity mismatch.')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_START_FILETIME", null);')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS", null);')
+    && windowsJobRunner.includes('WaitForMultipleObjects(')
+    && windowsJobRunner.includes('CreateEvent(')
+    && windowsJobRunner.includes('SetEvent(watchdogCancellation)')
+    && windowsJobRunner.includes('controllerWatchdog.Join(5000)')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_CONTROLLER_WATCHDOG_STOPPED:')
+    && windowsJobRunner.indexOf('SetEvent(watchdogCancellation)') < windowsJobRunner.lastIndexOf('CloseHandle(job);')
+    && windowsJobRunner.indexOf('controllerWatchdog.Join(5000)') < windowsJobRunner.lastIndexOf('CloseHandle(controllerHandle);')
+    && managedProcess.includes('controller_watchdog_stopped')
+    && lifecycleTest.includes('function runWatchdogTeardownRaceCase()')
+    && windowsJobRunner.includes('Environment.Exit(126)')
+    && windowsJobRunner.includes('"FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_PID", null);')
+    && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
-    && runner.includes("'exec'")
-    && runner.includes("'--ephemeral'")
-    && runner.includes("'--json'")
-    && runner.includes("'--sandbox'")
-    && runner.includes("'-'")
+    && runner.includes('buildEphemeralWorkerArgs')
     && runner.includes('stdinText: prompt')
+    && runner.includes('const deadlineAt = Date.now() + args.timeoutMs')
+    && runner.indexOf("process.once('SIGINT', onSigint)") < runner.indexOf('await readPrompt(deadlineAt, abortController.signal)')
+    && runner.includes('const remainingMs = deadlineAt - Date.now()')
+    && runner.includes('timeoutMs: remainingMs')
+    && runner.includes('emitPromptBoundaryResult')
+    && runner.includes('function buildNullRootResult(')
+    && runner.includes('function emitSetupFailureResult(')
+    && runner.includes("status: 'setup_failed'")
+    && runner.includes('controller_watchdog_stopped: false')
+    && runner.includes('resolveCodexInvocation({ targetCwd: args.cwd })')
+    && runner.indexOf('const result = await runManagedProcess({') < runner.lastIndexOf('emitTerminalResult(result)')
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
+    && codexInvocation.includes('function canonicalTargetBoundary(')
+    && codexInvocation.includes('FDP_CODEX_CLI_TRUST_ROOTS')
+    && codexInvocation.includes('isTrustedPath(command, trustRoots)')
+    && workerControlAudit.includes('hasCandidateReferenceCue')
+    && workerControlAudit.includes('hasValidCandidateHeadReference')
+    && workerControlAudit.includes('livePrOnlyReference')
+    && managedProcess.includes('DEFAULT_OBSERVATION_RETRY_BUDGET_MS')
+    && managedProcess.includes('FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE')
+    && managedProcess.includes('deadlineAt: Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS')
+    && windowsJobRunner.includes('var drainedNaturally = WaitForDrain(job, 1000)')
     && codexInvocation.includes('CODEX_CLI_PATH')
+    && codexInvocation.includes('path.isAbsolute(override)')
+    && codexInvocation.includes('realpathSync')
+    && codexInvocation.includes('!isWithin(targetBoundary, command)')
+    && codexInvocation.includes('!isWithin(candidate, targetBoundary)')
+    && codexInvocation.includes('Codex CLI was not found at a trusted absolute path')
     && codexInvocation.includes("'@openai'")
-    && localSmoke.includes("'exec', '--help'");
+    && codexInvocation.includes("'exec'")
+    && codexInvocation.includes("'--ephemeral'")
+    && codexInvocation.includes("'--json'")
+    && codexInvocation.includes("'--disable', 'multi_agent'")
+    && codexInvocation.includes("'--sandbox'")
+    && codexInvocation.includes("'-'")
+    && !codexInvocation.includes('execpolicy')
+    && !runner.includes('verifyManagedWorkerExecPolicy')
+    && !runner.includes('worker.exec_policy_verified')
+    && runner.includes('if (result.timed_out) process.exitCode = 124')
+    && runner.includes('else if (result.interrupted) process.exitCode = 130')
+    && runner.includes("process.env.NODE_ENV === 'test'")
+    && runner.includes('FDP_WORKER_TEST_ABORT_AFTER_MS')
+    && !runner.includes("result.status === 'timed_out'")
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
+    && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
+    && localSmoke.includes('buildEphemeralWorkerArgs')
+    && localSmoke.includes('workerArgs.slice(0, -1)')
+    && localSmoke.includes("'--help'")
+    && localSmoke.includes("type: 'worker.result'")
+    && !localSmoke.includes('execpolicy')
+    && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
     && testResult?.ok === true
+    && testResult?.cases?.pid_only_signal_guard?.direct_pid_signaling === false
+    && testResult?.cases?.pid_only_signal_guard?.termination_owner === 'exact-wrapper-handle-and-job-object'
+        && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.platform_support?.windows === 'supported'
+    && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
+    && testResult?.cases?.prebuilt_runner_artifact?.runtime_compiler_absent === true
+    && testResult?.cases?.prebuilt_runner_artifact?.source_manifest_verified === true
+    && testResult?.cases?.prebuilt_runner_artifact?.executable_manifest_verified === true
+    && testResult?.cases?.prebuilt_runner_artifact?.build_boundary_explicit === true
+    && testResult?.cases?.prebuilt_runner_artifact?.deterministic_build_receipt_verified === true
     && testResult?.cases?.temporal_identity?.stale_excluded === true
+    && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
+    && testResult?.cases?.temporal_identity?.posix_group_reused_root_excluded === true
+    && testResult?.cases?.temporal_identity?.posix_group_absent_root_excluded === true
+    && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
+    && testResult?.cases?.temporal_identity?.same_supervisor_root_reuse_excluded === true
+    && testResult?.cases?.temporal_identity?.known_start_missing_current_start_unknown === true
+    && testResult?.cases?.temporal_identity?.known_start_missing_current_start_child_excluded === true
+    && testResult?.cases?.temporal_identity?.startless_descendant_unknown === true
+    && testResult?.cases?.temporal_identity?.startless_descendant_excluded === true
     && testResult?.cases?.temporal_identity?.descendant_count === 2
-    && testResult?.cases?.normal?.status === 'completed'
-    && testResult?.cases?.normal?.stdout_line_count === 1
-    && testResult?.cases?.normal?.stderr_line_count === 1
-    && testResult?.cases?.timeout?.status === 'timed_out'
-    && testResult?.cases?.timeout?.observed_descendant_count >= 2
-    && testResult?.cases?.timeout?.cleanup_verified === true
-    && testResult?.cases?.interruption?.status === 'interrupted'
-    && testResult?.cases?.interruption?.observed_descendant_count >= 2
-    && testResult?.cases?.interruption?.cleanup_verified === true
-    && testResult?.cases?.residual?.status === 'residual_processes'
-    && testResult?.cases?.residual?.observed_descendant_count >= 2
-    && testResult?.cases?.residual?.cleanup_verified === true
-    && lifecycleTest.includes("fixturePath, 'root'")
-    && fixture.includes("mode === 'grandchild'");
+    && (process.platform === 'win32'
+      ? (testResult?.cases?.controller_same_handle_binding?.same_native_handle_verified_and_retained === true
+        && testResult?.cases?.controller_same_handle_binding?.managed_process_lookup_absent === true
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.status === 'cleanup_failed'
+        && Array.isArray(testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.runtime_compiler_children)
+        && testResult.cases.windows_lifecycle.prebuilt_setup_boundary.runtime_compiler_children.length === 0
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.wrapper_closed === true
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.cleanup_classification === 'complete'
+        && Number.isInteger(testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.stale_direct_child_rows_ignored)
+        && testResult.cases.windows_lifecycle.prebuilt_setup_boundary.stale_direct_child_rows_ignored >= 0
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.elapsed_ms < 12000
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.status === 'controller_identity_failed'
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.structured_result === true
+        && testResult?.cases?.windows_lifecycle?.controller_identity_start_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.status === 'controller_identity_failed'
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.structured_result === true
+        && testResult?.cases?.windows_lifecycle?.controller_identity_result_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.elapsed_ms < 750
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.pre_spawn_timeout?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.control_environment_isolation?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.control_environment_isolation?.control_environment_inherited === false
+        && testResult?.cases?.windows_lifecycle?.normal?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.normal?.stdout_line_count === 1
+        && testResult?.cases?.windows_lifecycle?.normal?.stderr_line_count === 1
+        && testResult?.cases?.windows_lifecycle?.timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.timeout?.observed_descendant_count >= 2
+        && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.atomic_identity_before_observation === true
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.timed_out === true
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.elapsed_ms >= 1500
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.elapsed_ms < 5000
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.deadline_outcome_preserved === true
+        && testResult?.cases?.windows_lifecycle?.started_callback_deadline?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.status === 'event_dispatch_failed'
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_sink_failure_contained === true
+        && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.terminal_callback_invoked === false
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.signal_aborted === false
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.returned_before_deadline === true
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.status === 'spawn_failed'
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.terminal_callback_invoked === false
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.returned_before_deadline === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_marker_ignored === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_pid_observed === false
+        && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.status !== 'completed'
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.forged_drain_ignored === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_assigned === true
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_drained === false
+        && testResult?.cases?.windows_lifecycle?.spoofed_drain_wrapper_kill?.containment_verified === false
+        && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.status === 'stdin_failed'
+        && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.stdin_early_exit?.stdin_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.stdin_timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.stdin_timeout?.timed_out === true
+        && testResult?.cases?.windows_lifecycle?.stdin_timeout?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.stdin_timeout?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.stdin_timeout?.stdin_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.interruption?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.interruption?.observed_descendant_count >= 2
+        && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_verified === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.interruption?.atomic_identity_before_observation === true
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_mode === 'windows-job-object'
+        && testResult?.cases?.windows_lifecycle?.orphan_containment?.containment_verified === false
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.controller_terminated_before_watchdog === true
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.wrapper_gone === true
+        && testResult?.cases?.windows_lifecycle?.controller_pre_acquire_death?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.controller_terminated === true
+        && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.wrapper_gone === true
+        && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.atomic_child_gone === true
+        && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.exit_code === 125
+        && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.mismatch_rejected_before_worker_creation === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.relative_override_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_override_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_repository_ancestor_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.arbitrary_executable_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.overlapping_trust_root_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.junction_escape_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_shadow_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.controller_trust_root_required === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.path_fallback_absolute === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.trusted_fallback_selected === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.exit_code === 125
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.operation_preserved === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.win32_error_code_preserved === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.native_message_preserved === true
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.transient_failure_retried === true
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.absolute_retry_deadline_enforced === true
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.exit_code === 1
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.status === 'setup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.result_event_count === 1
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.exit_code === 1
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.status === 'setup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.result_event_count === 1
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.exit_code === 124
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.status === 'timed_out'
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.controller_watchdog_stopped === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.exit_code === 130
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.status === 'interrupted'
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.controller_watchdog_stopped === false
+        && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.exit_code === 124
+        && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.detailed_status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.cleanup_verified === false
+        && testResult?.cases?.windows_lifecycle?.cli_interruption_exit?.exit_code === 130
+        && testResult?.cases?.windows_lifecycle?.cli_interruption_exit?.detailed_status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_interruption_exit?.cleanup_verified === false
+        && testResult?.cases?.windows_lifecycle?.timeout?.controller_watchdog_armed === true
+        && testResult?.cases?.windows_lifecycle?.timeout?.wrapper_closed === true
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.wrapper_pid > 0
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_assigned === true
+        && testResult?.cases?.windows_lifecycle?.atomic_wrapper_kill?.containment_verified === false
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.finite_bound_ms === 8000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.elapsed_ms < testResult.cases.windows_lifecycle.observation_hang_timeout.finite_bound_ms
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.timed_out === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.atomic_identity_before_observation === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.alive_after_cleanup_count === 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_timeout?.unknown_after_cleanup_count >= 2
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.status === 'cleanup_failed'
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.finite_bound_ms === 8000
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.elapsed_ms < testResult.cases.windows_lifecycle.observation_hang_interruption.finite_bound_ms
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.interrupted === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_pid > 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.cleanup_partition_verified === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_child_observed === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.atomic_identity_before_observation === true
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.alive_after_cleanup_count === 0
+        && testResult?.cases?.windows_lifecycle?.observation_hang_interruption?.unknown_after_cleanup_count >= 2
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.status === 'containment_failed'
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_mode === 'windows-job-object'
+        && testResult?.cases?.windows_lifecycle?.fast_parent_exit?.containment_verified === false)
+      : (testResult?.cases?.unsupported_platform?.status === 'unsupported_platform'
+        && testResult?.cases?.unsupported_platform?.containment_mode === 'unsupported-fail-closed'
+        && testResult?.cases?.windows_lifecycle === null))
+    && lifecycleTest.includes("fixturePath, 'fast-orphan-root'")
+    && lifecycleTest.includes("assert.equal(result.status, 'unsupported_platform')")
+    && lifecycleTest.includes('FDP_JOB_TEST_PAUSE_AFTER_ATOMIC_CREATE')
+    && lifecycleTest.includes('FDP_JOB_TEST_OBSERVATION_DELAY_MS')
+    && lifecycleTest.includes('function runObservationHangInterruptionCase()')
+    && lifecycleTest.includes('function assertObservedCleanupPartition(result)')
+    && lifecycleTest.includes('...result.cleanup.unknown_after_cleanup')
+    && lifecycleTest.includes('function runStartedCallbackDeadlineCase()')
+    && lifecycleTest.includes('busyWait(1500)')
+    && lifecycleTest.includes('function runThrowingStartedCallbackCase()')
+    && lifecycleTest.includes("throw new Error('intentional event sink failure')")
+    && lifecycleTest.includes("assert.equal(result.status, 'event_dispatch_failed'")
+    && lifecycleTest.includes('function runFinalResultCallbackIsolationCase()')
+    && lifecycleTest.includes('function runSpawnFailureResultCallbackIsolationCase()')
+    && lifecycleTest.includes('terminalCallbackCount += 1')
+    && lifecycleTest.includes('busyWait(6000)')
+    && lifecycleTest.includes('expected exactly one worker.result event')
+    && lifecycleTest.includes('function runSpoofedAtomicMarkerCase()')
+    && lifecycleTest.includes("fixturePath, 'spoof-marker'")
+    && lifecycleTest.includes('function runSpoofedDrainWrapperKillCase()')
+    && lifecycleTest.includes('function runControllerDeathWatchdogCase()')
+    && lifecycleTest.includes("'--controller-watchdog-helper'")
+    && lifecycleTest.includes('function runDelayedWrapperCloseCase()')
+    && lifecycleTest.includes('function runPrebuiltRunnerArtifactCase()')
+    && lifecycleTest.includes('function runPrebuiltSetupBoundaryCase()')
+    && lifecycleTest.includes('FDP_JOB_TEST_SETUP_DELAY_MS')
+    && lifecycleTest.includes('prebuilt setup spawned an unmanaged child')
+    && lifecycleTest.includes('childStartedAt >= parentStartedAt')
+    && lifecycleTest.includes('stale_direct_child_rows_ignored')
+    && lifecycleTest.includes('function runPreSpawnAbortCase()')
+    && lifecycleTest.includes('function runPreSpawnTimeoutCase()')
+    && lifecycleTest.includes('function runControlEnvironmentIsolationCase()')
+    && lifecycleTest.includes('function runControllerPreAcquireDeathCase()')
+    && lifecycleTest.includes('function runCliPromptBoundaryCase(expectedExitCode')
+    && lifecycleTest.includes('function runCodexInvocationResolutionCases()')
+    && lifecycleTest.includes('function runNativeErrorDetailCase()')
+    && lifecycleTest.includes('CreateProcess failed with Win32 error 2:')
+    && lifecycleTest.includes('terminal_schema_complete: true')
+    && lifecycleTest.includes('captureChild(child),')
+    && lifecycleTest.includes("assert.equal(workerResult.root_pid, null)")
+    && lifecycleTest.includes('function runCliPrimaryExitCase(expectedExitCode')
+    && lifecycleTest.includes('await runCliPrimaryExitCase(124)')
+    && lifecycleTest.includes('await runCliPrimaryExitCase(130, 750)')
+    && fixture.includes("mode === 'assert-control-env-absent'")
+    && fixture.includes("mode === 'write-marker'")
+    && lifecycleTest.includes("fixturePath, 'spoof-drain-kill-wrapper'")
+    && lifecycleTest.includes('function runStdinEarlyExitCase()')
+    && lifecycleTest.includes('function runStdinTimeoutCase()')
+    && managedProcess.includes('FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT')
+    && lifecycleTest.includes("stdinText: 'x'.repeat(1024 * 1024)")
+    && lifecycleTest.includes('test stdin failure after timeout selection')
+    && fixture.includes("mode === 'exit-immediately'")
+    && lifecycleTest.includes("assert.equal(result.status, 'timed_out'")
+    && lifecycleTest.includes('result.cleanup.unknown_after_cleanup.includes(result.root_pid)')
+    && lifecycleTest.includes('function assertManagedIdentitiesBeforeObservation(events, result)')
+    && lifecycleTest.includes("event.type === 'worker.observation_started'")
+    && lifecycleTest.includes('observationIndex > atomicChildIndex')
+    && lifecycleTest.includes('observed_descendant_pids.includes(atomicChildPid)')
+    && lifecycleTest.includes('function assertProcessIdentitiesGone(expected')
+    && lifecycleTest.includes('function assertManagedResultIdentitiesGone(result')
+    && lifecycleTest.includes('classifyProcessIdentity(identity, current)')
+    && lifecycleTest.includes('expected_started_at: identity.started_at')
+    && !lifecycleTest.includes('function isProcessAlive(')
+    && !lifecycleTest.includes('process.kill(pid, 0)')
+    && lifecycleTest.includes('containment.verified')
+    && fixture.includes("mode === 'grandchild'")
+    && fixture.includes("mode === 'fast-orphan-root'");
   checks.worker_lifecycle_package = pkg.scripts?.['worker:run'] === 'node scripts/run-ephemeral-worker.mjs'
     && pkg.scripts?.['worker:smoke-local'] === 'node scripts/smoke-ephemeral-worker-cli.mjs'
     && pkg.scripts?.['worker:test'] === 'node scripts/test-ephemeral-worker-lifecycle.mjs'
+    && pkg.scripts?.['worker:build-windows-runner'] === 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1'
+    && pkg.scripts?.['worker:verify-windows-runner-build'] === 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1 -Verify'
     && pkg.dependencies === undefined;
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
+    && autonomy.includes('reject relative CLI overrides')
+    && autonomy.includes('exclude PATH candidates inside the target root')
+    && autonomy.includes('Win32 error code, and operating-system message')
+    && autonomy.includes('`controller_watchdog_armed: false` and `controller_watchdog_stopped: false`')
+    && autonomy.includes('Windows native wrapper runtime must not compile or load source')
+    && autonomy.includes('source/executable SHA-256 manifest')
+    && autonomy.includes('Roslyn `/deterministic+` with a normalized source path')
+    && autonomy.includes('worker:verify-windows-runner-build')
+    && autonomy.includes('without creating the wrapper when the artifact is missing or stale')
+    && autonomy.includes('runtime setup cannot introduce an unmanaged compiler or console-host child')
+    && autonomy.includes('zero temporally valid direct setup children after wrapper-start filtering')
+    && autonomy.includes('older stale-parent rows are excluded by creation time')
     && autonomy.includes('must run through `scripts/run-ephemeral-worker.mjs`')
-    && autonomy.includes('terminate matched descendants before parents')
-    && autonomy.includes('An observation or cleanup result that cannot be verified is a failure')
+    && autonomy.includes('stops the exact wrapper first so Job-handle close terminates all atomically assigned members')
+    && autonomy.includes('never sends PID-only signals to observed descendants')
+    && autonomy.includes('Job-handle close owns termination and metadata cleanup only re-observes immutable identities')
+    && autonomy.includes('root exits while any other Job process remains active')
+    && autonomy.includes('return a lifecycle failure rather than the root exit code')
+    && autonomy.includes('An observation, containment, or cleanup result that cannot be verified is a failure')
+    && autonomy.includes('kill-on-close Job Object')
+    && autonomy.includes('fail closed before spawning a worker')
+    && autonomy.includes('assigned at creation through `STARTUPINFOEX` and `PROC_THREAD_ATTRIBUTE_JOB_LIST`')
+    && autonomy.includes('creation marker must include the atomically created worker PID and start time')
+    && autonomy.includes('cryptographically random per-invocation control token')
+    && autonomy.includes('remove that token, controller PID, and controller creation FILETIME from its process environment before worker creation')
+    && autonomy.includes('root, assignment, controller-watchdog, atomic-child, drain, and error marker must carry the matching token')
+    && autonomy.includes('PID plus creation FILETIME')
+    && autonomy.includes('open one native controller process handle')
+    && autonomy.includes('retain that exact controller process handle')
+    && autonomy.includes('same native process handle')
+    && autonomy.includes('background watchdog must terminate the Job and exit the wrapper')
+    && autonomy.includes('separate cancellation event must wake the watchdog')
+    && autonomy.includes('join that thread')
+    && autonomy.includes('authenticated watchdog-stopped marker is required')
+    && autonomy.includes("Cleanup verification requires the exact wrapper's actual close event")
+    && autonomy.includes('exit code or signal alone is insufficient')
+    && autonomy.includes('launch the real CLI wrapper as a child process')
+    && autonomy.includes('CLI exit code remains 124')
+    && autonomy.includes('register both root and atomic-child markers before any process-table query')
+    && autonomy.includes('no supervisor acknowledgement is required for resume')
+    && autonomy.includes('accepts only the first atomic-child marker')
+    && autonomy.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
+    && autonomy.includes('deadline and interrupt listeners must be armed before reading the worker prompt')
+    && autonomy.includes('absolute timeout deadline and interrupt listener must also remain armed before controller identity lookup')
+    && autonomy.includes('identity lookup must race those guards')
+    && autonomy.includes('returns without creating a wrapper or worker')
+    && autonomy.includes('Behavioral validation must prove the worker inherits none of them')
+    && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
+    && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
+    && autonomy.includes('Arbitrary `onEvent` callbacks receive non-terminal streaming events only')
+    && autonomy.includes('fixed CLI publisher serializes exactly one `worker.result`')
+    && autonomy.includes('native Windows wrapper must emit its own PID and start time')
+    && autonomy.includes('requires its PID to equal the exact spawned wrapper PID')
+    && autonomy.includes('uninitialized wrapper root is never adopted from mutable process-table parent or name fields')
+    && autonomy.includes('same-supervisor PID reuse must remain excluded')
+    && autonomy.includes('current row with missing start time is unknown rather than a name-based match')
+    && autonomy.includes('must not acquire descendants or receive a targeted signal')
+    && autonomy.includes('newly discovered descendant also requires start-time metadata before observation')
+    && autonomy.includes("permanently makes that invocation's observation unverified")
+    && autonomy.includes('Each process-table command must have its own timeout')
     && autonomy.includes('passed through stdin')
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
   checks.worker_lifecycle_decision = decision.includes('Status: accepted-v0')
+    && decision.includes('native runtime is a prebuilt')
+    && decision.includes('visible Node controller checks both before spawn')
+    && decision.includes('explicit build command is the only compiler boundary')
+    && decision.includes('Roslyn deterministic compilation')
+    && decision.includes('manifest schema 2')
+    && decision.includes('No-console creation applies to the wrapper and worker')
+    && decision.includes('zero temporally valid direct wrapper children before `Run`')
+    && decision.includes('excluding older stale-parent rows by creation time')
     && decision.includes('codex exec --ephemeral --json')
     && decision.includes('default timeout is 120 seconds')
-    && decision.includes('pid, parent pid, executable name, and process start time')
-    && decision.includes('descendants are terminated before their parents')
+    && decision.includes('pids, parent pids, executable names, and start times')
+    && decision.includes('kill-on-close Job Object')
+    && decision.includes('Other platforms fail closed before spawning')
+    && decision.includes('assigns the suspended worker to the Job Object atomically')
+    && decision.includes('writes the real worker PID and start time marker')
+    && decision.includes('cryptographically random per-invocation control token')
+    && decision.includes('removes the token, controller PID, and controller creation FILETIME from the process environment before creating the worker')
+    && decision.includes('root, assignment, controller-watchdog, atomic-child, drain, and error markers only when they carry that exact token')
+    && decision.includes('PID plus creation FILETIME')
+    && decision.includes('opens one native controller process handle')
+    && decision.includes('retains that exact controller process handle')
+    && decision.includes('same native process handle')
+    && decision.includes('waits on either the controller handle or a separate cancellation event')
+    && decision.includes('joins the watchdog')
+    && decision.includes('authenticated watchdog-stopped marker')
+    && decision.includes('Cleanup can verify only after the exact wrapper close event is observed')
+    && decision.includes('real CLI wrapper as a child process')
+    && decision.includes('primary CLI exit classifications 124 and 130')
+    && decision.includes('registered both immutable markers before any process-table query')
+    && decision.includes('without waiting for a supervisor acknowledgement')
+    && decision.includes('accepts and locks only that first marker')
+    && decision.includes('all other observed descendants exactly once as gone, identity-mismatched, alive, or unknown')
+    && decision.includes('deadline and interrupt listeners are armed before reading stdin')
+    && decision.includes('absolute timeout deadline and interrupt listener are armed before controller identity lookup')
+    && decision.includes('identity lookup races those guards')
+    && decision.includes('returns without creating a wrapper or worker')
+    && decision.includes('behavioral fixture proves the worker inherits none of them')
+    && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
+    && decision.includes('Stdin stream errors are retained in `stdin_errors`')
+    && decision.includes('Arbitrary `onEvent` callbacks receive non-terminal streaming events only')
+    && decision.includes('fixed CLI publisher serializes exactly one `worker.result`')
+    && decision.includes('native wrapper writes its own PID and start time marker')
+    && decision.includes('requires that PID to match the exact spawned wrapper')
+    && decision.includes('uninitialized wrapper root is never adopted from process-table parent or name fields')
+    && decision.includes('same-supervisor PID reuse')
+    && decision.includes('live row whose start time is unavailable is classified unknown rather than matched by name')
+    && decision.includes('cannot acquire descendants or receive a targeted signal')
+    && decision.includes('newly discovered descendant is not registered without start-time metadata')
+    && decision.includes("permanently makes the invocation's observation unverified")
+    && decision.includes('Each query has its own finite timeout')
+    && decision.includes('the exact wrapper is stopped first')
+    && decision.includes('never sends PID-only signals to observed descendants')
+    && decision.includes('metadata cleanup only re-observes immutable identities')
     && decision.includes('cleanup that cannot be observed or verified is a failure')
     && decision.includes('repay KI-CX-WORKER-001')
     && decision.includes('KI-CX-PROVIDER-001 records that separate provider trust boundary');
   checks.worker_lifecycle_spec = spec.includes('Status: implemented-v1')
+    && spec.includes('Windows wrapper is a checked-in prebuilt')
+    && spec.includes('only by the explicit')
+    && spec.includes('source and executable SHA-256 hashes')
+    && spec.includes('Manifest schema 2')
+    && spec.includes('worker:verify-windows-runner-build')
+    && spec.includes('byte-for-byte equality')
+    && spec.includes('compiler processes, and PowerShell wrapper hosts are forbidden')
+    && spec.includes('only an absolute Codex executable or absolute `codex.js` shim')
+    && spec.includes('outside that complete target boundary')
+    && spec.includes('inside an approved trust root')
+    && spec.includes('bounded natural convergence window')
+    && spec.includes('absolute per-observation deadline')
+    && spec.includes('Native API failures preserve the operation name, Win32 error code')
+    && spec.includes('with a null root')
+    && spec.includes('requires no temporally valid direct setup child after wrapper-start filtering')
+    && spec.includes('older stale-parent rows are excluded by creation time')
+    && spec.includes('does not start any process-table query until its stderr handler has registered both the immutable root identity and atomic worker identity')
+    && spec.includes('without waiting for a supervisor acknowledgement')
+    && spec.includes('writes this marker while the worker is still suspended')
+    && spec.includes('permanently locks the first marker it receives')
+    && spec.includes('`worker.observation_started` records the ordering evidence')
+    && spec.includes('- `worker.root_identity`')
+    && spec.includes('256-bit random control token for each invocation')
+    && spec.includes('removes the token, controller PID, and controller creation FILETIME from the process environment before worker creation')
+    && spec.includes('unrecognized same-name worker stderr remains ordinary stderr')
+    && spec.includes('forged drain followed by wrapper termination without verified containment')
+    && spec.includes('PID plus creation FILETIME')
+    && spec.includes('same native process handle')
+    && spec.includes('opens one native controller process handle')
+    && spec.includes('retains that exact handle')
+    && spec.includes('controller_watchdog_stopped')
+    && spec.includes('`controller_watchdog_armed: false` and `controller_watchdog_stopped: false`')
+    && spec.includes('same-native-handle open/FILETIME/retention source contract')
+    && spec.includes('separate watchdog cancellation event')
+    && spec.includes('delayed watchdog-cancellation normal-teardown runtime case')
+    && spec.includes('controller death before watchdog acquisition with no worker side effect')
+    && spec.includes('controller-process hard kill after watchdog acquisition with wrapper and worker confirmed gone')
+    && spec.includes('124 when timeout was the primary guard')
+    && spec.includes('keeps 124 or 130 even when its detailed status is `cleanup_failed`')
+    && spec.includes('every other observed descendant must appear exactly once')
+    && spec.includes('Never signal an observed descendant by PID')
+    && spec.includes('exact wrapper-handle stop and Job-handle close own termination')
+    && spec.includes('unknown_after_cleanup')
+    && spec.includes('identity lookup races the already-armed timeout and interruption guards')
+    && spec.includes('creates no wrapper or worker')
+    && spec.includes('behavioral fixture verifies that the real worker inherits none of them')
     && spec.includes('prompt is required on stdin')
     && spec.includes('danger-full-access` is not accepted')
     && spec.includes('worker.result')
-    && spec.includes('pid reuse')
+    && spec.includes('reused PID')
+    && spec.includes('native wrapper emits its own PID and operating-system start time before creating the worker')
+    && spec.includes('requires its PID to equal the exact spawned wrapper PID')
+    && spec.includes('An uninitialized root is never adopted from process-table parent or executable name')
+    && spec.includes('Later observations require the recorded start time to match')
+    && spec.includes('current row has no start time, identity is unknown rather than matched by executable name')
+    && spec.includes('newly discovered descendant must also provide start-time metadata before entering the observed tree')
+    && spec.includes('reported as an unobserved unknown candidate')
     && spec.includes('Exit codes are 0')
-    && spec.includes('124 for timeout')
-    && spec.includes('130 for interruption')
+    && spec.includes('124 when timeout was the primary guard')
+    && spec.includes('130 when interruption was the primary guard')
     && spec.includes('npm run worker:test')
-    && spec.includes('npm run worker:smoke-local');
-  checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or process-group root')
+    && spec.includes('npm run worker:smoke-local')
+    && spec.includes('## Agent Confinement')
+    && spec.includes('blocks built-in collaboration fan-out')
+    && spec.includes('not a runtime command boundary')
+    && spec.includes('Project-local `.codex/rules` cannot supply a worker-only fix')
+    && spec.includes('non-active design fixture')
+    && spec.includes('command re-entry confinement as an open KI')
+    && spec.includes('Windows Job Object')
+    && spec.includes('zero-active-process drain marker')
+    && spec.includes('Unsupported platforms return an `unsupported_platform` result before spawning a worker')
+    && spec.includes('assigned to the kill-on-close Job Object atomically at process creation')
+    && spec.includes('deadline and interruption handling are armed before prompt input')
+    && spec.includes('held-open stdin')
+    && spec.includes('armed before spawn and before any event callback')
+    && spec.includes('throwing event sink is captured as `event_dispatch_failed`')
+    && spec.includes('event delivery errors')
+    && spec.includes('stdin errors')
+    && spec.includes('`worker.stdin_error`')
+    && spec.includes('1 MiB early-exit stdin case')
+    && spec.includes('test-only post-timeout stdin error')
+    && spec.includes('without claiming a real pending write')
+    && spec.includes('synchronous `onEvent` callback contract is explicitly limited to non-terminal streaming events')
+    && spec.includes('fixed CLI publisher then serializes exactly one `worker.result`')
+    && spec.includes('every query has a separate finite command timeout')
+    && spec.includes('visible controller');
+  checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
     && spec.includes('rejected as stale parent-pid metadata');
   checks.worker_lifecycle_record = record.includes('Status: validated')
     && record.includes('PSC: P1')
@@ -3940,17 +4823,23 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && record.includes('The user then explicitly approved that stated transmission risk')
     && record.includes('KI-CX-WORKER-001 is repaid by this WI')
     && record.includes('KI-CX-PROVIDER-001 now owns the separate external-provider trust boundary');
-  checks.worker_lifecycle_flow = currentWi.includes('Status: validated')
-    && /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+  checks.worker_lifecycle_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
     && fixPlan.includes('WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
-    && state.current_wi?.status === 'validated'
     && state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
     && state.current_priority?.lock_blocker === 'yes';
-  checks.worker_lifecycle_state = ['managed-guard-validated-provider-smoke-policy-blocked', 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'].includes(topology.runtime_status)
-    && ['validated-provider-smoke-policy-blocked', 'validated-temporal-identity-provider-smoke-policy-blocked'].includes(guard.status)
+  checks.worker_lifecycle_state = [
+    'managed-guard-validated-provider-smoke-policy-blocked',
+    'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+    'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
+  ].includes(topology.runtime_status)
+    && [
+      'validated-provider-smoke-policy-blocked',
+      'validated-temporal-identity-provider-smoke-policy-blocked',
+      'confined-public-preflight-passed-dogfood-approval-blocked',
+      'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
+    ].includes(guard.status)
     && guard.supervisor === 'scripts/run-ephemeral-worker.mjs'
     && guard.default_timeout_ms === 120000
     && JSON.stringify(guard.allowed_sandboxes) === JSON.stringify(['read-only', 'workspace-write'])
@@ -3958,10 +4847,43 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.normal).startsWith('passed')
     && String(guard.deterministic_cases?.timeout_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
-    && String(guard.deterministic_cases?.residual_after_root_exit_cleanup).startsWith('passed')
+    && guard.containment?.windows === 'prebuilt-windowsapplication-job-object-atomic-create-kill-on-close-no-runtime-setup-children'
+    && guard.containment?.posix === 'unsupported-fail-closed-before-spawn'
+    && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
+    && guard.containment?.normal_completion_requires_verified_drain === true
+    && guard.deterministic_cases?.windows_orphan_job_containment === 'passed-lifecycle-failure-after-drain'
+    && guard.deterministic_cases?.windows_fast_parent_exit_containment === 'passed-lifecycle-failure-after-drain'
+    && guard.deterministic_cases?.cli_prompt_timeout === 'passed-held-open-stdin-124-null-root-no-wrapper'
+    && guard.deterministic_cases?.cli_prompt_interruption === 'passed-held-open-stdin-130-null-root-no-wrapper'
+    && String(guard.deterministic_cases?.windows_atomic_wrapper_kill_containment).startsWith('passed')
+    && guard.deterministic_cases?.windows_observation_hang_timeout === 'passed-shared-8000ms-bound-post-result-gone'
+    && guard.deterministic_cases?.windows_observation_hang_interruption === 'passed-shared-8000ms-bound-post-result-gone'
+    && String(guard.deterministic_cases?.event_sink_exception_cleanup).startsWith('passed')
+    && String(guard.deterministic_cases?.final_result_sink_failure).startsWith('passed')
+    && String(guard.deterministic_cases?.stdin_early_exit_cleanup).startsWith('passed')
+    && guard.deterministic_cases?.stdin_timeout_cleanup === 'passed-injected-post-timeout-stdin-error-structured-result'
     && guard.local_cli_smoke?.result === 'passed-no-model-request'
     && guard.local_cli_smoke?.observation_verified === true
-    && guard.live_model_smoke?.result === 'policy-rejected-after-user-approval';
+    && guard.local_cli_smoke?.containment_mode === 'windows-job-object'
+    && guard.local_cli_smoke?.containment_verified === true
+    && guard.local_cli_smoke?.observed_descendant_count === 1
+    && guard.local_cli_smoke?.atomic_child_registered === true
+    && guard.deterministic_cases?.prebuilt_runner_artifact === 'passed-reproducible-source-executable-and-build-receipt-verified'
+    && guard.deterministic_cases?.prebuilt_setup_boundary === 'passed-zero-temporally-valid-direct-setup-children-stale-parent-rows-filtered-no-worker-side-effect-bounded-wrapper-close-complete-classification'
+    && guard.prebuilt_runner?.source === 'scripts/windows-job-runner.cs'
+    && guard.prebuilt_runner?.executable === 'scripts/windows-job-runner.exe'
+    && guard.prebuilt_runner?.manifest === 'scripts/windows-job-runner.manifest.json'
+    && guard.prebuilt_runner?.manifest_schema === 2
+    && guard.prebuilt_runner?.build_command === 'npm run worker:build-windows-runner'
+    && guard.prebuilt_runner?.verification_command === 'npm run worker:verify-windows-runner-build'
+    && guard.prebuilt_runner?.compiler_boundary === 'dotnet-roslyn-csc'
+    && guard.prebuilt_runner?.deterministic_build === true
+    && guard.prebuilt_runner?.runtime_compilation === false
+    && guard.prebuilt_runner?.hash_verified_before_spawn === true
+    && guard.prebuilt_runner?.wrapper_subsystem === 'WindowsApplication'
+    && guard.prebuilt_runner?.worker_create_no_window === true
+    && (guard.live_model_smoke?.result === 'policy-rejected-after-user-approval'
+      || guard.live_model_smoke?.public_repository_preflight?.result === 'passed');
   checks.worker_temporal_identity_record = temporalRecord.includes('Status: validated')
     && temporalRecord.includes('PSC: P1')
     && temporalRecord.includes('WTC: AUTO')
@@ -3971,18 +4893,50 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('Five consecutive full lifecycle runs passed')
     && temporalRecord.includes('KI-CX-WORKER-002 Windows stale parent-pid descendant false positive');
   checks.worker_temporal_identity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && hasActiveWiStatus(currentWi)
     && handoff.includes('WI-CX0061 rejects candidates that started before their observed parent')
     && /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
     && state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external';
-  checks.worker_temporal_identity_state = topology.runtime_status === 'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked'
-    && guard.status === 'validated-temporal-identity-provider-smoke-policy-blocked'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state);
+  checks.worker_temporal_identity_state = [
+    'managed-guard-temporal-identity-validated-provider-smoke-policy-blocked',
+    'managed-guard-confined-public-preflight-passed-dogfood-approval-blocked',
+    'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
+  ].includes(topology.runtime_status)
+    && [
+      'validated-temporal-identity-provider-smoke-policy-blocked',
+      'confined-public-preflight-passed-dogfood-approval-blocked',
+      'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked',
+    ].includes(guard.status)
     && guard.deterministic_cases?.temporal_stale_parent_pid_exclusion === 'passed-repeated-5'
+    && guard.deterministic_cases?.parent_pid_reuse_identity_exclusion === 'passed-repeated-5'
+    && String(guard.deterministic_cases?.uninitialized_root_reuse_exclusion).startsWith('passed')
+    && guard.deterministic_cases?.known_start_missing_current_start === 'passed-unknown-unverified-child-excluded'
+    && guard.deterministic_cases?.startless_descendant_exclusion === 'passed-unknown-candidate-not-observed-or-signaled'
+    && guard.deterministic_cases?.native_root_identity === 'passed-marker-pid-and-start-time-before-observation'
+    && guard.deterministic_cases?.same_supervisor_root_reuse_exclusion === 'passed-uninitialized-root-and-child-rejected'
+    && guard.deterministic_cases?.authenticated_control_marker_spoof_rejection === 'passed-forged-root-atomic-and-drain-markers-ignored'
+    && guard.deterministic_cases?.forged_drain_wrapper_kill === 'passed-unverified-containment-false'
+    && guard.deterministic_cases?.controller_death_watchdog === 'passed-wrapper-and-atomic-child-confirmed-gone'
+    && guard.deterministic_cases?.controller_identity_binding === 'passed-pid-and-creation-filetime-mismatch-rejected-before-worker-creation'
+    && guard.deterministic_cases?.pre_spawn_abort_guard === 'passed-interrupted-no-wrapper-no-worker'
+    && guard.deterministic_cases?.pre_spawn_identity_timeout_guard === 'passed-bounded-no-wrapper-no-worker-lookup-child-close-confirmed'
+    && guard.deterministic_cases?.pre_spawn_identity_interrupt_guard === 'passed-bounded-no-wrapper-no-worker-lookup-child-close-confirmed'
+    && guard.deterministic_cases?.final_spawn_timeout_guard === 'passed-no-wrapper-no-worker-after-invocation-materialization'
+    && guard.deterministic_cases?.final_spawn_interrupt_guard === 'passed-no-wrapper-no-worker-after-invocation-materialization'
+    && guard.deterministic_cases?.spawn_failure_result_callback === 'passed-reclassified-event-dispatch-failed'
+    && guard.deterministic_cases?.wrapper_stop_failure_paths === 'passed-kill-rejection-and-close-timeout-exposed'
+    && guard.deterministic_cases?.identity_lookup_cleanup_classification === 'passed-kill-rejection-and-close-timeout-fail-closed'
+    && guard.deterministic_cases?.controller_same_handle_binding === 'passed-open-verify-retain-same-native-handle'
+    && guard.deterministic_cases?.controller_identity_start_failure === 'passed-structured-result-no-wrapper'
+    && guard.deterministic_cases?.controller_identity_result_failure === 'passed-structured-result-no-wrapper'
+    && guard.deterministic_cases?.controller_pre_acquire_death === 'passed-wrapper-gone-worker-side-effect-absent'
+    && guard.deterministic_cases?.control_environment_isolation === 'passed-token-pid-filetime-absent-in-real-worker'
+    && guard.deterministic_cases?.exact_wrapper_close_required === 'passed-actual-close-event-required-no-exit-state-shortcut'
+    && guard.deterministic_cases?.timeout_exit_classification === 'passed-real-cli-cleanup-failed-timeout-124-interruption-130'
     && guard.deterministic_cases?.normal === 'passed-repeated-5'
     && guard.deterministic_cases?.timeout_descendant_cleanup === 'passed-repeated-5'
     && guard.deterministic_cases?.interruption_descendant_cleanup === 'passed-repeated-5'
-    && guard.deterministic_cases?.residual_after_root_exit_cleanup === 'passed-repeated-5'
     && guard.post_merge_validation?.trigger_commit === 'b905fc6cd0db825dcf91edbaa19688ba2a0d44ec'
     && guard.post_merge_validation?.repayment_wi === 'WI-CX0061-fix';
   checks.worker_lifecycle_known_issue = workerKi?.status === 'repaid'
@@ -3993,9 +4947,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && workerKi.evidence === recordPath
     && providerKi?.status === 'open'
     && providerKi.severity === 'Medium'
-    && providerKi.owner === 'H1'
-    && providerKi.trigger.includes('after explicit user approval')
-    && providerKi.repayment_condition.includes('establishes the configured model service as trusted')
+    && providerKi.owner.includes('H1')
+    && providerKi.trigger.includes('explicit user approval')
+    && providerKi.repayment_condition.includes('trusted model destination')
     && providerKi.hard_stop.includes('dogfood continuation');
   checks.worker_temporal_identity_known_issue = temporalKi?.status === 'repaid'
     && temporalKi.severity === 'High'
@@ -4005,6 +4959,139 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalKi.repayment_condition.includes('temporal descendant filtering')
     && temporalKi.hard_stop.includes('before dogfood continuation')
     && temporalKi.evidence === temporalRecordPath;
+  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'repaid-on-merge'
+    && reusedParentKi?.repaid_by === 'WI-CX0060-test'
+    && reusedParentKi.severity === 'High'
+    && reusedParentKi.owner === 'CODEX'
+    && reusedParentKi.github_issue_number === 64
+    && reusedParentKi.trigger.includes('execute a worker after timeout or interruption already won before spawn')
+    && reusedParentKi.trigger.includes('leave the wrapper and worker alive after controller death')
+    && reusedParentKi.trigger.includes('bind the watchdog to a reused controller PID before handle acquisition')
+    && reusedParentKi.trigger.includes('actual wrapper close event')
+    && reusedParentKi.trigger.includes('without a real CLI process regression')
+    && reusedParentKi.trigger.includes('parent PID reuse')
+    && reusedParentKi.trigger.includes('detached child')
+    && reusedParentKi.trigger.includes('start timeout or interruption too late')
+    && reusedParentKi.trigger.includes('stalled observation')
+    && reusedParentKi.trigger.includes('creation-to-assignment window')
+    && reusedParentKi.trigger.includes('label unobservable dead identities as alive')
+    && reusedParentKi.trigger.includes('event sink exception escape before cleanup')
+    && reusedParentKi.trigger.includes('pending stdin write error')
+    && reusedParentKi.trigger.includes('final-result delivery failure')
+    && reusedParentKi.trigger.includes('reused wrapper PID including under the same supervisor')
+    && reusedParentKi.trigger.includes('worker-forged root, assignment, atomic-child, drain, or error control markers')
+    && reusedParentKi.trigger.includes('signal an unrelated process after PID reuse between identity classification and termination')
+    && reusedParentKi.trigger.includes('missing current start-time metadata as a name-based identity match')
+    && reusedParentKi.trigger.includes('newly discovered descendant whose start time is unavailable')
+    && reusedParentKi.repayment_condition.includes('timeout or interruption that wins before spawn creates no wrapper or worker')
+    && reusedParentKi.repayment_condition.includes('controller death before watchdog acquisition creates no worker side effect')
+    && reusedParentKi.repayment_condition.includes('real worker inherits no control token, controller PID, or controller creation FILETIME')
+    && reusedParentKi.repayment_condition.includes('Windows Job Object containment')
+    && reusedParentKi.repayment_condition.includes('atomic wrapper-kill containment')
+    && reusedParentKi.repayment_condition.includes('observer-hang finite timeout')
+    && reusedParentKi.repayment_condition.includes('gone, identity-mismatch, alive, or unknown classification')
+    && reusedParentKi.repayment_condition.includes('throwing event callbacks and failed stdin writes return only after structured verified cleanup')
+    && reusedParentKi.repayment_condition.includes('initial root identity requires a native marker whose PID equals the exact spawned wrapper')
+    && reusedParentKi.repayment_condition.includes('never uses parent or name fallback')
+    && reusedParentKi.repayment_condition.includes('root, assignment, controller-watchdog, atomic-child, drain, and error markers require the exact per-invocation token')
+    && reusedParentKi.repayment_condition.includes('open one native controller handle, validate creation FILETIME from that same handle, retain it')
+    && reusedParentKi.repayment_condition.includes('actual wrapper close event is mandatory before cleanup verification')
+    && reusedParentKi.repayment_condition.includes('real CLI child-process tests prove timeout and interruption retain CLI exits 124 and 130')
+    && reusedParentKi.repayment_condition.includes('token, controller PID, and controller creation FILETIME are removed from the wrapper environment before worker creation')
+    && reusedParentKi.repayment_condition.includes('forged markers never change containment state or observed identity')
+    && reusedParentKi.repayment_condition.includes('no PID-only descendant signaling')
+    && reusedParentKi.repayment_condition.includes('missing current start-time metadata remain unknown, unsignaled, and unverified')
+    && reusedParentKi.repayment_condition.includes('newly discovered descendants require start-time metadata or remain unobserved unknown candidates')
+    && reusedParentKi.repayment_condition.includes('post-merge control-plane audit')
+    && handoff.includes('historical reported evidence, not a complete zero-residual proof')
+    && proofRecord.includes('historical result is not evidence of complete zero-residual cleanup')
+    && proofRecord.includes('cleanup_reported_verified: true')
+    && proofRecord.includes('cleanup_proof_complete: false')
+    && proofRecord.includes('removes every descendant `process.kill(pid)` path')
+    && proofRecord.includes('authenticates root, assignment, atomic-child, drain, and error markers with a 256-bit per-invocation token')
+    && proofRecord.includes('worker-forged drain plus wrapper-kill regression returns `containment_failed`')
+    && proofRecord.includes('controller-facing Node death could orphan the PowerShell Job owner and worker')
+    && proofRecord.includes('real controller-process hard-kill regression confirms wrapper and atomic child gone')
+    && currentWi.includes('later review proved that was not complete zero-residual evidence')
+    && proofRecord.includes('Issue #61 comment `4950118514` supersedes historical comment `4938282551`')
+    && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
+    && reusedParentKi.evidence === proofRecordPath;
+  checks.worker_command_path_known_issue = commandPathKi?.status === 'repaid-on-merge'
+    && commandPathKi?.repaid_by === 'WI-CX0060-test'
+    && commandPathKi.severity === 'High'
+    && commandPathKi.owner === 'CODEX'
+    && commandPathKi.github_issue_number === 66
+    && commandPathKi.trigger.includes('relative CLI override or fallback')
+    && commandPathKi.trigger.includes('target-cwd codex.exe')
+    && commandPathKi.trigger.includes('repository-ancestor or arbitrary executable')
+    && commandPathKi.repayment_condition.includes('trusted absolute override and PATH resolution')
+    && commandPathKi.repayment_condition.includes('Win32 error code')
+    && commandPathKi.repayment_condition.includes('controller-owned trust roots')
+    && commandPathKi.hard_stop.includes('before PR readiness')
+    && commandPathKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-005 / Issue #66')
+    && fixPlan.includes('KI-CX-WORKER-005 / Issue #66')
+    && handoff.includes('KI-CX-WORKER-005 / Issue #66')
+    && proofRecord.includes('KI-CX-WORKER-005 / Issue #66');
+  checks.worker_prompt_schema_known_issue = promptSchemaKi?.status === 'repaid-on-merge'
+    && promptSchemaKi?.repaid_by === 'WI-CX0060-test'
+    && promptSchemaKi.severity === 'High'
+    && promptSchemaKi.owner === 'CODEX'
+    && promptSchemaKi.github_issue_number === 67
+    && promptSchemaKi.trigger.includes('prompt timeout and interruption omitted')
+    && promptSchemaKi.repayment_condition.includes('complete schema-version-1 result')
+    && promptSchemaKi.repayment_condition.includes('watchdog armed and stopped')
+    && promptSchemaKi.hard_stop.includes('before PR readiness')
+    && promptSchemaKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-006 / Issue #67')
+    && fixPlan.includes('KI-CX-WORKER-006 / Issue #67')
+    && handoff.includes('KI-CX-WORKER-006 / Issue #67')
+    && proofRecord.includes('KI-CX-WORKER-006 / Issue #67');
+  checks.worker_setup_result_known_issue = setupResultKi?.status === 'repaid-on-merge'
+    && setupResultKi?.repaid_by === 'WI-CX0060-test'
+    && setupResultKi.severity === 'High'
+    && setupResultKi.owner === 'CODEX'
+    && setupResultKi.github_issue_number === 68
+    && setupResultKi.trigger.includes('worker.wrapper_error without publishing')
+    && setupResultKi.repayment_condition.includes('exactly one complete null-root worker.result')
+    && setupResultKi.hard_stop.includes('before PR readiness')
+    && setupResultKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-007 / Issue #68')
+    && fixPlan.includes('KI-CX-WORKER-007 / Issue #68')
+    && handoff.includes('KI-CX-WORKER-007 / Issue #68')
+    && proofRecord.includes('KI-CX-WORKER-007 / Issue #68');
+  checks.worker_candidate_audit_known_issue = candidateAuditKi?.status === 'repaid-on-merge'
+    && candidateAuditKi?.repaid_by === 'WI-CX0060-test'
+    && candidateAuditKi.severity === 'High'
+    && candidateAuditKi.owner === 'CODEX'
+    && candidateAuditKi.github_issue_number === 69
+    && candidateAuditKi.trigger.includes('Current commit')
+    && candidateAuditKi.trigger.includes('candidate-bearing Status')
+    && candidateAuditKi.trigger.includes('historical commit/head narratives')
+    && candidateAuditKi.repayment_condition.includes('continuation, commit, and status fields')
+    && candidateAuditKi.repayment_condition.includes('ambiguous references fail closed')
+    && candidateAuditKi.repayment_condition.includes('historical narrative evidence')
+    && candidateAuditKi.hard_stop.includes('before PR readiness')
+    && candidateAuditKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-CONTROL-002 / Issue #69')
+    && fixPlan.includes('KI-CX-CONTROL-002 / Issue #69')
+    && handoff.includes('KI-CX-CONTROL-002 / Issue #69')
+    && proofRecord.includes('KI-CX-CONTROL-002 / Issue #69');
+  checks.worker_repeatability_known_issue = workerRepeatabilityKi?.status === 'repaid-on-merge'
+    && workerRepeatabilityKi?.repaid_by === 'WI-CX0060-test'
+    && workerRepeatabilityKi.severity === 'High'
+    && workerRepeatabilityKi.owner === 'CODEX'
+    && workerRepeatabilityKi.github_issue_number === 70
+    && workerRepeatabilityKi.trigger.includes('PID-only residual assertions')
+    && workerRepeatabilityKi.repayment_condition.includes('bounded natural convergence')
+    && workerRepeatabilityKi.repayment_condition.includes('observation helpers close before return')
+    && workerRepeatabilityKi.repayment_condition.includes('PID reuse')
+    && workerRepeatabilityKi.hard_stop.includes('before PR readiness')
+    && workerRepeatabilityKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-008 / Issue #70')
+    && fixPlan.includes('KI-CX-WORKER-008 / Issue #70')
+    && handoff.includes('KI-CX-WORKER-008 / Issue #70')
+    && proofRecord.includes('KI-CX-WORKER-008 / Issue #70');
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
@@ -4020,10 +5107,185 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalRecord.includes('The Layer 2 target was not touched')
     && temporalRecord.includes('No live model smoke or provider-policy workaround was attempted')
     && temporalRecord.includes('No destructive filesystem or git operation occurred');
+  checks.worker_proof_implementation = codexInvocation.includes('export function buildEphemeralWorkerArgs')
+    && codexInvocation.includes("'--disable', 'multi_agent'")
+    && lifecycleTest.includes('function runBuiltinFanoutFlagCase()')
+    && lifecycleTest.includes('function runPlatformSupportCase()')
+    && lifecycleTest.includes('multi_agent_disabled: true')
+    && !lifecycleTest.includes('runExecPolicyContractCase')
+    && !codexInvocation.includes('forbiddenReentryCases')
+    && !codexInvocation.includes('verifyManagedWorkerExecPolicy')
+    && managedWorkerPolicy.includes('Design fixture only. Codex does not auto-load this path')
+    && !existsSync(path.join(repoRoot, '.codex', 'rules', 'fdp-managed-worker.rules'))
+    && testResult?.cases?.pid_only_signal_guard?.direct_pid_signaling === false
+    && testResult?.cases?.pid_only_signal_guard?.termination_owner === 'exact-wrapper-handle-and-job-object'
+        && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
+    && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed';
+  checks.worker_proof_record = proofRecord.includes('Status: blocked-external')
+    && proofRecord.includes('PSC: P1')
+    && proofRecord.includes('WTC: AUTO')
+    && proofRecord.includes('Risk: R2')
+    && proofRecord.includes('ESC: E1+E2+E3+E5+E6')
+    && proofRecord.includes('FDP_CODEX_PROVIDER_TRUST_SMOKE_OK')
+    && proofRecord.includes('alive_after_cleanup: []')
+    && proofRecord.includes('even with explicit user approval')
+    && proofRecord.includes('019f4dc3-db87-7043-b699-b1d1c4145217')
+    && proofRecord.includes('fresh controller session loaded the project rule')
+    && proofRecord.includes('removed the active rule')
+    && proofRecord.includes('non-active design fixture')
+    && proofRecord.includes('kill-on-close Job Object')
+    && proofRecord.includes('fresh final-head reviewer');
+  const reviewKiFixPlanRow = fixPlan.split(/\r?\n/).find((line) => line.startsWith('| KI-CX-REVIEW-002 / Issue #63')) ?? '';
+  const reviewKiFixPlanFields = reviewKiFixPlanRow.split('|').map((field) => field.trim());
+  const reviewKiDeferAndRepayment = [reviewKiFixPlanFields[5] ?? '', reviewKiFixPlanFields[6] ?? ''].join(' ');
+  checks.worker_review_candidate_pointer = reviewKiFixPlanFields.length === 10
+    && reviewKiDeferAndRepayment.includes('query `git rev-parse HEAD`')
+    && reviewKiDeferAndRepayment.includes('compare that live value with Issue #63')
+    && !/[0-9a-f]{40}/i.test(reviewKiDeferAndRepayment);
+  checks.worker_proof_flow = currentWi.includes('WI id: WI-CX0060-test')
+    && currentWi.includes('Status: blocked-external')
+    && currentWi.includes('ESC: E1+E2+E3+E5+E6')
+    && fixPlan.includes('land a truthful `blocked-external` evidence checkpoint, not a completed proof')
+    && fixPlan.includes('policy-rejected even after current explicit user approval')
+    && currentWi.includes('that merge does not complete the live proof or repay Issues #55 and #61')
+    && proofRecord.includes('land through the normal supervised PR lifecycle as a non-completion checkpoint')
+    && handoff.includes('Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
+    && handoff.includes('Land only as a non-completion checkpoint')
+    && state.current_wi?.id === 'WI-CX0060-test'
+    && state.current_wi?.status === 'blocked-external'
+    && state.current_priority?.state === 'blocked-external'
+    && state.current_priority?.owner_gate === 'H1';
+  checks.worker_proof_state = topology.runtime_status === 'managed-guard-builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked'
+    && guard.status === 'builtin-fanout-disabled-command-reentry-open-provider-smoke-policy-blocked'
+    && guard.nested_agent_confinement?.status === 'builtin-fanout-disabled-command-reentry-unenforced'
+    && guard.nested_agent_confinement?.cli_flag === '--disable multi_agent'
+    && guard.nested_agent_confinement?.deterministic_test === 'builtin-fanout-flag-passed'
+    && guard.nested_agent_confinement?.command_reentry?.runtime_enforced === false
+    && guard.nested_agent_confinement?.command_reentry?.active_project_rule === false
+    && guard.nested_agent_confinement?.command_reentry?.design_fixture === 'docs/specifications/managed-worker-exec-policy.rules'
+    && guard.nested_agent_confinement?.command_reentry?.controller_validation_owner === 'visible-controller'
+    && guard.live_model_smoke?.public_repository_preflight?.result === 'passed'
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.result === 'timed-out-after-target-validation'
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_reported_verified === true
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.cleanup_proof_complete === false
+    && guard.live_model_smoke?.layer2_dogfood_first_attempt?.evidence_status === 'historical-reported-not-complete-zero-residual-proof'
+    && JSON.stringify(guard.live_model_smoke?.layer2_dogfood_first_attempt?.reported_alive_after_cleanup) === '[]'
+    && !('cleanup_verified' in guard.live_model_smoke.layer2_dogfood_first_attempt)
+    && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-after-current-explicit-user-approval'
+    && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true
+    && guard.deterministic_cases?.commit_status_candidate_fields === 'passed-current-commit-and-review-candidate-status-exact-stale-rejected'
+    && guard.deterministic_cases?.candidate_narrative_false_positive_guard === 'passed-review-run-workflow-and-historical-head-narratives-remain-non-candidates'
+    && guard.deterministic_cases?.identity_aware_residual_assertions === 'passed-pid-and-creation-time-gone-or-reused-never-pid-only'
+    && guard.deterministic_cases?.observation_helper_close === 'passed-result-settles-after-actual-helper-close';
+  checks.worker_proof_known_issues = confinementKi?.severity === 'High'
+    && confinementKi?.owner === 'CODEX'
+    && confinementKi?.status === 'open'
+    && confinementKi?.github_issue_number === 61
+    && confinementKi?.hard_stop.includes('before completing WI-CX0060-test')
+    && confinementKi?.defer_reason.includes('provider Issue #55')
+    && confinementKi?.repayment_condition.includes('repository-backed read-only dogfood run')
+    && dogfoodKi?.severity === 'High'
+    && dogfoodKi?.owner === 'CODEX'
+    && dogfoodKi?.status === 'open'
+    && dogfoodKi?.github_issue_number === 62
+    && dogfoodKi?.hard_stop.includes('before claiming target operating state is current')
+    && state.layer2_target?.observed_inconsistency?.layer1_ki === 'KI-CX-DOGFOOD-002'
+    && state.layer2_target?.observed_inconsistency?.github_issue_number === 62
+    && reviewAvailabilityKi?.severity === 'High'
+    && reviewAvailabilityKi?.owner.includes('execution platform')
+    && reviewAvailabilityKi?.status === 'open'
+    && reviewAvailabilityKi?.github_issue_number === 63
+    && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
+    && reviewAvailabilityKi?.trigger.includes('7696fbb')
+    && reviewAvailabilityKi?.trigger.includes('c86b9f0')
+    && reviewAvailabilityKi?.trigger.includes('71576c0')
+    && reviewAvailabilityKi?.defer_reason.includes('each remediated head requires a fresh review generation')
+    && reviewAvailabilityKi?.repayment_condition.includes('PASS with no unresolved P0, P1, or P2 finding')
+    && reviewAvailabilityKi?.latest_review?.agent_id === '019f5b8f-5b4f-7e92-b108-197c412ef805'
+    && reviewAvailabilityKi?.latest_review?.github_review_id === 4685108846
+    && reviewAvailabilityKi?.latest_review?.verdict === 'FAIL'
+    && state.control_plane?.independent_review?.availability_issue === 63
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d78-ea57-73d1-9843-dd2d473cea12' && attempt.reviewed_head === '7696fbb' && attempt.result.includes('github-drift'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d85-063e-7a10-a5a2-8584e247de8c' && attempt.reviewed_head === 'c86b9f036e823986d78d825c97408b70dcd444b1' && attempt.result.includes('shell-reentry'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f4db0-018f-7db1-b8e4-81c8e1aa92fc' && attempt.reviewed_head === '71576c01ca9a1db1fb59031c01a398bb13e9cba8' && attempt.result.includes('package-script'));
+  checks.worker_proof_candidate_state = reviewAttempts.some((attempt) => attempt.agent_id === '019f56f8-79b2-7b61-bcf2-73bcf6c69cf5'
+    && attempt.reviewed_head === '9c6080043b49ea98f5f29e8b3fe79baf4e10a429'
+    && attempt.result.includes('invalidated'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f576e-9981-7343-a065-555961f62853'
+      && attempt.reviewed_head === '6675269e74e720f6344d563ec872ed336809f21f'
+      && attempt.result.includes('fail-two-p2'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a06-e5e2-7960-92fe-583d9525ba3e'
+      && attempt.reviewed_head === '2cb1976d264d4c621953feb71d38af2dd041e987'
+      && attempt.result.includes('final-event-deadline-bypass'))
+    && currentWi.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
+    && proofRecord.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a49-75f1-7222-bdfd-f746e9f4cf80'
+      && attempt.reviewed_head === '376e82dffd9d0bd82d6c8a329ce3a05f64f1f4e4'
+      && attempt.result.includes('watchdog-handle-teardown-race'))
+    && currentWi.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && proofRecord.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && handoff.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a78-d8f4-73e0-8744-2f8f070810af'
+      && attempt.reviewed_head === 'd6c0a68c3520d3ca31fabdba57aa4aeaa370ae6c'
+      && attempt.github_review_id === 4682944626
+      && attempt.result.includes('pre-job-runtime-compiler-escape'))
+    && currentWi.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && fixPlan.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && proofRecord.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && handoff.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5ae5-5c4c-76c1-97f6-fbd923c0a122'
+      && attempt.reviewed_head === 'a76f111c0361a0a409ad42c24673ef86249aedb2'
+      && attempt.github_review_id === 4683739642
+      && attempt.result.includes('relative-command-shadow'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b27-a680-7d20-8c02-bb5c71eb6bc6'
+      && attempt.reviewed_head === 'c2a24c8ce22c47972afd67d30ad8799d4fcc14e1'
+      && attempt.github_review_id === 4684212043
+      && attempt.result.includes('setup-failure-terminal-result'))
+    && currentWi.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && fixPlan.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && proofRecord.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && handoff.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b52-28c5-73b2-8eb2-cb03c9325e75'
+      && attempt.reviewed_head === 'c6c7952fdbab2c6172aa2e1b2b8b3924985e2b6e'
+      && attempt.github_review_id === 4684593492
+      && attempt.result.includes('target-ancestor-command-substitution'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b8f-5b4f-7e92-b108-197c412ef805'
+      && attempt.reviewed_head === '932adcdc088e5c41624338560a0fe3569bbc7562'
+      && attempt.github_review_id === 4685108846
+      && attempt.result.includes('pid-only-repeatability'))
+    && currentWi.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && fixPlan.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && proofRecord.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && handoff.includes('019f5b8f-5b4f-7e92-b108-197c412ef805')
+    && workerControlAudit.includes('findCandidateReferenceFields')
+    && workerControlAudit.includes('hasExactCandidateHeadReferences')
+    && handoff.includes('PR #65 is already published')
+    && handoff.includes('query its live head and checks')
+    && !handoff.includes('Finish the PR #65 Linux CI remediation')
+    && workerControlAudit.includes('ki.KI-CX-WORKER-003.live_pr_reference');
+  checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
+    && state.control_plane?.automation?.status === 'RETIRED'
+    && state.layer2_target?.remote_configured === false
+    && proofRecord.includes('The dogfood target was not edited')
+    && proofRecord.includes('No target branch, commit, remote, push, or PR was created')
+    && proofRecord.includes('No release publication, deployment, package publication, OSS program submission')
+    && hasSingleExactClaim(proofRecord, noProviderWorkaroundBoundary, 'provider-policy workaround occurred');
+  checks.worker_proof_boundary_false_positive_guard = !hasSingleExactClaim(
+    'A provider-policy workaround occurred.',
+    noProviderWorkaroundBoundary,
+    'provider-policy workaround occurred',
+  ) && !hasSingleExactClaim(
+    `${noProviderWorkaroundBoundary}\nA provider-policy workaround occurred.`,
+    noProviderWorkaroundBoundary,
+    'provider-policy workaround occurred',
+  ) && providerWorkaroundMentions.length === 1;
 
   if (!checks.worker_lifecycle_registration) error('worker_lifecycle.registration_missing', 'Manifest and indexes must register the WI-CX0059 decision, specification, tools, fixture, and record.');
   if (!checks.worker_lifecycle_ledger) error('worker_lifecycle.ledger_missing', 'WI-CX0059 must retain its 17-entry metadata-only fresh context evidence.');
   if (!checks.worker_lifecycle_supervisor) error('worker_lifecycle.supervisor_missing', 'Managed process supervisor must observe identities, stream events, clean descendants, and fail closed.');
+  if (!checks.worker_lifecycle_reproducible_build) error('worker_lifecycle.reproducible_build_failed', 'The checked Windows runner must reproduce exactly from the tracked source and build receipt.', reproducibleBuildError);
   if (!checks.worker_lifecycle_runner) error('worker_lifecycle.runner_missing', 'Worker runner must use the fixed ephemeral JSONL surface, stdin prompt, bounded sandboxes, and interruption handling.');
   if (!checks.worker_lifecycle_tests) error('worker_lifecycle.tests_failed', 'Normal, timeout, and interruption process-tree cases must pass with verified cleanup.', testError);
   if (!checks.worker_lifecycle_package) error('worker_lifecycle.package_missing', 'Package scripts must expose run, local smoke, and lifecycle tests without a production dependency.');
@@ -4034,6 +5296,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_lifecycle_flow) error('worker_lifecycle.flow_missing', 'Flow state must expose WI-CX0059 as verification-blocked on explicit user approval.');
   if (!checks.worker_lifecycle_state) error('worker_lifecycle.state_missing', 'Machine state must expose local guard results and the rejected-before-execution live smoke.');
   if (!checks.worker_lifecycle_known_issue) error('worker_lifecycle.known_issue_missing', 'WI-CX0059 must repay the process KI while retaining the separate provider-trust KI and hard stops.');
+  if (!checks.worker_reused_parent_known_issue) error('worker_lifecycle.reused_parent_ki_missing', 'WI-CX0060 must record and repay the Windows reused-parent false-descendant KI with Issue #64 evidence.');
+  if (!checks.worker_command_path_known_issue) error('worker_lifecycle.command_path_ki_missing', 'WI-CX0060 must record trusted absolute command resolution debt with Issue #66 evidence.');
+  if (!checks.worker_prompt_schema_known_issue) error('worker_lifecycle.prompt_schema_ki_missing', 'WI-CX0060 must record prompt-boundary schema debt with Issue #67 evidence.');
+  if (!checks.worker_setup_result_known_issue) error('worker_lifecycle.setup_result_ki_missing', 'WI-CX0060 must record setup-failure terminal-result debt with Issue #68 evidence.');
+  if (!checks.worker_candidate_audit_known_issue) error('worker_lifecycle.candidate_audit_ki_missing', 'WI-CX0060 must record multiline candidate-audit debt with Issue #69 evidence.');
+  if (!checks.worker_repeatability_known_issue) error('worker_lifecycle.repeatability_ki_missing', 'WI-CX0060 must record canonical Windows repeatability debt with Issue #70 evidence.');
   if (!checks.worker_lifecycle_boundary) error('worker_lifecycle.boundary_missing', 'WI-CX0059 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.', liveRunnerStatus);
   if (!checks.worker_temporal_identity_registration) error('worker_temporal_identity.registration_missing', 'Manifest and indexes must register the WI-CX0061 validation record.');
   if (!checks.worker_temporal_identity_ledger) error('worker_temporal_identity.ledger_missing', 'WI-CX0061 must retain its 17-entry metadata-only fresh context evidence.');
@@ -4044,6 +5312,17 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_temporal_identity_state) error('worker_temporal_identity.state_missing', 'Machine state must expose the repeated temporal identity result and post-merge trigger commit.');
   if (!checks.worker_temporal_identity_known_issue) error('worker_temporal_identity.known_issue_missing', 'KI-CX-WORKER-002 must record severity, ownership, repayment, evidence, and hard stop.');
   if (!checks.worker_temporal_identity_boundary) error('worker_temporal_identity.boundary_missing', 'WI-CX0061 must preserve runner, target, provider, publication, and destructive-operation boundaries.', liveRunnerStatus);
+  if (!checks.worker_proof_registration) error('worker_proof.registration_missing', 'Manifest and indexes must register the WI-CX0060 validation record.');
+  if (!checks.worker_proof_ledger) error('worker_proof.ledger_missing', 'WI-CX0060 must retain exactly 27 metadata-only fresh-context entries.');
+  if (!checks.worker_proof_implementation) error('worker_proof.confinement_missing', 'Managed workers must disable nested multi-agent collaboration and retain deterministic argument coverage.');
+  if (!checks.worker_proof_record) error('worker_proof.record_missing', 'WI-CX0060 must record the public preflight, first dogfood failure, cleanup, KIs, and approval gate.');
+  if (!checks.worker_review_candidate_pointer) error('worker_review.candidate_pointer_stale', 'The tracked review row must query live HEAD and Issue #63 and must not store a literal current-candidate SHA.');
+  if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as externally blocked after explicit user approval was insufficient.');
+  if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
+  if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');
+  if (!checks.worker_proof_candidate_state) error('worker_proof.candidate_state_drift', 'Handoff, review history, and the live-Issue audit contract must agree on the published PR and exact-head review gate.');
+  if (!checks.worker_proof_boundary) error('worker_proof.boundary_missing', 'WI-CX0060 must keep the target read-only and preserve runner, publication, authority, dependency, API, and destructive-operation boundaries.');
+  if (!checks.worker_proof_boundary_false_positive_guard) error('worker_proof.boundary_false_positive', 'Provider-workaround boundary evidence must reject positive or contradictory claims.');
 }
 
 function validateControlPlaneOperationalIntegrity() {
@@ -4081,6 +5360,9 @@ function validateControlPlaneOperationalIntegrity() {
 
   checks.control_integrity_registration = manifest.includes('id: decision.control-plane-operational-integrity')
     && manifest.includes(decisionPath)
+    && manifest.includes('id: tool.control-plane-issue')
+    && manifest.includes('scripts/lib/control-plane-issue.mjs')
+    && docsIndex.includes('scripts/lib/control-plane-issue.mjs')
     && manifest.includes('id: tool.audit-control-plane')
     && manifest.includes(auditPath)
     && manifest.includes('id: record.validation-wi-cx0062-fix')
@@ -4135,7 +5417,7 @@ function validateControlPlaneOperationalIntegrity() {
     && ['repaid-on-merge', 'repaid'].includes(control?.status)
     && control?.repayment_condition.includes('post-merge control-plane audit passes');
   checks.control_integrity_state = /^WI-CX\d{4}-[a-z]+$/.test(state.current_wi?.id ?? '')
-    && state.current_wi?.status === 'validated'
+    && ['validated', 'validation-blocked', 'blocked-external'].includes(state.current_wi?.status)
     && state.control_plane?.automation?.status === 'RETIRED'
     && ['repaid-on-merge', 'repaid'].includes(integrity.status)
     && integrity.control_issue === 56
@@ -4147,12 +5429,12 @@ function validateControlPlaneOperationalIntegrity() {
     && Array.isArray(state.triggered_work)
     && state.triggered_work.length === 0;
   checks.control_integrity_flow = /^WI id: WI-CX\d{4}-[a-z]+$/m.test(currentWi)
-    && currentWi.includes('Status: validated')
+    && /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(currentWi)
     && fixPlan.includes('KI-CX-PROVIDER-001 / Issue #55')
     && fixPlan.includes('The hourly worktree runner is retired')
     && !fixPlan.includes('WI-CX0035-test Automation Runner First Fresh-Run Output Review')
     && handoff.includes('WI-CX0062-fix: Control-Plane Integrity Reconciliation')
-    && handoff.includes('Query live GitHub state')
+    && handoff.includes('WI-CX0063 merged through PR #58')
     && handoff.includes('Issue #56')
     && handoff.includes('Issue #55');
   checks.control_integrity_audit = pkg.scripts?.['audit:control-plane'] === 'node scripts/audit-control-plane.mjs'
@@ -4179,8 +5461,8 @@ function validateControlPlaneOperationalIntegrity() {
     && record.includes('--expect-control-closed')
     && record.includes('Destructive operations were limited to the user-approved');
   checks.control_integrity_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
+    && ['H1', 'USER', 'CODEX'].includes(state.current_priority?.owner_gate)
     && state.layer2_target?.remote_configured === false
     && state.hygiene?.context_bodies_carried === false
     && decision.includes('does not resume dogfood')
@@ -4386,10 +5668,7 @@ function validateIndependentBlindAdversarialReviewGate() {
     && publisher.includes('const first = readAudit(prNumber)')
     && publisher.includes('const latest = readAudit(prNumber)')
     && publisher.includes('first.latest_review_id === latest.latest_review_id');
-  checks.independent_review_state = state.current_wi?.id === 'WI-CX0063-feat'
-    && state.current_wi?.branch === 'wi/cx0063-feat-independent-blind-adversarial-review-gate'
-    && state.current_wi?.validation_record === recordPath
-    && reviewState.status === 'required-before-merge'
+  checks.independent_review_state = reviewState.status === 'required-before-merge'
     && reviewState.pr_baseline_from === 58
     && JSON.stringify(reviewState.required_risks) === JSON.stringify(['R1', 'R2', 'R3'])
     && JSON.stringify(reviewState.required_evaluators) === JSON.stringify(['E2', 'E3'])
@@ -4421,15 +5700,13 @@ function validateIndependentBlindAdversarialReviewGate() {
     && wiLedger.some((entry) => entry.chunk_id === 'root.agents')
     && wiLedger.some((entry) => entry.chunk_id === 'registry.manifest')
     && wiLedger.every((entry) => !('body' in entry) && !('content' in entry) && !('text' in entry));
-  checks.independent_review_flow = currentWi.includes('WI id: WI-CX0063-feat')
-    && currentWi.includes('ESC: E1+E2+E3+E5+E6')
-    && fixPlan.includes('Independent verification authority')
+  checks.independent_review_flow = fixPlan.includes('Independent verification authority')
     && !fixPlan.includes('WI-CX0042-test Automation Runner S2 Review Execution')
     && !fixPlan.includes('WI-CX0044-docs Post-Bootstrap Automation Cadence Accepted Decision')
     && !fixPlan.includes('S2 blind review repayment for the automation runner')
     && oldRunnerReview?.status === 'historical-obsolete'
     && oldCadence?.status === 'historical-obsolete'
-    && handoff.includes('Current WI: WI-CX0063-feat Independent Blind Adversarial Review Gate')
+    && handoff.includes('WI-CX0063 merged through PR #58')
     && handoff.includes('WI-CX0042 is obsolete rather than passed')
     && handoff.includes('Issue #55')
     && handoff.includes('Issue #59');
@@ -4457,8 +5734,8 @@ function validateIndependentBlindAdversarialReviewGate() {
     && record.includes('GitHub Actions app id `15368`')
     && record.includes('KI-CX-REVIEW-001 / Issue #59');
   checks.independent_review_boundary = state.current_priority?.wi_id === 'WI-CX0060-test'
-    && state.current_priority?.state === 'blocked-external'
-    && state.current_priority?.owner_gate === 'H1'
+    && ['blocked-external', 'blocked-user-approval', 'validated-awaiting-publication'].includes(state.current_priority?.state)
+    && ['H1', 'USER', 'CODEX'].includes(state.current_priority?.owner_gate)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
     && reviewIssue?.hard_stop.includes('unattended or generalized automated merge')

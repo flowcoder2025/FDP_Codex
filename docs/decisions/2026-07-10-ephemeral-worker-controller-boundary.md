@@ -10,13 +10,15 @@ WI: WI-CX0057-docs.
 
 FDP_Codex will use one visible control task plus ephemeral CLI workers as the default clean-context topology for supervised local WI execution.
 
-The control task carries the accumulated goal, project identity, user decisions, approval envelope, and final status. An ephemeral worker is a `codex exec --ephemeral` process that starts without prior conversation bodies, reconstructs the active WI from repository SSOT, edits the assigned worktree, runs validation, and returns evidence without creating a user-owned Codex app task.
+The control task carries the accumulated goal, project identity, user decisions, approval envelope, and final status. An ephemeral worker is a `codex exec --ephemeral` process that starts without prior conversation bodies, reconstructs the active WI from repository SSOT, edits the assigned worktree, and returns evidence without creating a user-owned Codex app task.
 
-The controller owns branch creation and commit. It also owns staging, push, PR, merge, and approval handling. The worker owns repository reconstruction, worktree edits, and validation. A worker does not own remote configuration, publication, authority expansion, or the complete WI Git lifecycle.
+The controller owns repository-supplied script execution and canonical validation in addition to branch creation, staging, commit, push, PR, merge, and approval handling. The worker owns repository reconstruction and worktree edits. A worker does not own remote configuration, publication, authority expansion, or the complete WI Git lifecycle.
+
+Amendment: WI-CX0060-test moves repository-supplied script execution and validation to the visible controller because a workspace-write worker could rewrite any allowed validation script into a nested process launcher. This ownership rule is not runtime command confinement; project-local deny rules also restrict the visible controller, so generalized worker use remains blocked until a worker-only boundary exists.
 
 ## Capability Boundary
 
-The default worker sandbox is `workspace-write`. If Git metadata is read-only, the controller pre-creates the dedicated WI branch and later reviews the complete diff, reruns validation, stages, and commits the result. FDP_Codex must not use `danger-full-access` solely to write Git metadata.
+The default worker sandbox is `workspace-write`. If Git metadata is read-only, the controller pre-creates the dedicated WI branch and later reviews the complete diff, runs repository validation after worker exit, stages, and commits the result. FDP_Codex must not use `danger-full-access` solely to write Git metadata.
 
 Interrupted workers recover from repository SSOT and the actual worktree diff. They do not depend on a previous prompt body or copied context-pack body. Auto-compact and same-thread continuation are not fresh-session evidence.
 

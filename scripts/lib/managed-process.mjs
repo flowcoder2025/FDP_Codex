@@ -1,6 +1,9 @@
 import { execFile, spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 
 /**
  * @typedef {{pid: number, ppid: number, pgid: number | null, name: string, started_at: string | null}} ProcessInfo
@@ -12,12 +15,133 @@ import readline from 'node:readline';
  *   confirmed_gone_pids: number[],
  *   identity_mismatch_pids: number[],
  *   alive_after_cleanup: number[],
+ *   unknown_after_cleanup: number[],
  *   verified: boolean,
  *   errors: string[]
  * }} CleanupResult
  */
 
 const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
+const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
+const DEFAULT_OBSERVATION_RETRY_BUDGET_MS = 2500;
+const DEFAULT_OBSERVATION_RETRY_DELAY_MS = 50;
+const injectedObservationFailureTokens = new Set();
+const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
+const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
+const WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG';
+const WINDOWS_JOB_CONTROLLER_WATCHDOG_STOPPED_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG_STOPPED';
+const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
+const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
+const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
+const WINDOWS_JOB_CONTROL_TOKEN_ENV = 'FDP_JOB_CONTROL_TOKEN';
+const WINDOWS_JOB_RUNNER_SOURCE = fileURLToPath(new URL('../windows-job-runner.cs', import.meta.url));
+const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.exe', import.meta.url));
+const WINDOWS_JOB_RUNNER_MANIFEST = fileURLToPath(new URL('../windows-job-runner.manifest.json', import.meta.url));
+
+export function managedProcessPlatformSupport(platform = process.platform) {
+  if (platform === 'win32') {
+    return { supported: true, mode: 'windows-job-object', reason: null };
+  }
+
+  return {
+    supported: false,
+    mode: 'unsupported-fail-closed',
+    reason: 'managed worker process containment is not implemented for platform ' + platform,
+  };
+}
+
+function sha256File(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function verifyWindowsJobRunnerArtifact() {
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(WINDOWS_JOB_RUNNER_MANIFEST, 'utf8'));
+  } catch (error) {
+    throw new Error('failed to read the prebuilt Windows Job runner manifest: '
+      + (error instanceof Error ? error.message : String(error)));
+  }
+  if (manifest?.schema_version !== 2
+    || manifest.source !== 'windows-job-runner.cs'
+    || manifest.executable !== 'windows-job-runner.exe'
+    || !/^[a-f0-9]{64}$/.test(manifest.source_sha256 || '')
+    || !/^[a-f0-9]{64}$/.test(manifest.executable_sha256 || '')
+    || manifest.build?.tool !== 'dotnet-roslyn-csc'
+    || typeof manifest.build?.compiler_version !== 'string'
+    || !/^[a-f0-9]{64}$/.test(manifest.build?.compiler_sha256 || '')
+    || manifest.build?.deterministic !== true
+    || manifest.build?.target !== 'winexe'
+    || manifest.build?.path_map !== '/src'
+    || manifest.build?.framework !== 'netfx-v4.0.30319'
+    || !['mscorlib.dll', 'System.dll', 'System.Core.dll'].every((name) =>
+      /^[a-f0-9]{64}$/.test(manifest.build?.reference_sha256?.[name] || ''))) {
+    throw new Error('invalid prebuilt Windows Job runner manifest');
+  }
+  if (sha256File(WINDOWS_JOB_RUNNER_SOURCE) !== manifest.source_sha256
+    || sha256File(WINDOWS_JOB_RUNNER) !== manifest.executable_sha256) {
+    throw new Error('prebuilt Windows Job runner does not match its audited source manifest');
+  }
+}
+
+function buildSpawnInvocation(options, controlToken, controllerStartFileTime) {
+  verifyWindowsJobRunnerArtifact();
+  return {
+    command: WINDOWS_JOB_RUNNER,
+    args: [
+      options.command,
+      path.resolve(options.cwd || process.cwd()),
+      ...(options.args || []),
+    ],
+    cwd: options.cwd,
+    env: {
+      ...process.env,
+      ...options.env,
+      [WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: controllerStartFileTime,
+    },
+    containmentMode: 'windows-job-object',
+  };
+}
+
+function startWindowsControllerStartFileTimeLookup(pid) {
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const testDelayMs = process.env.NODE_ENV === 'test'
+    ? Number.parseInt(process.env.FDP_WORKER_TEST_CONTROLLER_IDENTITY_DELAY_MS || '', 10)
+    : Number.NaN;
+  const testResultFailure = process.env.NODE_ENV === 'test'
+    && process.env.FDP_WORKER_TEST_IDENTITY_RESULT_REJECT === '1';
+  const script = (testResultFailure ? [
+    "throw 'test controller identity helper result failure'",
+  ] : [
+    "$ErrorActionPreference = 'Stop'",
+    ...(Number.isInteger(testDelayMs) && testDelayMs > 0
+      ? ['Start-Sleep -Milliseconds ' + testDelayMs]
+      : []),
+    '$process = Get-Process -Id ' + pid,
+    "$process.StartTime.ToFileTimeUtc().ToString([Globalization.CultureInfo]::InvariantCulture)",
+  ]).join('; ');
+  const execution = startExecFileText(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', script,
+  ]);
+  return {
+    pid: execution.pid,
+    result: execution.result.then((output) => {
+      const value = output.trim();
+      if (!/^[1-9][0-9]+$/.test(value)) {
+        throw new Error('failed to acquire immutable controller start FILETIME');
+      }
+      return value;
+    }),
+    terminateAndWait: execution.terminateAndWait,
+  };
+}
 
 /** @param {number} milliseconds */
 function sleep(milliseconds) {
@@ -25,17 +149,74 @@ function sleep(milliseconds) {
 }
 
 /**
+ * @param {{
+ *   child: {exitCode: number | null, signalCode: NodeJS.Signals | null, kill: () => boolean},
+ *   closePromise: Promise<unknown>,
+ *   terminationGraceMs: number,
+ * }} options
+ */
+export async function stopExactWrapperForCleanup(options) {
+  const alreadyExited = options.child.exitCode !== null || options.child.signalCode !== null;
+  const killAccepted = alreadyExited ? null : options.child.kill();
+  const wrapperClosed = await Promise.race([
+    options.closePromise.then(() => true),
+    sleep(options.terminationGraceMs).then(() => false),
+  ]);
+  return { alreadyExited, killAccepted, wrapperClosed };
+}
+
+/**
+ * @param {number | null} pid
+ * @param {{alreadyExited: boolean, killAccepted: boolean | null, wrapperClosed: boolean}} stopResult
+ */
+export function classifyControllerIdentityLookupCleanup(pid, stopResult) {
+  const required = !stopResult.alreadyExited;
+  const requestedPids = required && pid !== null ? [pid] : [];
+  const errors = [];
+  if (stopResult.killAccepted === false) {
+    errors.push('controller identity lookup termination request was rejected');
+  }
+  if (!stopResult.wrapperClosed) {
+    errors.push('controller identity lookup did not close after termination');
+  }
+  const verified = stopResult.wrapperClosed && stopResult.killAccepted !== false;
+  return {
+    required,
+    requested_pids: requestedPids,
+    confirmed_gone_pids: stopResult.wrapperClosed ? requestedPids : [],
+    unknown_after_cleanup: stopResult.wrapperClosed ? [] : requestedPids,
+    verified,
+    errors,
+  };
+}
+
+/**
  * @param {string} command
  * @param {string[]} args
- * @returns {Promise<string>}
  */
-function execFileText(command, args) {
-  return new Promise((resolve, reject) => {
-    execFile(command, args, {
+function startExecFileText(command, args, {
+  timeoutMs = DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS,
+} = {}) {
+  /** @type {import('node:child_process').ChildProcess | undefined} */
+  let child;
+  /** @type {(value: boolean) => void} */
+  let resolveClosed;
+  const closed = new Promise((resolve) => {
+    resolveClosed = resolve;
+  });
+  /** @type {Promise<string>} */
+  const result = new Promise((resolve, reject) => {
+    if (process.env.NODE_ENV === 'test'
+      && process.env.FDP_WORKER_TEST_IDENTITY_EXEC_THROW === '1') {
+      throw new Error('test controller identity helper start failure');
+    }
+    child = execFile(command, args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
+      timeout: timeoutMs,
       windowsHide: true,
-    }, (error, stdout, stderr) => {
+    }, async (error, stdout, stderr) => {
+      await closed;
       if (error) {
         const detail = String(stderr || '').trim();
         reject(new Error(detail ? `${error.message}: ${detail}` : error.message));
@@ -44,37 +225,108 @@ function execFileText(command, args) {
       resolve(String(stdout));
     });
   });
+  if (!child) {
+    resolveClosed(true);
+    return {
+      pid: null,
+      result,
+      terminateAndWait: async () => ({
+        required: false,
+        requested_pids: [],
+        confirmed_gone_pids: [],
+        unknown_after_cleanup: [],
+        verified: true,
+        errors: [],
+      }),
+    };
+  }
+  child.once('close', () => resolveClosed(true));
+  const childPid = Number.isInteger(child.pid) && child.pid > 0 ? child.pid : null;
+  return {
+    pid: childPid,
+    result,
+    terminateAndWait: async () => {
+      const stopResult = await stopExactWrapperForCleanup({
+        child,
+        closePromise: closed,
+        terminationGraceMs: DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS + 500,
+      });
+      return classifyControllerIdentityLookupCleanup(childPid, stopResult);
+    },
+  };
+}
+
+/**
+ * @param {string} command
+ * @param {string[]} args
+ * @returns {Promise<string>}
+ */
+function execFileText(command, args, options) {
+  return startExecFileText(command, args, options).result;
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
-async function listWindowsProcesses() {
+async function listWindowsProcesses({
+  deadlineAt = Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS,
+} = {}) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const testDelayMs = Number.parseInt(
+    process.env.FDP_JOB_TEST_OBSERVATION_DELAY_MS || '',
+    10,
+  );
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    ...(Number.isInteger(testDelayMs) && testDelayMs > 0
+      ? [`Start-Sleep -Milliseconds ${testDelayMs}`]
+      : []),
     '$items = @(Get-CimInstance Win32_Process | ForEach-Object {',
     '  $started = if ($null -ne $_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString(\'o\') } else { $null }',
     '  [PSCustomObject]@{ pid = [int]$_.ProcessId; ppid = [int]$_.ParentProcessId; name = [string]$_.Name; started_at = $started }',
     '})',
     'ConvertTo-Json -Compress -InputObject $items',
   ].join('; ');
-  const output = (await execFileText(powershell, [
-    '-NoLogo',
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy', 'Bypass',
-    '-Command', script,
-  ])).trim();
-  if (!output) return [];
-  const parsed = JSON.parse(output);
-  const rows = Array.isArray(parsed) ? parsed : [parsed];
-  return rows.map((row) => ({
-    pid: Number(row.pid),
-    ppid: Number(row.ppid),
-    pgid: null,
-    name: String(row.name || ''),
-    started_at: row.started_at ? String(row.started_at) : null,
-  })).filter((row) => Number.isInteger(row.pid) && row.pid > 0);
+  let lastError = null;
+  let attempt = 0;
+  while (Date.now() < deadlineAt) {
+    attempt += 1;
+    try {
+      const injectionToken = process.env.NODE_ENV === 'test'
+        ? process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE
+        : null;
+      if (injectionToken && !injectedObservationFailureTokens.has(injectionToken)) {
+        injectedObservationFailureTokens.add(injectionToken);
+        throw new Error('test transient process-table acquisition failure');
+      }
+      const remainingMs = Math.max(1, deadlineAt - Date.now());
+      const output = (await execFileText(powershell, [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', script,
+      ], {
+        timeoutMs: Math.min(DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS, remainingMs),
+      })).trim();
+      if (!output) return [];
+      const parsed = JSON.parse(output);
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      return rows.map((row) => ({
+        pid: Number(row.pid),
+        ppid: Number(row.ppid),
+        pgid: null,
+        name: String(row.name || ''),
+        started_at: row.started_at ? String(row.started_at) : null,
+      })).filter((row) => Number.isInteger(row.pid) && row.pid > 0);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= 3 || Date.now() + DEFAULT_OBSERVATION_RETRY_DELAY_MS >= deadlineAt) {
+        throw error;
+      }
+      await sleep(DEFAULT_OBSERVATION_RETRY_DELAY_MS);
+    }
+  }
+  throw lastError || new Error('process-table acquisition exceeded its absolute deadline');
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
@@ -98,8 +350,20 @@ async function listPosixProcesses() {
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
-export function listProcessTable() {
-  return process.platform === 'win32' ? listWindowsProcesses() : listPosixProcesses();
+export function listProcessTable(options) {
+  return process.platform === 'win32' ? listWindowsProcesses(options) : listPosixProcesses();
+}
+
+/**
+ * @param {ProcessInfo} expected
+ * @param {ProcessInfo} current
+ * @returns {'same' | 'mismatch' | 'unknown'}
+ */
+export function classifyProcessIdentity(expected, current) {
+  if (expected.pid !== current.pid) return 'mismatch';
+  if (expected.started_at === null) return 'unknown';
+  if (current.started_at === null) return 'unknown';
+  return expected.started_at === current.started_at ? 'same' : 'mismatch';
 }
 
 /**
@@ -107,12 +371,7 @@ export function listProcessTable() {
  * @param {ProcessInfo} current
  */
 function sameIdentity(expected, current) {
-  if (expected.pid !== current.pid) return false;
-  if (expected.started_at && current.started_at) return expected.started_at === current.started_at;
-  if (expected.name && current.name) {
-    return path.basename(expected.name).toLowerCase() === path.basename(current.name).toLowerCase();
-  }
-  return false;
+  return classifyProcessIdentity(expected, current) === 'same';
 }
 
 /**
@@ -131,22 +390,19 @@ function isNotOlderThan(candidate, ancestor) {
  * @param {ProcessInfo[]} table
  * @param {number} rootPid
  * @param {Map<number, ProcessInfo>} observed
+ * @param {NodeJS.Platform} [platform]
  */
-export function mergeObservedTree(table, rootPid, observed) {
+export function mergeObservedTree(table, rootPid, observed, platform = process.platform) {
   const byPid = new Map(table.map((entry) => [entry.pid, entry]));
   const root = byPid.get(rootPid);
   const expectedRoot = observed.get(rootPid);
-  const matchesSpawnedRoot = root
-    && root.ppid === process.pid
-    && (process.platform === 'win32' || root.pgid === rootPid);
-  const needsInitialIdentity = expectedRoot && expectedRoot.started_at === null;
-  if (root && (
-    !expectedRoot
-    || (needsInitialIdentity && matchesSpawnedRoot)
-    || sameIdentity(expectedRoot, root)
-  )) {
-    observed.set(rootPid, root);
+  const unknownCandidatePids = new Set();
+  let rootIdentity = null;
+  if (root) {
+    rootIdentity = expectedRoot ? classifyProcessIdentity(expectedRoot, root) : 'same';
+    if (rootIdentity === 'same') observed.set(rootPid, root);
   }
+  const posixGroupRootTrusted = platform !== 'win32' && rootIdentity === 'same';
 
   const parentPids = new Set(observed.keys());
   parentPids.add(rootPid);
@@ -155,17 +411,27 @@ export function mergeObservedTree(table, rootPid, observed) {
     changed = false;
     for (const entry of table) {
       const parent = observed.get(entry.ppid);
+      const currentParent = byPid.get(entry.ppid);
       const observedRoot = observed.get(rootPid);
-      const belongsToObservedParent = parentPids.has(entry.ppid) && isNotOlderThan(entry, parent);
-      const belongsToPosixGroup = process.platform !== 'win32'
-        && entry.pgid === rootPid
-        && isNotOlderThan(entry, observedRoot);
-      if (entry.pid === process.pid || (!belongsToObservedParent && !belongsToPosixGroup) || observed.has(entry.pid)) continue;
+      if (entry.pid === process.pid || observed.has(entry.pid)) continue;
+      const hasObservedParent = parentPids.has(entry.ppid)
+        && parent !== undefined
+        && currentParent !== undefined
+        && sameIdentity(parent, currentParent);
+      const hasPosixGroup = posixGroupRootTrusted && entry.pgid === rootPid;
+      if (entry.started_at === null && (hasObservedParent || hasPosixGroup)) {
+        unknownCandidatePids.add(entry.pid);
+        continue;
+      }
+      const belongsToObservedParent = hasObservedParent && isNotOlderThan(entry, parent);
+      const belongsToPosixGroup = hasPosixGroup && isNotOlderThan(entry, observedRoot);
+      if (!belongsToObservedParent && !belongsToPosixGroup) continue;
       observed.set(entry.pid, entry);
       parentPids.add(entry.pid);
       changed = true;
     }
   }
+  return [...unknownCandidatePids].sort((a, b) => a - b);
 }
 
 /**
@@ -178,59 +444,34 @@ function classifyObserved(observed, table) {
   const alive = [];
   /** @type {number[]} */
   const identityMismatches = [];
+  /** @type {number[]} */
+  const unknownPids = [];
   for (const expected of observed.values()) {
     const current = byPid.get(expected.pid);
     if (!current) continue;
-    if (sameIdentity(expected, current)) alive.push(current);
-    else identityMismatches.push(expected.pid);
+    const identity = classifyProcessIdentity(expected, current);
+    if (identity === 'same') alive.push(current);
+    else if (identity === 'mismatch') identityMismatches.push(expected.pid);
+    else unknownPids.push(expected.pid);
   }
-  return { alive, identityMismatches };
+  return { alive, identityMismatches, unknownPids };
 }
 
-/**
- * @param {ProcessInfo} entry
- * @param {Map<number, ProcessInfo>} observed
- */
-function processDepth(entry, observed) {
-  let depth = 0;
-  let cursor = entry;
-  const seen = new Set([entry.pid]);
-  while (observed.has(cursor.ppid) && !seen.has(cursor.ppid)) {
-    depth += 1;
-    seen.add(cursor.ppid);
-    cursor = /** @type {ProcessInfo} */ (observed.get(cursor.ppid));
-  }
-  return depth;
-}
-
-/**
- * @param {ProcessInfo[]} entries
- * @param {string} signal
- * @param {string[]} errors
- */
-function signalProcesses(entries, signal, errors) {
-  for (const entry of entries) {
-    try {
-      process.kill(entry.pid, signal);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'ESRCH') continue;
-      errors.push(`pid ${entry.pid}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-}
 
 /**
  * @param {{
  *   observed: Map<number, ProcessInfo>,
  *   observeNow: () => Promise<ProcessInfo[]>,
  *   reason: string,
+ *   wrapperClosed: boolean,
  *   graceMs: number,
  *   verifyMs: number,
  * }} options
  * @returns {Promise<CleanupResult>}
  */
-async function terminateObservedTree(options) {
+async function verifyObservedTreeTermination(options) {
   const errors = [];
+  if (!options.wrapperClosed) errors.push('exact wrapper close was not observed');
   let table;
   try {
     table = await options.observeNow();
@@ -242,21 +483,20 @@ async function terminateObservedTree(options) {
       requested_pids: [...options.observed.keys()].sort((a, b) => a - b),
       confirmed_gone_pids: [],
       identity_mismatch_pids: [],
-      alive_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
+      alive_after_cleanup: [],
+      unknown_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
       verified: false,
       errors,
     };
   }
 
   let classified = classifyObserved(options.observed, table);
+  let classificationUnknown = false;
   const requested = classified.alive
-    .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed))
-    .map((entry) => entry.pid);
-  const requestedEntries = requested
-    .map((pid) => options.observed.get(pid))
-    .filter((entry) => entry !== undefined);
-
-  signalProcesses(requestedEntries, 'SIGTERM', errors);
+    .map((entry) => entry.pid)
+    .sort((a, b) => a - b);
+  // The exact wrapper handle has already stopped or exited. Job-handle close owns
+  // termination; PID-only signaling is forbidden because PID reuse is racy.
   await sleep(options.graceMs);
 
   try {
@@ -264,13 +504,7 @@ async function terminateObservedTree(options) {
     classified = classifyObserved(options.observed, table);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
-  }
-
-  if (classified.alive.length > 0) {
-    const forceSignal = process.platform === 'win32' ? 'SIGTERM' : 'SIGKILL';
-    const forceEntries = classified.alive
-      .sort((a, b) => processDepth(b, options.observed) - processDepth(a, options.observed));
-    signalProcesses(forceEntries, forceSignal, errors);
+    classificationUnknown = true;
   }
 
   const deadline = Date.now() + options.verifyMs;
@@ -282,20 +516,40 @@ async function terminateObservedTree(options) {
       if (classified.alive.length === 0) break;
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
+      classificationUnknown = true;
       break;
     }
   }
 
+  if (classificationUnknown) {
+    return {
+      required: true,
+      reason: options.reason,
+      requested_pids: [...requested].sort((a, b) => a - b),
+      confirmed_gone_pids: [],
+      identity_mismatch_pids: [],
+      alive_after_cleanup: [],
+      unknown_after_cleanup: [...options.observed.keys()].sort((a, b) => a - b),
+      verified: false,
+      errors,
+    };
+  }
+
   const aliveAfter = classified.alive.map((entry) => entry.pid).sort((a, b) => a - b);
   const mismatchPids = [...new Set(classified.identityMismatches)].sort((a, b) => a - b);
+  const unknownPids = [...new Set(classified.unknownPids)].sort((a, b) => a - b);
+  const confirmedGone = [...options.observed.keys()]
+    .filter((pid) => !aliveAfter.includes(pid) && !mismatchPids.includes(pid) && !unknownPids.includes(pid))
+    .sort((a, b) => a - b);
   return {
     required: true,
     reason: options.reason,
     requested_pids: [...requested].sort((a, b) => a - b),
-    confirmed_gone_pids: requested.filter((pid) => !aliveAfter.includes(pid)).sort((a, b) => a - b),
+    confirmed_gone_pids: confirmedGone,
     identity_mismatch_pids: mismatchPids,
     alive_after_cleanup: aliveAfter,
-    verified: aliveAfter.length === 0 && errors.length === 0,
+    unknown_after_cleanup: unknownPids,
+    verified: aliveAfter.length === 0 && unknownPids.length === 0 && errors.length === 0,
     errors,
   };
 }
@@ -304,11 +558,13 @@ async function terminateObservedTree(options) {
  * @param {NodeJS.ReadableStream} stream
  * @param {'stdout' | 'stderr'} streamName
  * @param {(event: ManagedProcessEvent) => void} emit
+ * @param {(line: string) => boolean} [onInternalLine]
  */
-function captureLines(stream, streamName, emit) {
+function captureLines(stream, streamName, emit, onInternalLine = () => false) {
   let count = 0;
   const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
   reader.on('line', (line) => {
+    if (onInternalLine(line)) return;
     count += 1;
     /** @type {unknown} */
     let payload = line;
@@ -332,6 +588,7 @@ function captureLines(stream, streamName, emit) {
 /**
  * Run one child process with observable output, a hard deadline, and verified
  * cleanup of the exact root and descendant process identities seen at runtime.
+ * `onEvent` receives non-terminal streaming events; the terminal result is returned.
  *
  * @param {{
  *   command: string,
@@ -354,43 +611,51 @@ export async function runManagedProcess(options) {
     throw new Error('timeoutMs must be a positive integer');
   }
 
-  const emit = options.onEvent || (() => {});
-  const pollIntervalMs = options.pollIntervalMs ?? 500;
-  const terminationGraceMs = options.terminationGraceMs ?? 500;
-  const verificationTimeoutMs = options.verificationTimeoutMs ?? 5000;
-  const residualGraceMs = options.residualGraceMs ?? 300;
-  /** @type {Map<number, ProcessInfo>} */
-  const observed = new Map();
-  const observationErrors = new Set();
-  let observationSucceeded = false;
-
-  const child = spawn(options.command, options.args || [], {
-    cwd: options.cwd,
-    env: options.env,
-    detached: process.platform !== 'win32',
-    shell: false,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true,
+  const eventSink = options.onEvent || (() => {});
+  const eventErrors = [];
+  /** @type {{kind: 'event-dispatch-failed', message: string} | null} */
+  let eventFailureOutcome = null;
+  /** @type {(value: {kind: 'event-dispatch-failed', message: string}) => void} */
+  let resolveEventFailure = () => {};
+  /** @type {Promise<{kind: 'event-dispatch-failed', message: string}>} */
+  const eventFailurePromise = new Promise((resolve) => {
+    resolveEventFailure = resolve;
   });
-
-  const stdoutCount = captureLines(child.stdout, 'stdout', emit);
-  const stderrCount = captureLines(child.stderr, 'stderr', emit);
-  const closePromise = new Promise((resolve) => {
-    child.once('close', (code, signal) => resolve({ kind: 'exit', code, signal }));
+  const stdinErrors = [];
+  /** @type {{kind: 'stdin-failed', message: string} | null} */
+  let stdinFailureOutcome = null;
+  /** @type {(value: {kind: 'stdin-failed', message: string}) => void} */
+  let resolveStdinFailure = () => {};
+  /** @type {Promise<{kind: 'stdin-failed', message: string}>} */
+  const stdinFailurePromise = new Promise((resolve) => {
+    resolveStdinFailure = resolve;
   });
-  const spawnResult = await new Promise((resolve) => {
-    child.once('spawn', () => resolve({ ok: true }));
-    child.once('error', (error) => resolve({ ok: false, error }));
-  });
-
-  if (!spawnResult.ok || !child.pid) {
-    const message = 'error' in spawnResult && spawnResult.error instanceof Error
-      ? spawnResult.error.message
-      : 'child process did not provide a pid';
+  const emit = (event) => {
+    try {
+      eventSink(event);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      eventErrors.push(message);
+      if (eventFailureOutcome === null) {
+        eventFailureOutcome = { kind: 'event-dispatch-failed', message };
+        resolveEventFailure(eventFailureOutcome);
+      }
+    }
+  };
+  const finalizeResult = (result) => {
+    if (eventFailureOutcome !== null && result.status !== 'event_dispatch_failed') {
+      result.terminal_status_before_event_failure = result.status;
+      result.status = 'event_dispatch_failed';
+      result.ok = false;
+    }
+    return result;
+  };
+  const platformSupport = managedProcessPlatformSupport();
+  if (!platformSupport.supported) {
     const result = {
       schema_version: 1,
       kind: 'managed-worker-result',
-      status: 'spawn_failed',
+      status: 'unsupported_platform',
       ok: false,
       root_pid: null,
       observed_descendant_pids: [],
@@ -398,10 +663,25 @@ export async function runManagedProcess(options) {
       interrupted: false,
       exit_code: null,
       signal: null,
-      stdout_line_count: stdoutCount(),
-      stderr_line_count: stderrCount(),
+      stdout_line_count: 0,
+      stderr_line_count: 0,
+      event_errors: eventErrors,
+      stdin_errors: stdinErrors,
       observation_verified: false,
-      observation_errors: [message],
+      observation_errors: [platformSupport.reason],
+      containment: {
+        mode: platformSupport.mode,
+        assigned: false,
+        drained: false,
+        verified: false,
+        controller_watchdog_armed: false,
+        controller_watchdog_stopped: false,
+        wrapper_closed: false,
+        root_started_at: null,
+        atomic_child_pid: null,
+        atomic_child_started_at: null,
+        errors: [platformSupport.reason],
+      },
       cleanup: {
         required: false,
         reason: null,
@@ -409,67 +689,14 @@ export async function runManagedProcess(options) {
         confirmed_gone_pids: [],
         identity_mismatch_pids: [],
         alive_after_cleanup: [],
+        unknown_after_cleanup: [],
         verified: false,
         errors: [],
       },
     };
-    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-    return result;
+    return finalizeResult(result);
   }
-
-  const rootPid = child.pid;
-  observed.set(rootPid, {
-    pid: rootPid,
-    ppid: process.pid,
-    pgid: process.platform === 'win32' ? null : rootPid,
-    name: path.basename(options.command),
-    started_at: null,
-  });
-  emit({
-    type: 'worker.started',
-    timestamp: new Date().toISOString(),
-    root_pid: rootPid,
-    command: path.basename(options.command),
-    timeout_ms: options.timeoutMs,
-  });
-
-  if (options.stdinText !== undefined) child.stdin.end(options.stdinText);
-  else child.stdin.end();
-
-  /** @type {Promise<ProcessInfo[]> | null} */
-  let observeInFlight = null;
-  const observeNow = () => {
-    if (observeInFlight) return observeInFlight;
-    observeInFlight = listProcessTable()
-      .then((table) => {
-        mergeObservedTree(table, rootPid, observed);
-        observationSucceeded = true;
-        return table;
-      })
-      .catch((error) => {
-        observationSucceeded = false;
-        const message = error instanceof Error ? error.message : String(error);
-        observationErrors.add(message);
-        emit({ type: 'worker.observation_error', timestamp: new Date().toISOString(), message });
-        throw error;
-      })
-      .finally(() => {
-        observeInFlight = null;
-      });
-    return observeInFlight;
-  };
-
-  try {
-    await observeNow();
-  } catch {
-    // A later observation may recover. Cleanup verification remains mandatory.
-  }
-
-  const poll = setInterval(() => {
-    void observeNow().catch(() => {});
-  }, pollIntervalMs);
-  poll.unref();
-
+  const timeoutDeadlineAt = Date.now() + options.timeoutMs;
   /** @type {NodeJS.Timeout | undefined} */
   let timeoutHandle;
   const timeoutPromise = new Promise((resolve) => {
@@ -487,11 +714,485 @@ export async function runManagedProcess(options) {
       removeAbortListener = () => options.signal?.removeEventListener('abort', onAbort);
     }
   });
+  const elapsedGuardOutcome = () => {
+    if (options.signal?.aborted) {
+      return { kind: 'interrupted', reason: options.signal.reason };
+    }
+    if (Date.now() >= timeoutDeadlineAt) return { kind: 'timeout' };
+    return null;
+  };
+  const pollIntervalMs = options.pollIntervalMs ?? 500;
+  const terminationGraceMs = options.terminationGraceMs ?? 500;
+  const verificationTimeoutMs = options.verificationTimeoutMs ?? 5000;
+  const residualGraceMs = options.residualGraceMs ?? 300;
+  /** @type {Map<number, ProcessInfo>} */
+  const observed = new Map();
+  const observationErrors = new Set();
+  let observationSucceeded = false;
+  let identityObservationIncomplete = false;
+  const returnBeforeSpawn = (outcome, preSpawnCleanup = null) => {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (removeAbortListener) removeAbortListener();
+    const timedOut = outcome.kind === 'timeout';
+    const interrupted = outcome.kind === 'interrupted';
+    const identityFailed = outcome.kind === 'controller-identity-failed';
+    const artifactFailed = outcome.kind === 'runner-artifact-failed';
+    const failureMessage = identityFailed || artifactFailed
+      ? (outcome.error instanceof Error ? outcome.error.message : String(outcome.error))
+      : null;
+    const primaryStatus = timedOut
+      ? 'timed_out'
+      : interrupted
+        ? 'interrupted'
+        : artifactFailed
+          ? 'runner_artifact_failed'
+          : 'controller_identity_failed';
+    const cleanupRequired = preSpawnCleanup?.required === true;
+    const cleanupVerified = preSpawnCleanup?.verified !== false;
+    if (timedOut || interrupted) {
+      emit({
+        type: timedOut ? 'worker.timeout' : 'worker.interrupted',
+        timestamp: new Date().toISOString(),
+        root_pid: null,
+        ...(timedOut ? { timeout_ms: options.timeoutMs } : {}),
+      });
+    }
+    const result = {
+      schema_version: 1,
+      kind: 'managed-worker-result',
+      status: cleanupRequired && !cleanupVerified ? 'cleanup_failed' : primaryStatus,
+      ok: false,
+      root_pid: null,
+      observed_descendant_pids: [],
+      timed_out: timedOut,
+      interrupted,
+      exit_code: null,
+      signal: null,
+      stdout_line_count: 0,
+      stderr_line_count: 0,
+      event_errors: eventErrors,
+      stdin_errors: stdinErrors,
+      observation_verified: false,
+      observation_errors: failureMessage ? [failureMessage] : [],
+      containment: {
+        mode: platformSupport.mode,
+        assigned: false,
+        drained: false,
+        verified: false,
+        controller_watchdog_armed: false,
+        controller_watchdog_stopped: false,
+        wrapper_closed: false,
+        root_started_at: null,
+        atomic_child_pid: null,
+        atomic_child_started_at: null,
+        errors: failureMessage ? [failureMessage] : [],
+      },
+      cleanup: {
+        required: cleanupRequired,
+        reason: cleanupRequired ? outcome.kind : null,
+        requested_pids: preSpawnCleanup?.requested_pids || [],
+        confirmed_gone_pids: preSpawnCleanup?.confirmed_gone_pids || [],
+        identity_mismatch_pids: [],
+        alive_after_cleanup: [],
+        unknown_after_cleanup: preSpawnCleanup?.unknown_after_cleanup || [],
+        verified: cleanupVerified,
+        errors: preSpawnCleanup?.errors || [],
+      },
+    };
+    if (cleanupRequired && !cleanupVerified) {
+      result.terminal_status_before_cleanup_failure = primaryStatus;
+    }
+    return finalizeResult(result);
+  };
 
-  const outcome = await Promise.race([closePromise, timeoutPromise, abortPromise]);
-  clearInterval(poll);
+  const initialPreSpawnGuard = elapsedGuardOutcome();
+  if (initialPreSpawnGuard !== null) return returnBeforeSpawn(initialPreSpawnGuard);
+  const controllerIdentityLookup = startWindowsControllerStartFileTimeLookup(process.pid);
+  const controllerIdentityPromise = controllerIdentityLookup.result.then(
+    (value) => ({ kind: 'controller-identity', value }),
+    (error) => ({ kind: 'controller-identity-failed', error }),
+  );
+  const controllerIdentityOutcome = await Promise.race([
+    controllerIdentityPromise,
+    timeoutPromise,
+    abortPromise,
+  ]);
+  if (controllerIdentityOutcome.kind === 'timeout' || controllerIdentityOutcome.kind === 'interrupted') {
+    const preSpawnCleanup = await controllerIdentityLookup.terminateAndWait();
+    return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup);
+  }
+  if (controllerIdentityOutcome.kind === 'controller-identity-failed') {
+    return returnBeforeSpawn(controllerIdentityOutcome);
+  }
+  const finalPreSpawnGuard = elapsedGuardOutcome();
+  if (finalPreSpawnGuard !== null) return returnBeforeSpawn(finalPreSpawnGuard);
+
+  const controlToken = randomBytes(32).toString('hex');
+  let invocation;
+  try {
+    invocation = buildSpawnInvocation(options, controlToken, controllerIdentityOutcome.value);
+  } catch (error) {
+    return returnBeforeSpawn({ kind: 'runner-artifact-failed', error });
+  }
+  const containment = {
+    mode: invocation.containmentMode,
+    assigned: false,
+    drained: false,
+    verified: false,
+    controller_watchdog_armed: false,
+    controller_watchdog_stopped: false,
+    wrapper_closed: false,
+    root_started_at: null,
+    atomic_child_pid: null,
+    atomic_child_started_at: null,
+    errors: [],
+  };
+  let spawnedRootPid = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let rootMarker = null;
+  /** @type {{pid: number, started_at: string} | null} */
+  let atomicChildMarker = null;
+  let rootIdentityRegistered = false;
+  let atomicIdentityRegistered = false;
+  let rootIdentityEventEmitted = false;
+  let atomicChildEventEmitted = false;
+  let rootMarkerLocked = false;
+  let atomicChildMarkerLocked = false;
+  /** @type {(value: {kind: 'managed-identities-ready'}) => void} */
+  let resolveManagedIdentitiesReady = () => {};
+  /** @type {Promise<{kind: 'managed-identities-ready'}>} */
+  const managedIdentitiesReadyPromise = new Promise((resolve) => {
+    resolveManagedIdentitiesReady = resolve;
+  });
+  const resolveIdentityReadiness = () => {
+    if (rootIdentityRegistered && atomicIdentityRegistered) {
+      resolveManagedIdentitiesReady({ kind: 'managed-identities-ready' });
+    }
+  };
+  const registerRootIdentity = () => {
+    if (spawnedRootPid === null || rootMarker === null) return;
+    if (rootMarker.pid !== spawnedRootPid) {
+      containment.errors.push(`root marker pid ${rootMarker.pid} does not match spawned pid ${spawnedRootPid}`);
+      return;
+    }
+    observed.set(spawnedRootPid, {
+      pid: spawnedRootPid,
+      ppid: process.pid,
+      pgid: null,
+      name: path.basename(invocation.command),
+      started_at: rootMarker.started_at,
+    });
+    containment.root_started_at = rootMarker.started_at;
+    rootIdentityRegistered = true;
+    if (!rootIdentityEventEmitted) {
+      emit({
+        type: 'worker.root_identity',
+        timestamp: new Date().toISOString(),
+        pid: spawnedRootPid,
+        started_at: rootMarker.started_at,
+      });
+      rootIdentityEventEmitted = true;
+    }
+    resolveIdentityReadiness();
+  };
+  const registerAtomicChildIdentity = () => {
+    if (spawnedRootPid === null || atomicChildMarker === null) return;
+    observed.set(atomicChildMarker.pid, {
+      pid: atomicChildMarker.pid,
+      ppid: spawnedRootPid,
+      pgid: null,
+      name: path.basename(options.command),
+      started_at: atomicChildMarker.started_at,
+    });
+    atomicIdentityRegistered = true;
+    if (!atomicChildEventEmitted) {
+      emit({
+        type: 'worker.atomic_child',
+        timestamp: new Date().toISOString(),
+        pid: atomicChildMarker.pid,
+        started_at: atomicChildMarker.started_at,
+      });
+      atomicChildEventEmitted = true;
+    }
+    resolveIdentityReadiness();
+  };
+
+  const finalSpawnGuard = elapsedGuardOutcome();
+  if (finalSpawnGuard !== null) return returnBeforeSpawn(finalSpawnGuard);
+
+  const child = spawn(invocation.command, invocation.args, {
+    cwd: invocation.cwd,
+    env: invocation.env,
+    detached: false,
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+
+  const handleStdinError = (error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    stdinErrors.push(message);
+    if (stdinFailureOutcome === null) {
+      stdinFailureOutcome = { kind: 'stdin-failed', message };
+      resolveStdinFailure(stdinFailureOutcome);
+    }
+    emit({ type: 'worker.stdin_error', timestamp: new Date().toISOString(), message });
+  };
+  child.stdin.on('error', handleStdinError);
+
+  const authenticatedAssignedMarker = `${WINDOWS_JOB_ASSIGNED_MARKER}:${controlToken}`;
+  const authenticatedDrainedMarker = `${WINDOWS_JOB_DRAINED_MARKER}:${controlToken}`;
+  const authenticatedControllerWatchdogMarker = `${WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER}:${controlToken}`;
+  const authenticatedControllerWatchdogStoppedMarker = `${WINDOWS_JOB_CONTROLLER_WATCHDOG_STOPPED_MARKER}:${controlToken}`;
+  const authenticatedRootPrefix = `${WINDOWS_JOB_ROOT_PREFIX}${controlToken}|`;
+  const authenticatedAtomicChildPrefix = `${WINDOWS_JOB_ATOMIC_CHILD_PREFIX}${controlToken}|`;
+  const authenticatedErrorPrefix = `${WINDOWS_JOB_ERROR_PREFIX}${controlToken}|`;
+  const stdoutCount = captureLines(child.stdout, 'stdout', emit);
+  const stderrCount = captureLines(child.stderr, 'stderr', emit, (line) => {
+    if (line === authenticatedAssignedMarker) {
+      containment.assigned = true;
+      return true;
+    }
+    if (line === authenticatedDrainedMarker) {
+      containment.drained = true;
+      return true;
+    }
+    if (line === authenticatedControllerWatchdogMarker) {
+      containment.controller_watchdog_armed = true;
+      return true;
+    }
+    if (line === authenticatedControllerWatchdogStoppedMarker) {
+      containment.controller_watchdog_stopped = true;
+      return true;
+    }
+    if (line.startsWith(authenticatedRootPrefix)) {
+      if (rootMarkerLocked) {
+        containment.errors.push('duplicate root identity marker rejected');
+        return true;
+      }
+      rootMarkerLocked = true;
+      const marker = line.slice(authenticatedRootPrefix.length);
+      const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
+      const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
+      const startedAt = markerMatch?.[2] ?? '';
+      if (Number.isInteger(pid) && pid > 0 && Number.isFinite(Date.parse(startedAt))) {
+        rootMarker = { pid, started_at: startedAt };
+        registerRootIdentity();
+      } else {
+        containment.errors.push(`invalid root identity marker: ${line}`);
+      }
+      return true;
+    }
+    if (line.startsWith(authenticatedAtomicChildPrefix)) {
+      if (atomicChildMarkerLocked) {
+        containment.errors.push('duplicate atomic child marker rejected');
+        return true;
+      }
+      atomicChildMarkerLocked = true;
+      const marker = line.slice(authenticatedAtomicChildPrefix.length);
+      const markerMatch = /^(\d+)\|(.+)$/.exec(marker);
+      const pid = markerMatch ? Number.parseInt(markerMatch[1], 10) : Number.NaN;
+      const startedAt = markerMatch?.[2] ?? '';
+      if (Number.isInteger(pid) && pid > 0 && Number.isFinite(Date.parse(startedAt))) {
+        containment.atomic_child_pid = pid;
+        containment.atomic_child_started_at = startedAt;
+        atomicChildMarker = { pid, started_at: startedAt };
+        registerAtomicChildIdentity();
+      } else {
+        containment.errors.push(`invalid atomic child marker: ${line}`);
+      }
+      return true;
+    }
+    if (line.startsWith(authenticatedErrorPrefix)) {
+      const message = line.slice(authenticatedErrorPrefix.length).trim();
+      containment.errors.push(message || line);
+    }
+    return false;
+  });
+  const closePromise = new Promise((resolve) => {
+    child.once('close', (code, signal) => resolve({ kind: 'exit', code, signal }));
+  });
+  const spawnResult = await new Promise((resolve) => {
+    child.once('spawn', () => resolve({ ok: true }));
+    child.once('error', (error) => resolve({ ok: false, error }));
+  });
+
+  if (!spawnResult.ok || !child.pid) {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (removeAbortListener) removeAbortListener();
+    const message = 'error' in spawnResult && spawnResult.error instanceof Error
+      ? spawnResult.error.message
+      : 'child process did not provide a pid';
+    const result = {
+      schema_version: 1,
+      kind: 'managed-worker-result',
+      status: 'spawn_failed',
+      ok: false,
+      root_pid: null,
+      observed_descendant_pids: [],
+      timed_out: false,
+      interrupted: false,
+      exit_code: null,
+      signal: null,
+      stdout_line_count: stdoutCount(),
+      stderr_line_count: stderrCount(),
+      event_errors: eventErrors,
+      stdin_errors: stdinErrors,
+      observation_verified: false,
+      observation_errors: [message],
+      containment: { ...containment, verified: false },
+      cleanup: {
+        required: false,
+        reason: null,
+        requested_pids: [],
+        confirmed_gone_pids: [],
+        identity_mismatch_pids: [],
+        alive_after_cleanup: [],
+        unknown_after_cleanup: [],
+        verified: false,
+        errors: [],
+      },
+    };
+    return finalizeResult(result);
+  }
+
+  const rootPid = child.pid;
+  spawnedRootPid = rootPid;
+  observed.set(rootPid, {
+    pid: rootPid,
+    ppid: process.pid,
+    pgid: null,
+    name: path.basename(invocation.command),
+    started_at: null,
+  });
+  registerRootIdentity();
+  registerAtomicChildIdentity();
+  emit({
+    type: 'worker.started',
+    timestamp: new Date().toISOString(),
+    root_pid: rootPid,
+    command: path.basename(options.command),
+    containment_mode: containment.mode,
+    timeout_ms: options.timeoutMs,
+  });
+
+  try {
+    if (options.stdinText !== undefined) child.stdin.end(options.stdinText);
+    else child.stdin.end();
+  } catch (error) {
+    handleStdinError(error);
+  }
+
+  /** @type {Promise<ProcessInfo[]> | null} */
+  let observeInFlight = null;
+  let observationAttempt = 0;
+  const observeNow = () => {
+    if (observeInFlight) return observeInFlight;
+    if (!rootIdentityRegistered || !atomicIdentityRegistered) {
+      const message = 'managed root and atomic child identities are not registered';
+      observationErrors.add(message);
+      emit({ type: 'worker.observation_error', timestamp: new Date().toISOString(), message });
+      return Promise.reject(new Error(message));
+    }
+    observationAttempt += 1;
+    emit({
+      type: 'worker.observation_started',
+      timestamp: new Date().toISOString(),
+      attempt: observationAttempt,
+      root_identity_registered: rootIdentityRegistered,
+      atomic_child_pid: containment.atomic_child_pid,
+      atomic_child_registered: containment.atomic_child_pid !== null
+        && observed.has(containment.atomic_child_pid),
+    });
+    observeInFlight = listProcessTable({
+      deadlineAt: Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS,
+    })
+      .then((table) => {
+        const unknownCandidatePids = mergeObservedTree(table, rootPid, observed);
+        if (unknownCandidatePids.length > 0) {
+          identityObservationIncomplete = true;
+          throw new Error(`process start time unavailable for candidate pids: ${unknownCandidatePids.join(', ')}`);
+        }
+        observationSucceeded = true;
+        return table;
+      })
+      .catch((error) => {
+        observationSucceeded = false;
+        const message = error instanceof Error ? error.message : String(error);
+        observationErrors.add(message);
+        emit({ type: 'worker.observation_error', timestamp: new Date().toISOString(), message });
+        throw error;
+      })
+      .finally(() => {
+        observeInFlight = null;
+      });
+    return observeInFlight;
+  };
+
+  const readinessOutcome = elapsedGuardOutcome() ?? await Promise.race([
+    timeoutPromise,
+    abortPromise,
+    stdinFailurePromise,
+    closePromise,
+    managedIdentitiesReadyPromise,
+  ]);
+  let initialOutcome = readinessOutcome;
+  if (readinessOutcome.kind === 'managed-identities-ready') {
+    initialOutcome = elapsedGuardOutcome() ?? eventFailureOutcome ?? stdinFailureOutcome;
+    if (initialOutcome === null) {
+      const initialObservation = observeNow().then(() => null, () => null);
+      initialOutcome = await Promise.race([
+        timeoutPromise,
+        abortPromise,
+        eventFailurePromise,
+        stdinFailurePromise,
+        closePromise,
+        initialObservation,
+      ]);
+    }
+  }
+
+  /** @type {NodeJS.Timeout | null} */
+  let poll = null;
+  if (initialOutcome === null) {
+    poll = setInterval(() => {
+      void observeNow().catch(() => {});
+    }, pollIntervalMs);
+    poll.unref();
+  }
+
+  const outcome = initialOutcome ?? elapsedGuardOutcome() ?? eventFailureOutcome ?? stdinFailureOutcome ?? await Promise.race([
+    timeoutPromise,
+    abortPromise,
+    eventFailurePromise,
+    stdinFailurePromise,
+    closePromise,
+  ]);
+  if (poll) clearInterval(poll);
   if (timeoutHandle) clearTimeout(timeoutHandle);
   if (removeAbortListener) removeAbortListener();
+  if (process.env.NODE_ENV === 'test'
+    && process.env.FDP_WORKER_TEST_STDIN_ERROR_AFTER_TIMEOUT === '1'
+    && outcome?.kind === 'timeout') {
+    handleStdinError(new Error('test stdin failure after timeout selection'));
+  }
+
+  const stopRootWrapper = async () => {
+    const { alreadyExited, killAccepted, wrapperClosed } = await stopExactWrapperForCleanup({
+      child,
+      closePromise,
+      terminationGraceMs,
+    });
+    containment.wrapper_closed = wrapperClosed;
+    if (!wrapperClosed) {
+      containment.errors.push(killAccepted === true
+        ? 'exact wrapper close was not observed before the termination deadline'
+        : alreadyExited
+          ? 'wrapper exit was observed but exact wrapper close was not observed before the termination deadline'
+          : 'exact wrapper termination request was rejected and close was not observed');
+    }
+    return wrapperClosed;
+  };
 
   let cleanup = {
     required: false,
@@ -500,6 +1201,7 @@ export async function runManagedProcess(options) {
     confirmed_gone_pids: [],
     identity_mismatch_pids: [],
     alive_after_cleanup: [],
+    unknown_after_cleanup: [],
     verified: true,
     errors: [],
   };
@@ -513,7 +1215,9 @@ export async function runManagedProcess(options) {
     timedOut = true;
     status = 'timed_out';
     emit({ type: 'worker.timeout', timestamp: new Date().toISOString(), root_pid: rootPid, timeout_ms: options.timeoutMs });
-    cleanup = await terminateObservedTree({
+    const wrapperClosed = await stopRootWrapper();
+    cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'timeout',
@@ -524,26 +1228,64 @@ export async function runManagedProcess(options) {
     interrupted = true;
     status = 'interrupted';
     emit({ type: 'worker.interrupted', timestamp: new Date().toISOString(), root_pid: rootPid });
-    cleanup = await terminateObservedTree({
+    const wrapperClosed = await stopRootWrapper();
+    cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
       observed,
       observeNow,
       reason: 'interrupted',
       graceMs: terminationGraceMs,
       verifyMs: verificationTimeoutMs,
     });
+  } else if (outcome && outcome.kind === 'stdin-failed') {
+    status = 'stdin_failed';
+    const wrapperClosed = await stopRootWrapper();
+    cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
+      observed,
+      observeNow,
+      reason: 'stdin-failed',
+      graceMs: terminationGraceMs,
+      verifyMs: verificationTimeoutMs,
+    });
+  } else if (outcome && outcome.kind === 'event-dispatch-failed') {
+    status = 'event_dispatch_failed';
+    const wrapperClosed = await stopRootWrapper();
+    cleanup = await verifyObservedTreeTermination({
+      wrapperClosed,
+      observed,
+      observeNow,
+      reason: 'event-dispatch-failed',
+      graceMs: terminationGraceMs,
+      verifyMs: verificationTimeoutMs,
+    });
   } else if (outcome && outcome.kind === 'exit') {
+    containment.wrapper_closed = true;
     exitCode = outcome.code;
     exitSignal = outcome.signal;
     await sleep(residualGraceMs);
     try {
       const table = await observeNow();
-      const residuals = classifyObserved(observed, table).alive.filter((entry) => entry.pid !== rootPid);
-      if (residuals.length > 0) {
+      const residualClassification = classifyObserved(observed, table);
+      const residuals = residualClassification.alive.filter((entry) => entry.pid !== rootPid);
+      if (residualClassification.unknownPids.length > 0) {
+        observationErrors.add(`identity metadata unavailable for pids: ${residualClassification.unknownPids.join(', ')}`);
+        status = 'observation_failed';
+        cleanup = await verifyObservedTreeTermination({
+          observed,
+          observeNow,
+          reason: 'identity-metadata-unavailable-after-root-exit',
+          wrapperClosed: true,
+          graceMs: terminationGraceMs,
+          verifyMs: verificationTimeoutMs,
+        });
+      } else if (residuals.length > 0) {
         status = 'residual_processes';
-        cleanup = await terminateObservedTree({
+        cleanup = await verifyObservedTreeTermination({
           observed,
           observeNow,
           reason: 'residual-processes-after-root-exit',
+          wrapperClosed: true,
           graceMs: terminationGraceMs,
           verifyMs: verificationTimeoutMs,
         });
@@ -555,8 +1297,21 @@ export async function runManagedProcess(options) {
   }
 
   if (cleanup.required && !cleanup.verified) status = 'cleanup_failed';
+  if (status === 'completed' && identityObservationIncomplete) status = 'observation_failed';
+  containment.verified = containment.assigned
+    && containment.controller_watchdog_armed
+    && (containment.controller_watchdog_stopped || cleanup.required)
+    && containment.wrapper_closed
+    && (containment.drained || (cleanup.required && cleanup.verified))
+    && containment.errors.length === 0;
+  if (status === 'completed' && !containment.verified) {
+    status = 'containment_failed';
+  }
   const descendantPids = [...observed.keys()].filter((pid) => pid !== rootPid).sort((a, b) => a - b);
-  const observationVerified = observationSucceeded && (!cleanup.required || cleanup.verified);
+  const observationVerified = observationSucceeded
+    && !identityObservationIncomplete
+    && (!cleanup.required || cleanup.verified)
+    && containment.verified;
   const ok = status === 'completed' && exitCode === 0 && observationVerified;
   const result = {
     schema_version: 1,
@@ -571,10 +1326,12 @@ export async function runManagedProcess(options) {
     signal: exitSignal,
     stdout_line_count: stdoutCount(),
     stderr_line_count: stderrCount(),
+    event_errors: eventErrors,
+    stdin_errors: stdinErrors,
     observation_verified: observationVerified,
     observation_errors: [...observationErrors],
+    containment,
     cleanup,
   };
-  emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
-  return result;
+  return finalizeResult(result);
 }

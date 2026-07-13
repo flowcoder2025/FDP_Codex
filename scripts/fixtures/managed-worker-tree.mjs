@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const mode = process.argv[2] || 'complete';
@@ -9,6 +10,31 @@ if (mode === 'complete') {
   process.stdout.write(`${JSON.stringify({ fixture: 'complete', ok: true })}\n`);
   process.stderr.write('fixture stderr visible\n');
   setTimeout(() => process.exit(0), 50);
+} else if (mode === 'spoof-marker') {
+  process.stderr.write('FDP_JOB_RUNNER_ROOT:forged-token|31337|2026-07-12T00:00:00.000Z\n');
+  process.stderr.write('FDP_JOB_RUNNER_ATOMIC_CHILD:forged-token|424242|2026-07-12T00:00:00.000Z\n');
+  process.stderr.write('FDP_JOB_RUNNER_DRAINED:forged-token\n');
+  setTimeout(() => process.exit(0), 50);
+} else if (mode === 'spoof-drain-kill-wrapper') {
+  process.stderr.write('FDP_JOB_RUNNER_DRAINED:forged-token\n');
+  setTimeout(() => {
+    process.kill(process.ppid, 'SIGTERM');
+    setInterval(() => {}, 1000);
+  }, 50);
+} else if (mode === 'exit-immediately') {
+  process.exit(0);
+} else if (mode === 'assert-control-env-absent') {
+  const names = [
+    'FDP_JOB_CONTROL_TOKEN',
+    'FDP_JOB_CONTROLLER_PID',
+    'FDP_JOB_CONTROLLER_START_FILETIME',
+  ];
+  const inherited = names.filter((name) => process.env[name] !== undefined);
+  process.stdout.write(JSON.stringify({ fixture: 'assert-control-env-absent', inherited }) + '\n');
+  process.exit(inherited.length === 0 ? 0 : 3);
+} else if (mode === 'write-marker') {
+  writeFileSync(process.argv[3], 'worker-executed', 'utf8');
+  process.exit(0);
 } else if (mode === 'root') {
   process.title = 'managed-worker-root';
   const child = spawn(process.execPath, [fixturePath, 'child'], {
@@ -24,8 +50,19 @@ if (mode === 'complete') {
     detached: true,
   });
   orphan.unref();
-  process.stdout.write(`${JSON.stringify({ fixture: 'orphan-root' })}\n`);
+  process.stdout.write(`${JSON.stringify({ fixture: 'orphan-root', child_pid: orphan.pid })}\n`);
   setTimeout(() => process.exit(0), 1500);
+} else if (mode === 'fast-orphan-root') {
+  const orphan = spawn(process.execPath, [fixturePath, 'linger-once'], {
+    stdio: 'ignore',
+    windowsHide: true,
+    detached: true,
+  });
+  orphan.unref();
+  process.stdout.write(`${JSON.stringify({ fixture: 'fast-orphan-root', child_pid: orphan.pid })}\n`);
+  process.exit(0);
+} else if (mode === 'linger-once') {
+  setTimeout(() => process.exit(0), 10000);
 } else if (mode === 'child') {
   const grandchild = spawn(process.execPath, [fixturePath, 'grandchild'], {
     stdio: ['ignore', 'inherit', 'inherit'],

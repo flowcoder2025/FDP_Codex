@@ -1,14 +1,21 @@
 #!/usr/bin/env node
-import { resolveCodexInvocation } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
 import { runManagedProcess } from './lib/managed-process.mjs';
 
 const invocation = resolveCodexInvocation();
+const workerArgs = buildEphemeralWorkerArgs({
+  argsPrefix: invocation.argsPrefix,
+  sandbox: 'read-only',
+  cwd: process.cwd(),
+});
 const result = await runManagedProcess({
   command: invocation.command,
-  args: [...invocation.argsPrefix, 'exec', '--help'],
+  args: [...workerArgs.slice(0, -1), '--help'],
   cwd: process.cwd(),
   timeoutMs: 15000,
   onEvent: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
 });
+
+process.stdout.write(`${JSON.stringify({ type: 'worker.result', timestamp: new Date().toISOString(), result })}\n`);
 
 if (!result.ok) process.exitCode = result.status === 'timed_out' ? 124 : 1;
