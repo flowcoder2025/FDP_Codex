@@ -366,6 +366,18 @@
           "fork_context": false,
           "reviewed_head": "2b3a10f080b6928013c38a8dd230d3b0920f5785",
           "result": "fail-two-p2-root-exit-residual-success-and-prompt-boundary-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f56f8-79b2-7b61-bcf2-73bcf6c69cf5",
+          "fork_context": false,
+          "reviewed_head": "9c6080043b49ea98f5f29e8b3fe79baf4e10a429",
+          "result": "pass-no-findings-github-review-4680454951-invalidated-by-ci-remediation-head-change"
+        },
+        {
+          "agent_id": "019f576e-9981-7343-a065-555961f62853",
+          "fork_context": false,
+          "reviewed_head": "6675269e74e720f6344d563ec872ed336809f21f",
+          "result": "fail-two-p2-posix-absent-root-group-reuse-and-control-plane-candidate-drift-remediated-awaiting-fresh-review"
         }
       ]
     },

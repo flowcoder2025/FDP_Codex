@@ -12,7 +12,7 @@ The official ChatGPT-login managed preflight passed. The first dogfood run recon
 
 KI-CX-WORKER-003 / Issue #61 tracks the missing final-result failure. KI-CX-DOGFOOD-002 / Issue #62 tracks the stale target handoff that both target validators accepted. KI-CX-PROVIDER-001 / Issue #55 remains open until the approved post-fix dogfood proof completes.
 
-Reviewer history is evidence, not authority. Reviewer 019f56f8-79b2-7b61-bcf2-73bcf6c69cf5 returned PASS with no findings on the prior exact PR #65 head, and GitHub review 4680454951 plus the independent-review audit and required status passed. Initial Node 20/24 CI then exposed a POSIX same-group child adoption path under a mismatched live root identity. The remediation binds POSIX group fallback to a same or absent root and adds deterministic cross-host coverage. That head change invalidates the prior PASS, so Issue #63 again requires a fresh exact-head review and audit.
+Reviewer history is evidence, not authority. Reviewer 019f56f8-79b2-7b61-bcf2-73bcf6c69cf5 returned PASS with no findings on prior head 9c6080043b49ea98f5f29e8b3fe79baf4e10a429; GitHub review 4680454951 and the required status passed, then became stale after CI remediation. Reviewer 019f576e-9981-7343-a065-555961f62853 reviewed published head 6675269e74e720f6344d563ec872ed336809f21f and returned FAIL with two P2 findings: absent-root POSIX process-group reuse and control-plane candidate drift. The remediation requires a present same-identity root for group fallback, records both review generations, and moves mutable candidate lookup to live GitHub state. PR #65 is already published; any later head must be read live rather than predicted here.
 
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
@@ -176,7 +176,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Finish the PR #65 Linux CI remediation, run the full local suite, push the changed candidate under the approved envelope, and obtain a fresh blind adversarial PASS plus live PR audit and required checks. Then request separate merge approval and land it as a non-completion checkpoint with truthful `blocked-external` status. Keep Issues #55 and #61 open and do not mark the end-to-end proof complete. After closeout, follow Strategy A toward a local v0.1 self-hosting candidate and one clean-project portability proof.
+PR #65 is already published. First query the live PR #65 head, review payload, labels, and required checks. If that exact head lacks a clean-context blind adversarial PASS, obtain one; if it has PASS and every required check is green, request separate merge approval. Land only as a non-completion checkpoint with truthful `blocked-external` status, keep Issues #55 and #61 open, and do not mark the end-to-end proof complete. After closeout, follow Strategy A toward a local v0.1 self-hosting candidate and one clean-project portability proof.
 
 ## Blocked Work
 
@@ -184,7 +184,7 @@ Finish the PR #65 Linux CI remediation, run the full local suite, push the chang
 - KI-CX-WORKER-003 blocks the end-to-end claim until the post-fix worker returns a final result and controller-owned validation plus cleanup complete.
 - KI-CX-WORKER-004 / Issue #64 remains open through PR validation, merge, and post-merge audit; close it only with merged PR and audit evidence.
 - KI-CX-DOGFOOD-002 blocks further target progression and target-handoff correctness claims until a qualified target fix and validator regression exist.
-- KI-CX-REVIEW-002 blocks PR readiness and merge because the prior PR #65 PASS was invalidated by the CI-remediation head change; a fresh exact-head verdict and audit are required.
+- KI-CX-REVIEW-002 blocks PR readiness and merge because head 6675269e74e720f6344d563ec872ed336809f21f failed with two P2 findings and every remediation commit invalidates older evidence; a fresh exact-head PASS and audit are required.
 - KI-CX-REVIEW-001 blocks unattended/generalized automated merge, A2/A3 expansion, release candidates, public release, and OSS submission until reviewer provenance is machine-verifiable.
 - The historical WI-CX0035 runner trigger is canceled because the task-spawning hourly automation is retired.
 - Release publication is not approved.

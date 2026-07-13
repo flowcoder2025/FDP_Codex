@@ -333,7 +333,7 @@ export function mergeObservedTree(table, rootPid, observed, platform = process.p
     rootIdentity = expectedRoot ? classifyProcessIdentity(expectedRoot, root) : 'same';
     if (rootIdentity === 'same') observed.set(rootPid, root);
   }
-  const posixGroupRootTrusted = platform !== 'win32' && (!root || rootIdentity === 'same');
+  const posixGroupRootTrusted = platform !== 'win32' && rootIdentity === 'same';
 
   const parentPids = new Set(observed.keys());
   parentPids.add(rootPid);

@@ -3813,6 +3813,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const runner = read('scripts/run-ephemeral-worker.mjs');
   const localSmoke = read('scripts/smoke-ephemeral-worker-cli.mjs');
   const lifecycleTest = read('scripts/test-ephemeral-worker-lifecycle.mjs');
+  const workerControlAudit = read('scripts/audit-control-plane.mjs');
   const fixture = read('scripts/fixtures/managed-worker-tree.mjs');
   const manifest = read('docs/manifest.yaml');
   const docsIndex = read('docs/index.md');
@@ -4113,6 +4114,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
     && testResult?.cases?.temporal_identity?.posix_group_reused_root_excluded === true
+    && testResult?.cases?.temporal_identity?.posix_group_absent_root_excluded === true
     && testResult?.cases?.temporal_identity?.uninitialized_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.same_supervisor_root_reuse_excluded === true
     && testResult?.cases?.temporal_identity?.known_start_missing_current_start_unknown === true
@@ -4711,7 +4713,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && currentWi.includes('that merge does not complete the live proof or repay Issues #55 and #61')
     && proofRecord.includes('land through the normal supervised PR lifecycle as a non-completion checkpoint')
     && handoff.includes('Current WI: WI-CX0060-test Trusted Ephemeral Worker End-to-End Proof')
-    && handoff.includes('land it as a non-completion checkpoint')
+    && handoff.includes('Land only as a non-completion checkpoint')
     && state.current_wi?.id === 'WI-CX0060-test'
     && state.current_wi?.status === 'blocked-external'
     && state.current_priority?.state === 'blocked-external'
@@ -4764,6 +4766,18 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d78-ea57-73d1-9843-dd2d473cea12' && attempt.reviewed_head === '7696fbb' && attempt.result.includes('github-drift'))
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d85-063e-7a10-a5a2-8584e247de8c' && attempt.reviewed_head === 'c86b9f036e823986d78d825c97408b70dcd444b1' && attempt.result.includes('shell-reentry'))
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4db0-018f-7db1-b8e4-81c8e1aa92fc' && attempt.reviewed_head === '71576c01ca9a1db1fb59031c01a398bb13e9cba8' && attempt.result.includes('package-script'));
+  checks.worker_proof_candidate_state = reviewAttempts.some((attempt) => attempt.agent_id === '019f56f8-79b2-7b61-bcf2-73bcf6c69cf5'
+    && attempt.reviewed_head === '9c6080043b49ea98f5f29e8b3fe79baf4e10a429'
+    && attempt.result.includes('invalidated'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f576e-9981-7343-a065-555961f62853'
+      && attempt.reviewed_head === '6675269e74e720f6344d563ec872ed336809f21f'
+      && attempt.result.includes('fail-two-p2'))
+    && currentWi.includes('019f576e-9981-7343-a065-555961f62853')
+    && fixPlan.includes('019f576e-9981-7343-a065-555961f62853')
+    && handoff.includes('PR #65 is already published')
+    && handoff.includes('query the live PR #65 head')
+    && !handoff.includes('Finish the PR #65 Linux CI remediation')
+    && workerControlAudit.includes('ki.KI-CX-WORKER-003.live_pr_reference');
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && state.control_plane?.automation?.status === 'RETIRED'
     && state.layer2_target?.remote_configured === false
@@ -4813,6 +4827,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_proof_flow) error('worker_proof.flow_missing', 'Flow state must expose WI-CX0060 as externally blocked after explicit user approval was insufficient.');
   if (!checks.worker_proof_state) error('worker_proof.state_missing', 'Machine state must expose preflight success, dogfood timeout cleanup, confinement, and the rejected retry.');
   if (!checks.worker_proof_known_issues) error('worker_proof.known_issues_missing', 'Issues #61 and #62 must preserve complete High KI fields and the qualified target finding.');
+  if (!checks.worker_proof_candidate_state) error('worker_proof.candidate_state_drift', 'Handoff, review history, and the live-Issue audit contract must agree on the published PR and exact-head review gate.');
   if (!checks.worker_proof_boundary) error('worker_proof.boundary_missing', 'WI-CX0060 must keep the target read-only and preserve runner, publication, authority, dependency, API, and destructive-operation boundaries.');
   if (!checks.worker_proof_boundary_false_positive_guard) error('worker_proof.boundary_false_positive', 'Provider-workaround boundary evidence must reject positive or contradictory claims.');
 }

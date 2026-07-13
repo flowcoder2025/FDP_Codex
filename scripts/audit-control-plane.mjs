@@ -162,7 +162,7 @@ function statusSourceMatches(pullRequestNumber, status) {
     && status.target_url === bootstrapStatusRun.url;
 }
 
-const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,labels,url']));
+const issues = JSON.parse(run('gh', ['issue', 'list', '--state', 'all', '--limit', '200', '--json', 'number,title,state,body,labels,url']));
 for (const knownIssue of state.known_issues || []) {
   const issue = issues.find((candidate) => candidate.number === knownIssue.github_issue_number);
   const labels = issue?.labels?.map((label) => label.name) || [];
@@ -184,6 +184,21 @@ for (const knownIssue of state.known_issues || []) {
     severity_label: severityLabel,
   });
 }
+
+const workerFinalResultIssue = (state.known_issues || [])
+  .find((knownIssue) => knownIssue.id === 'KI-CX-WORKER-003');
+const liveWorkerFinalResultIssue = issues
+  .find((issue) => issue.number === workerFinalResultIssue?.github_issue_number);
+const pinnedCandidateShas = liveWorkerFinalResultIssue?.body?.match(/\b[0-9a-f]{40}\b/gi) ?? [];
+addCheck('ki.KI-CX-WORKER-003.live_pr_reference', Boolean(liveWorkerFinalResultIssue)
+  && liveWorkerFinalResultIssue.body.includes('PR #65')
+  && liveWorkerFinalResultIssue.body.includes('query the live PR head')
+  && pinnedCandidateShas.length === 0, {
+  issue_number: workerFinalResultIssue?.github_issue_number || null,
+  references_pr_65: liveWorkerFinalResultIssue?.body?.includes('PR #65') || false,
+  requires_live_head_query: liveWorkerFinalResultIssue?.body?.includes('query the live PR head') || false,
+  pinned_candidate_shas: pinnedCandidateShas,
+});
 
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;

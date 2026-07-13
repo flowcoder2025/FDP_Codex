@@ -350,6 +350,18 @@ function runTemporalIdentityCase() {
   ], rootPid, reusedRootObserved, 'linux');
   assert.equal(reusedRootObserved.has(50004), false);
 
+  const absentRootObserved = new Map([[rootPid, root]]);
+  mergeObservedTree([
+    {
+      pid: 50009,
+      ppid: 12345,
+      pgid: rootPid,
+      name: 'unrelated-reused-group-member',
+      started_at: '2026-07-10T11:00:00.100Z',
+    },
+  ], rootPid, absentRootObserved, 'linux');
+  assert.equal(absentRootObserved.has(50009), false);
+
   const missingStartCurrentRoot = {
     pid: rootPid,
     ppid: 12345,
@@ -431,6 +443,7 @@ function runTemporalIdentityCase() {
     stale_excluded: true,
     reused_parent_identity_excluded: true,
     posix_group_reused_root_excluded: true,
+    posix_group_absent_root_excluded: true,
     known_start_missing_current_start_unknown: true,
     known_start_missing_current_start_child_excluded: true,
     startless_descendant_unknown: true,

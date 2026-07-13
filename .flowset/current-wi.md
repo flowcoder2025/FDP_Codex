@@ -107,9 +107,11 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f56db-740a-7d02-b553-ba9b75cc862f inspected exact head 2b3a10f080b6928013c38a8dd230d3b0920f5785 with fork_context: false and completed every required command. It returned FAIL with two P2 findings: root exit with active Job descendants was hidden as completed, and prompt input was outside the invocation deadline and early interruption handlers. The native wrapper now drains but fails root-exit residuals, while the CLI arms deadline and interruption before stdin, returns null-root 124/130 without spawning on held-open input, and passes only remaining time to managed execution. Fresh review remains.
 
-- Reviewer 019f56f8-79b2-7b61-bcf2-73bcf6c69cf5 returned PASS with no P0-P3 findings on the prior exact PR #65 head. GitHub review 4680454951, the live independent-review audit, and the required status all passed before the head changed.
+- Reviewer 019f56f8-79b2-7b61-bcf2-73bcf6c69cf5 returned PASS with no P0-P3 findings on prior exact PR #65 head 9c6080043b49ea98f5f29e8b3fe79baf4e10a429. GitHub review 4680454951, the live independent-review audit, and the required status all passed before the head changed.
 
-- PR #65 initial Node 20/24 validation exposed a POSIX process-group fallback that could adopt a child after the current root PID no longer matched the observed root identity. The remediation binds group fallback to a same or absent current root, adds a deterministic Linux-mode regression, and invalidates the prior review until the changed exact head receives a fresh PASS.
+- PR #65 initial Node 20/24 validation exposed a POSIX process-group fallback that could adopt a child after the current root PID no longer matched the observed root identity. The first remediation disabled fallback for present mismatched or unknown roots and passed Node 20/24 CI.
+
+- Reviewer 019f576e-9981-7343-a065-555961f62853 inspected published head 6675269e74e720f6344d563ec872ed336809f21f with fork_context: false and returned FAIL with two P2 findings: an absent root still allowed reused-PGID adoption, and handoff, state history, and Issue #61 disagreed about the current candidate. The remediation requires a present same-identity root, adds absent-root coverage, records both review generations, removes Issue #61's mutable candidate pin, and requires local plus live control-plane drift checks. Any changed head still requires a fresh PASS.
 
 ## Open Known Issues
 
@@ -117,7 +119,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - KI-CX-WORKER-003 / Issue #61 remains open until the post-fix worker returns a final result and controller-owned validation plus cleanup complete.
 - KI-CX-WORKER-004 / Issue #64 remains `open` through fresh independent review, PR validation, merge, and post-merge audit.
 - KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
-- KI-CX-REVIEW-002 / Issue #63 remains open because the prior PR #65 PASS was invalidated by the CI-remediation head change; a fresh exact-head verdict and audit are required.
+- KI-CX-REVIEW-002 / Issue #63 remains open because published head 6675269e74e720f6344d563ec872ed336809f21f failed with two P2 findings; the remediation head requires a fresh exact-head PASS and audit.
 - KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.
 
 ## Boundary
