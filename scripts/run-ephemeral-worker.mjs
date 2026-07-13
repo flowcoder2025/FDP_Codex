@@ -128,21 +128,9 @@ function emitJson(event) {
   process.stdout.write(JSON.stringify(event) + '\n');
 }
 
-function emitPromptBoundaryResult(kind, timeoutMs, reason) {
-  const timedOut = kind === 'timeout';
-  const status = timedOut ? 'timed_out' : 'interrupted';
-  const timestamp = new Date().toISOString();
-  emitJson({
-    type: timedOut ? 'worker.timeout' : 'worker.interrupted',
-    timestamp,
-    root_pid: null,
-    ...(timedOut ? { timeout_ms: timeoutMs } : {}),
-  });
+function buildNullRootResult({ status, timedOut = false, interrupted = false, message }) {
   const platformSupport = managedProcessPlatformSupport();
-  const message = timedOut
-    ? 'worker prompt read exceeded the invocation deadline'
-    : 'worker prompt read interrupted: ' + String(reason || 'signal');
-  const result = {
+  return {
     schema_version: 1,
     kind: 'managed-worker-result',
     status,
@@ -150,7 +138,7 @@ function emitPromptBoundaryResult(kind, timeoutMs, reason) {
     root_pid: null,
     observed_descendant_pids: [],
     timed_out: timedOut,
-    interrupted: !timedOut,
+    interrupted,
     exit_code: null,
     signal: null,
     stdout_line_count: 0,
@@ -184,8 +172,45 @@ function emitPromptBoundaryResult(kind, timeoutMs, reason) {
       errors: [],
     },
   };
+}
+
+function emitTerminalResult(result) {
   emitJson({ type: 'worker.result', timestamp: new Date().toISOString(), result });
   return result;
+}
+
+function emitPromptBoundaryResult(kind, timeoutMs, reason) {
+  const timedOut = kind === 'timeout';
+  const status = timedOut ? 'timed_out' : 'interrupted';
+  const timestamp = new Date().toISOString();
+  emitJson({
+    type: timedOut ? 'worker.timeout' : 'worker.interrupted',
+    timestamp,
+    root_pid: null,
+    ...(timedOut ? { timeout_ms: timeoutMs } : {}),
+  });
+  const message = timedOut
+    ? 'worker prompt read exceeded the invocation deadline'
+    : 'worker prompt read interrupted: ' + String(reason || 'signal');
+  return emitTerminalResult(buildNullRootResult({
+    status,
+    timedOut,
+    interrupted: !timedOut,
+    message,
+  }));
+}
+
+function emitSetupFailureResult(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  emitJson({
+    type: 'worker.wrapper_error',
+    timestamp: new Date().toISOString(),
+    message,
+  });
+  return emitTerminalResult(buildNullRootResult({
+    status: 'setup_failed',
+    message: 'worker setup failed before spawn: ' + message,
+  }));
 }
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -240,7 +265,7 @@ async function main() {
       signal: abortController.signal,
       onEvent: emitJson,
     });
-    emitJson({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+    emitTerminalResult(result);
     if (result.ok) return;
     if (result.timed_out) process.exitCode = 124;
     else if (result.interrupted) process.exitCode = 130;
@@ -252,10 +277,6 @@ async function main() {
   }
 }
 main().catch((error) => {
-  emitJson({
-    type: 'worker.wrapper_error',
-    timestamp: new Date().toISOString(),
-    message: error instanceof Error ? error.message : String(error),
-  });
+  emitSetupFailureResult(error);
   process.exitCode = 1;
 });

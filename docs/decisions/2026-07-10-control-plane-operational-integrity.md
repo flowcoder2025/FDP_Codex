@@ -18,6 +18,7 @@ FDP_Codex treats live control-plane state as a first-class verification surface.
 - Historical backfill is explicitly marked as backfill and never presented as contemporaneous compliance.
 - Required PR labels are checked against GitHub, not only against `.github/labels.yml`.
 - A WI closeout includes Issue state, PR state, branch deletion, worktree/task cleanup, stale-ref pruning, clean canonical main, and a live control-plane audit.
+- Candidate-bearing Issue fields are parsed across indented Markdown continuation lines. Current full SHAs must match the one referenced live PR head exactly; stale full SHAs and abbreviated candidate SHAs fail closed instead of being skipped.
 - Codex app task visibility is re-queried through the app task surface during closeout because the repository script has no app-task API. The script verifies the recorded zero-task result and local residue; both proofs are required.
 - Post-validation merge state is read from GitHub. Handoff files point to that live probe instead of requiring an endless repository-only closeout commit.
 - The hourly worktree cron is retired. The accepted topology is one visible controller plus bounded workers without app-task fan-out.

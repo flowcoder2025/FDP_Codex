@@ -50,7 +50,7 @@ function nodeScriptInvocation(scriptPath, execPath, platform) {
   return { command: node, argsPrefix: [script] };
 }
 
-function explicitInvocation(override, execPath, platform) {
+function explicitInvocation(override, execPath, platform, targetRoot) {
   if (!path.isAbsolute(override)) {
     throw new Error('CODEX_CLI_PATH must be an absolute executable or JavaScript shim path');
   }
@@ -59,10 +59,14 @@ function explicitInvocation(override, execPath, platform) {
   }
   if (path.extname(override).toLowerCase() === '.js') {
     const invocation = nodeScriptInvocation(override, execPath, platform);
-    if (invocation) return invocation;
+    if (invocation && !isWithin(targetRoot, invocation.argsPrefix[0])) return invocation;
   } else {
     const command = canonicalFile(override, { executable: platform !== 'win32' });
-    if (command) return { command, argsPrefix: [] };
+    if (command && !isWithin(targetRoot, command)) return { command, argsPrefix: [] };
+  }
+  const canonicalOverride = canonicalFile(override);
+  if (canonicalOverride && isWithin(targetRoot, canonicalOverride)) {
+    throw new Error('CODEX_CLI_PATH must not resolve inside the target working directory');
   }
   throw new Error('CODEX_CLI_PATH does not identify a readable absolute Codex command');
 }
@@ -101,10 +105,10 @@ export function resolveCodexInvocation({
   execPath = process.execPath,
   targetCwd = process.cwd(),
 } = {}) {
-  const override = environmentValue(env, 'CODEX_CLI_PATH', platform);
-  if (override) return explicitInvocation(override, execPath, platform);
-
   const targetRoot = canonicalTargetRoot(targetCwd);
+  const override = environmentValue(env, 'CODEX_CLI_PATH', platform);
+  if (override) return explicitInvocation(override, execPath, platform, targetRoot);
+
   const appData = environmentValue(env, 'APPDATA', platform);
   if (platform === 'win32' && appData && path.isAbsolute(appData)) {
     const npmShimTarget = path.join(

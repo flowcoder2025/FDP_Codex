@@ -1514,6 +1514,31 @@ function parseWorkerResult(stdout) {
   return results[0];
 }
 
+function assertNullRootTerminalResult(result, expectedStatus) {
+  assert.equal(result.schema_version, 1);
+  assert.equal(result.kind, 'managed-worker-result');
+  assert.equal(result.status, expectedStatus);
+  assert.equal(result.ok, false);
+  assert.equal(result.root_pid, null);
+  assert.deepEqual(result.observed_descendant_pids, []);
+  assert.equal(result.observation_verified, false);
+  assert.deepEqual(result.containment, {
+    mode: 'windows-job-object',
+    assigned: false,
+    drained: false,
+    verified: false,
+    controller_watchdog_armed: false,
+    controller_watchdog_stopped: false,
+    wrapper_closed: false,
+    root_started_at: null,
+    atomic_child_pid: null,
+    atomic_child_started_at: null,
+    errors: [],
+  });
+  assert.equal(result.cleanup.required, false);
+  assert.equal(result.cleanup.verified, true);
+}
+
 async function runControllerIdentityMismatchCase() {
   const token = 'b'.repeat(64);
   const child = spawn(windowsJobRunnerExecutablePath, [
@@ -1553,6 +1578,8 @@ async function runCodexInvocationResolutionCases() {
     await mkdir(targetRoot);
     await mkdir(trustedRoot);
     await writeFile(targetShadow, 'target-controlled shadow executable\n', 'utf8');
+    const targetShim = path.join(targetRoot, 'codex.js');
+    await writeFile(targetShim, 'console.log("target-controlled shim");\n', 'utf8');
     await copyFile(windowsJobRunnerExecutablePath, trustedExecutable);
 
     assert.throws(
@@ -1563,6 +1590,24 @@ async function runCodexInvocationResolutionCases() {
         targetCwd: targetRoot,
       }),
       /must be an absolute/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { CODEX_CLI_PATH: targetShadow },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: targetRoot,
+      }),
+      /must not resolve inside the target working directory/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { CODEX_CLI_PATH: targetShim },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: targetRoot,
+      }),
+      /must not resolve inside the target working directory/,
     );
     assert.throws(
       () => resolveCodexInvocation({
@@ -1586,6 +1631,7 @@ async function runCodexInvocationResolutionCases() {
 
     return {
       relative_override_rejected: true,
+      target_cwd_override_rejected: true,
       target_cwd_shadow_rejected: true,
       path_fallback_absolute: path.isAbsolute(fallback.command),
       trusted_fallback_selected: true,
@@ -1621,6 +1667,48 @@ async function runNativeErrorDetailCase() {
     win32_error_code_preserved: true,
     native_message_preserved: true,
   };
+}
+
+async function runCliSetupFailureCase(override, expectedMessage) {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-setup-failure-'));
+  try {
+    const child = spawn(process.execPath, [
+      workerCliPath,
+      '--cwd', tempRoot,
+      '--timeout-ms', '1000',
+      '--sandbox', 'read-only',
+    ], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        CODEX_CLI_PATH: override,
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const captured = await captureChild(child, 'setup failure terminal result regression\n');
+    assert.equal(captured.code, 1, JSON.stringify(captured, null, 2));
+    assert.equal(captured.signal, null);
+    const result = parseWorkerResult(captured.stdout);
+    assertNullRootTerminalResult(result, 'setup_failed');
+    assert(result.observation_errors.some((message) => message.includes(expectedMessage)), JSON.stringify(result, null, 2));
+    const events = captured.stdout.split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line));
+    assert.equal(events.filter((event) => event.type === 'worker.wrapper_error').length, 1);
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assert.equal(events.some((event) => event.type === 'worker.started'), false);
+    return {
+      exit_code: captured.code,
+      status: result.status,
+      root_pid: result.root_pid,
+      wrapper_spawned: false,
+      terminal_schema_complete: true,
+      result_event_count: 1,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 }
 
 async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
@@ -1808,6 +1896,11 @@ const windowsCases = process.platform === 'win32' ? {
   controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
   codexInvocationResolution: await runCodexInvocationResolutionCases(),
   nativeErrorDetail: await runNativeErrorDetailCase(),
+  cliRelativeOverrideFailure: await runCliSetupFailureCase('codex.exe', 'must be an absolute'),
+  cliMissingOverrideFailure: await runCliSetupFailureCase(
+    path.join(os.tmpdir(), 'fdp-codex-command-does-not-exist.exe'),
+    'does not identify a readable absolute Codex command',
+  ),
   cliPromptTimeout: await runCliPromptBoundaryCase(124),
   cliPromptInterruption: await runCliPromptBoundaryCase(130, 750),
   cliTimeoutExit: await runCliPrimaryExitCase(124),
@@ -1930,6 +2023,8 @@ console.log(JSON.stringify({
       controller_identity_mismatch: windowsCases.controllerIdentityMismatch,
       codex_invocation_resolution: windowsCases.codexInvocationResolution,
       native_error_detail: windowsCases.nativeErrorDetail,
+      cli_relative_override_failure: windowsCases.cliRelativeOverrideFailure,
+      cli_missing_override_failure: windowsCases.cliMissingOverrideFailure,
       cli_prompt_timeout: windowsCases.cliPromptTimeout,
       cli_prompt_interruption: windowsCases.cliPromptInterruption,
       cli_timeout_exit: windowsCases.cliTimeoutExit,

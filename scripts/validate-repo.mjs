@@ -24,6 +24,16 @@ const currentCandidateIssueBody = [
 ].join('\n');
 const staleCandidateIssueBody = currentCandidateIssueBody.replace(workerIssueCandidateHead, workerIssueStaleHead);
 const currentRevisionIssueBody = '- Current revision: ' + workerIssueCandidateHead;
+const multilineCurrentCandidateIssueBody = [
+  '- Current candidate:',
+  '  PR #65 at ' + workerIssueCandidateHead,
+].join('\n');
+const multilineStaleCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueStaleHead);
+const multilineCurrentShortCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueCandidateHead.slice(0, 7));
+const multilineStaleShortCandidateIssueBody = multilineCurrentCandidateIssueBody
+  .replace(workerIssueCandidateHead, workerIssueStaleHead.slice(0, 7));
 checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head',
   65,
@@ -47,9 +57,17 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   )) === '["376e82"]'
   && findCandidateReferenceFields(currentCandidateIssueBody).length === 1
   && findCandidateReferenceFields(currentRevisionIssueBody).length === 1
+  && findCandidateReferenceFields(multilineCurrentCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineStaleCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineCurrentShortCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(multilineStaleShortCandidateIssueBody).length === 1
   && hasExactCandidateHeadReferences(currentCandidateIssueBody, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(currentRevisionIssueBody, workerIssueCandidateHead)
-  && !hasExactCandidateHeadReferences(staleCandidateIssueBody, workerIssueCandidateHead);
+  && hasExactCandidateHeadReferences(multilineCurrentCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(staleCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineStaleCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineCurrentShortCandidateIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(multilineStaleShortCandidateIssueBody, workerIssueCandidateHead);
 const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
 
 const hasSingleExactClaim = (text, exactClaim, mention) => text.includes(exactClaim)
@@ -3899,6 +3917,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const reusedParentKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-004');
   const commandPathKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-005');
   const promptSchemaKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-006');
+  const setupResultKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-007');
+  const candidateAuditKi = knownIssues.find((item) => item.id === 'KI-CX-CONTROL-002');
   const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
   const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
   const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
@@ -4201,9 +4221,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && runner.includes('const remainingMs = deadlineAt - Date.now()')
     && runner.includes('timeoutMs: remainingMs')
     && runner.includes('emitPromptBoundaryResult')
+    && runner.includes('function buildNullRootResult(')
+    && runner.includes('function emitSetupFailureResult(')
+    && runner.includes("status: 'setup_failed'")
     && runner.includes('controller_watchdog_stopped: false')
     && runner.includes('resolveCodexInvocation({ targetCwd: args.cwd })')
-    && runner.indexOf('const result = await runManagedProcess({') < runner.lastIndexOf("emitJson({ type: 'worker.result'")
+    && runner.indexOf('const result = await runManagedProcess({') < runner.lastIndexOf('emitTerminalResult(result)')
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
@@ -4349,6 +4372,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.exit_code === 125
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.mismatch_rejected_before_worker_creation === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.relative_override_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_override_rejected === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_shadow_rejected === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.path_fallback_absolute === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.trusted_fallback_selected === true
@@ -4356,6 +4380,18 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.operation_preserved === true
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.win32_error_code_preserved === true
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.native_message_preserved === true
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.exit_code === 1
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.status === 'setup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.result_event_count === 1
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.exit_code === 1
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.status === 'setup_failed'
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.root_pid === null
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_missing_override_failure?.result_event_count === 1
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.exit_code === 124
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.status === 'timed_out'
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.root_pid === null
@@ -4831,7 +4867,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && temporalKi.repayment_condition.includes('temporal descendant filtering')
     && temporalKi.hard_stop.includes('before dogfood continuation')
     && temporalKi.evidence === temporalRecordPath;
-  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'open'
+  checks.worker_reused_parent_known_issue = reusedParentKi?.status === 'repaid-on-merge'
+    && reusedParentKi?.repaid_by === 'WI-CX0060-test'
     && reusedParentKi.severity === 'High'
     && reusedParentKi.owner === 'CODEX'
     && reusedParentKi.github_issue_number === 64
@@ -4887,7 +4924,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('Issue #61 comment `4950118514` supersedes historical comment `4938282551`')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
-  checks.worker_command_path_known_issue = commandPathKi?.status === 'open'
+  checks.worker_command_path_known_issue = commandPathKi?.status === 'repaid-on-merge'
+    && commandPathKi?.repaid_by === 'WI-CX0060-test'
     && commandPathKi.severity === 'High'
     && commandPathKi.owner === 'CODEX'
     && commandPathKi.github_issue_number === 66
@@ -4901,7 +4939,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && fixPlan.includes('KI-CX-WORKER-005 / Issue #66')
     && handoff.includes('KI-CX-WORKER-005 / Issue #66')
     && proofRecord.includes('KI-CX-WORKER-005 / Issue #66');
-  checks.worker_prompt_schema_known_issue = promptSchemaKi?.status === 'open'
+  checks.worker_prompt_schema_known_issue = promptSchemaKi?.status === 'repaid-on-merge'
+    && promptSchemaKi?.repaid_by === 'WI-CX0060-test'
     && promptSchemaKi.severity === 'High'
     && promptSchemaKi.owner === 'CODEX'
     && promptSchemaKi.github_issue_number === 67
@@ -4914,6 +4953,32 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && fixPlan.includes('KI-CX-WORKER-006 / Issue #67')
     && handoff.includes('KI-CX-WORKER-006 / Issue #67')
     && proofRecord.includes('KI-CX-WORKER-006 / Issue #67');
+  checks.worker_setup_result_known_issue = setupResultKi?.status === 'repaid-on-merge'
+    && setupResultKi?.repaid_by === 'WI-CX0060-test'
+    && setupResultKi.severity === 'High'
+    && setupResultKi.owner === 'CODEX'
+    && setupResultKi.github_issue_number === 68
+    && setupResultKi.trigger.includes('worker.wrapper_error without publishing')
+    && setupResultKi.repayment_condition.includes('exactly one complete null-root worker.result')
+    && setupResultKi.hard_stop.includes('before PR readiness')
+    && setupResultKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-007 / Issue #68')
+    && fixPlan.includes('KI-CX-WORKER-007 / Issue #68')
+    && handoff.includes('KI-CX-WORKER-007 / Issue #68')
+    && proofRecord.includes('KI-CX-WORKER-007 / Issue #68');
+  checks.worker_candidate_audit_known_issue = candidateAuditKi?.status === 'repaid-on-merge'
+    && candidateAuditKi?.repaid_by === 'WI-CX0060-test'
+    && candidateAuditKi.severity === 'High'
+    && candidateAuditKi.owner === 'CODEX'
+    && candidateAuditKi.github_issue_number === 69
+    && candidateAuditKi.trigger.includes('multiline Current candidate')
+    && candidateAuditKi.repayment_condition.includes('continuation lines')
+    && candidateAuditKi.hard_stop.includes('before PR readiness')
+    && candidateAuditKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-CONTROL-002 / Issue #69')
+    && fixPlan.includes('KI-CX-CONTROL-002 / Issue #69')
+    && handoff.includes('KI-CX-CONTROL-002 / Issue #69')
+    && proofRecord.includes('KI-CX-CONTROL-002 / Issue #69');
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
@@ -5011,7 +5076,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && state.layer2_target?.observed_inconsistency?.github_issue_number === 62
     && reviewAvailabilityKi?.severity === 'High'
     && reviewAvailabilityKi?.owner.includes('execution platform')
-    && reviewAvailabilityKi?.status === 'open'
+    && reviewAvailabilityKi?.status === 'repaid-on-merge'
+    && reviewAvailabilityKi?.repaid_by === 'WI-CX0060-test'
     && reviewAvailabilityKi?.github_issue_number === 63
     && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
     && reviewAvailabilityKi?.trigger.includes('7696fbb')
@@ -5050,6 +5116,18 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && fixPlan.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
     && proofRecord.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
     && handoff.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5ae5-5c4c-76c1-97f6-fbd923c0a122'
+      && attempt.reviewed_head === 'a76f111c0361a0a409ad42c24673ef86249aedb2'
+      && attempt.github_review_id === 4683739642
+      && attempt.result.includes('relative-command-shadow'))
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b27-a680-7d20-8c02-bb5c71eb6bc6'
+      && attempt.reviewed_head === 'c2a24c8ce22c47972afd67d30ad8799d4fcc14e1'
+      && attempt.github_review_id === 4684212043
+      && attempt.result.includes('setup-failure-terminal-result'))
+    && currentWi.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && fixPlan.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && proofRecord.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && handoff.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
     && workerControlAudit.includes('findCandidateReferenceFields')
     && workerControlAudit.includes('hasExactCandidateHeadReferences')
     && handoff.includes('PR #65 is already published')
@@ -5090,6 +5168,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_reused_parent_known_issue) error('worker_lifecycle.reused_parent_ki_missing', 'WI-CX0060 must record and repay the Windows reused-parent false-descendant KI with Issue #64 evidence.');
   if (!checks.worker_command_path_known_issue) error('worker_lifecycle.command_path_ki_missing', 'WI-CX0060 must record trusted absolute command resolution debt with Issue #66 evidence.');
   if (!checks.worker_prompt_schema_known_issue) error('worker_lifecycle.prompt_schema_ki_missing', 'WI-CX0060 must record prompt-boundary schema debt with Issue #67 evidence.');
+  if (!checks.worker_setup_result_known_issue) error('worker_lifecycle.setup_result_ki_missing', 'WI-CX0060 must record setup-failure terminal-result debt with Issue #68 evidence.');
+  if (!checks.worker_candidate_audit_known_issue) error('worker_lifecycle.candidate_audit_ki_missing', 'WI-CX0060 must record multiline candidate-audit debt with Issue #69 evidence.');
   if (!checks.worker_lifecycle_boundary) error('worker_lifecycle.boundary_missing', 'WI-CX0059 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.', liveRunnerStatus);
   if (!checks.worker_temporal_identity_registration) error('worker_temporal_identity.registration_missing', 'Manifest and indexes must register the WI-CX0061 validation record.');
   if (!checks.worker_temporal_identity_ledger) error('worker_temporal_identity.ledger_missing', 'WI-CX0061 must retain its 17-entry metadata-only fresh context evidence.');

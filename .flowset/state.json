@@ -404,6 +404,13 @@
           "reviewed_head": "a76f111c0361a0a409ad42c24673ef86249aedb2",
           "github_review_id": 4683739642,
           "result": "fail-one-p1-relative-command-shadow-one-p2-prompt-result-schema-one-p3-native-error-detail-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f5b27-a680-7d20-8c02-bb5c71eb6bc6",
+          "fork_context": false,
+          "reviewed_head": "c2a24c8ce22c47972afd67d30ad8799d4fcc14e1",
+          "github_review_id": 4684212043,
+          "result": "fail-two-p2-setup-failure-terminal-result-and-multiline-candidate-audit-remediated-awaiting-fresh-review"
         }
       ]
     },
@@ -511,6 +518,10 @@
           "exact_wrapper_close_required": "passed-actual-close-event-required-no-exit-state-shortcut",
           "cli_prompt_timeout": "passed-held-open-stdin-124-null-root-no-wrapper",
           "cli_prompt_interruption": "passed-held-open-stdin-130-null-root-no-wrapper",
+          "cli_relative_override_failure": "passed-exit-1-one-complete-null-root-setup-failed-result",
+          "cli_missing_override_failure": "passed-exit-1-one-complete-null-root-setup-failed-result",
+          "target_root_override_exclusion": "passed-absolute-executable-and-js-shim-rejected",
+          "multiline_candidate_fields": "passed-current-full-exact-stale-full-and-short-rejected",
           "timeout_exit_classification": "passed-real-cli-cleanup-failed-timeout-124-interruption-130",
           "stdin_early_exit_cleanup": "passed-1mib-write-eof-structured-result",
           "stdin_timeout_cleanup": "passed-injected-post-timeout-stdin-error-structured-result",
@@ -729,7 +740,8 @@
       "defer_reason": "a reproducibly built WindowsApplication runner with tracked C# source, deterministic Roslyn compiler and reference hash receipt, exact rebuild verification, and in-process artifact verification before spawn, no runtime compiler or PowerShell wrapper, no-console wrapper and worker creation, and a stalled pre-run setup regression with zero temporally valid direct setup children after stale-parent creation-time filtering, no worker side effect, bounded exact-wrapper close, and complete wrapper classification now pass locally; pre-spawn controller-identity guard race, exact owned lookup-child termination plus close confirmation, final guard immediately before spawn after invocation materialization, explicit watchdog cancellation plus joined normal teardown before native handle close, shared final-result publication and reclassification on every terminal path, wrapper-stop kill-rejection and close-timeout coverage, controller pre-acquisition death with no worker side effect, behavioral control-environment isolation, authenticated control markers, controller identity binding, exact-wrapper close verification, real CLI exit preservation, immutable identities, atomic Job containment, bounded observation, and truthful classification pass locally, but fresh independent review, PR validation, merge, and post-merge audit remain",
       "repayment_condition": "the explicit build produces the exact checked executable from the tracked source and compiler/reference receipt, and the visible controller verifies the tracked C# source and prebuilt executable hashes before spawn and returns runner_artifact_failed with null root on mismatch; runtime setup creates no temporally valid compiler, PowerShell wrapper, or console-host child after stale-parent creation-time filtering; a stalled pre-run setup closes the exact wrapper within the finite bound, creates no worker side effect, and classifies the wrapper exactly once; a timeout or interruption that wins before spawn creates no wrapper or worker and terminates any started controller-identity lookup child through its exact handle with close confirmed before return; controller death before watchdog acquisition creates no worker side effect; the real worker inherits no control token, controller PID, or controller creation FILETIME; the wrapper, atomic worker, and all other observed descendants each receive exactly one gone, identity-mismatch, alive, or unknown classification; observer failure uses unknown and remains unverified; throwing event callbacks and failed stdin writes return only after structured verified cleanup; root, assignment, controller-watchdog, atomic-child, drain, and error markers require the exact per-invocation token; the token, controller PID, and controller creation FILETIME are removed from the wrapper environment before worker creation; the wrapper must open one native controller handle, validate creation FILETIME from that same handle, retain it, and terminate the Job when that handle signals; the actual wrapper close event is mandatory before cleanup verification; real CLI child-process tests prove timeout and interruption retain CLI exits 124 and 130 under cleanup failure; forged markers never change containment state or observed identity; initial root identity requires a native marker whose PID equals the exact spawned wrapper and never uses parent or name fallback; known-start identities with missing current start-time metadata remain unknown, unsignaled, and unverified; newly discovered descendants require start-time metadata or remain unobserved unknown candidates with verification failed; pre-spawn deadlines, native same-supervisor-safe root identity, parent identity filtering, no PID-only descendant signaling, watchdog cancellation and join before Job or controller handle close on normal teardown, Windows Job Object containment, atomic wrapper-kill containment, observer-hang finite timeout, reused-PID, and fast-parent-exit coverage pass; the related PR merges; post-merge control-plane audit passes; and Issue #64 closes with that evidence",
       "hard_stop": "before post-merge WI closeout or generalized managed-worker use",
-      "status": "open",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
       "github_issue_number": 64,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/64"
@@ -742,7 +754,8 @@
       "defer_reason": "relative overrides and Windows cmd or bat shims are rejected; fallback uses canonical absolute paths, excludes target-root candidates, and preserves native operation, Win32 code, and OS message; focused lifecycle tests and local smoke pass, but canonical validation, fresh review, PR validation, merge, and post-merge audit remain",
       "repayment_condition": "trusted absolute override and PATH resolution regressions pass; target-cwd shadowing is rejected; native process failures preserve operation, Win32 error code, and message; canonical validation passes; the exact final head receives a blind PASS; PR #65 merges; post-merge audit passes; Issue #66 closes with that evidence",
       "hard_stop": "before PR readiness, independent-pass or merge-approval labels, merge, or generalized managed-worker use",
-      "status": "open",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
       "github_issue_number": 66,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/66"
@@ -755,10 +768,39 @@
       "defer_reason": "prompt-boundary results now explicitly report both watchdog fields false and timeout plus interruption regressions assert the complete containment shape; focused lifecycle tests pass, but canonical validation, fresh review, PR validation, merge, and post-merge audit remain",
       "repayment_condition": "prompt timeout and interruption each emit exactly one complete schema-version-1 result with null root, no wrapper, and explicit false watchdog armed and stopped fields; canonical validation passes; the exact final head receives a blind PASS; PR #65 merges; post-merge audit passes; Issue #67 closes with that evidence",
       "hard_stop": "before PR readiness, independent-pass or merge-approval labels, merge, or treating prompt-boundary evidence as schema-complete",
-      "status": "open",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
       "evidence": "docs/records/validation-wi-cx0060-test.md",
       "github_issue_number": 67,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/67"
+    },
+    {
+      "id": "KI-CX-WORKER-007",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "exact head c2a24c8ce22c47972afd67d30ad8799d4fcc14e1 failed blind review 4684212043 because a rejected relative CODEX_CLI_PATH exited through worker.wrapper_error without publishing the schema-version-1 worker.result",
+      "defer_reason": "the CLI now routes invocation resolution and equivalent setup failures through a shared null-root result factory and fixed terminal publisher; relative and missing override subprocess regressions pass, but canonical validation, fresh review, PR validation, merge, and post-merge audit remain",
+      "repayment_condition": "relative override and missing command setup failures each publish exactly one complete null-root worker.result with status setup_failed and no wrapper; canonical validation passes; the exact final head receives a blind PASS; PR #65 merges; post-merge audit passes; Issue #68 closes with that evidence",
+      "hard_stop": "before PR readiness, independent-pass or merge-approval labels, merge, or claiming exactly-once terminal evidence across setup failures",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
+      "evidence": "docs/records/validation-wi-cx0060-test.md",
+      "github_issue_number": 68,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/68"
+    },
+    {
+      "id": "KI-CX-CONTROL-002",
+      "severity": "High",
+      "owner": "CODEX",
+      "trigger": "exact head c2a24c8ce22c47972afd67d30ad8799d4fcc14e1 failed blind review 4684212043 because a multiline Current candidate field could hide a stale PR SHA from the live control-plane audit",
+      "defer_reason": "structured Issue parsing now joins indented continuation lines and exact-head validation rejects stale full and abbreviated multiline references; canonical validation, fresh review, merge, and post-merge audit remain",
+      "repayment_condition": "candidate fields include continuation lines; a current full SHA passes while stale full and current or stale abbreviated SHAs fail closed; the live audit uses that parser; canonical validation passes; the exact final head receives a blind PASS; PR #65 merges; post-merge audit passes; Issue #69 closes with that evidence",
+      "hard_stop": "before PR readiness, independent-pass or merge-approval labels, merge, or trusting control-plane audit as false-green resistant",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
+      "evidence": "docs/records/validation-wi-cx0060-test.md",
+      "github_issue_number": 69,
+      "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/69"
     },
     {
       "id": "KI-CX-PROVIDER-001",
@@ -804,7 +846,8 @@
       "defer_reason": "no incomplete or failed review is presented as PASS, and each remediated head requires a fresh review generation",
       "repayment_condition": "a clean-context reviewer returns PASS with no unresolved P0, P1, or P2 finding and the audit accepts that exact final PR head",
       "hard_stop": "before marking WI-CX0060 validated, PR readiness, independent-pass or merge-approval labels, or merge",
-      "status": "open",
+      "status": "repaid-on-merge",
+      "repaid_by": "WI-CX0060-test",
       "github_issue_number": 63,
       "github_issue": "https://github.com/flowcoder2025/FDP_Codex/issues/63"
     },

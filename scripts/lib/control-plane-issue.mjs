@@ -4,14 +4,25 @@ const CANDIDATE_CONTEXT_PATTERN = /\b(?:candidate|commit|head|revision|sha)\b/i;
 const GIT_REF_PATTERN = /\b[0-9a-f]{4,40}\b/gi;
 
 export function parseStructuredIssueFields(body) {
-  return String(body || '')
-    .split(/\r?\n/)
-    .map((line) => /^\s*-\s*([^:\r\n]+):\s*(.*)$/.exec(line))
-    .filter(Boolean)
-    .map((match) => ({
-      name: match[1].trim(),
-      value: match[2].trim(),
-    }));
+  const fields = [];
+  let activeField = null;
+  for (const line of String(body || '').split(/\r?\n/)) {
+    const match = /^\s*-\s*([^:\r\n]+):\s*(.*)$/.exec(line);
+    if (match) {
+      activeField = {
+        name: match[1].trim(),
+        value: match[2].trim(),
+      };
+      fields.push(activeField);
+      continue;
+    }
+    if (activeField && /^\s{2,}\S/.test(line)) {
+      activeField.value = [activeField.value, line.trim()].filter(Boolean).join(' ');
+      continue;
+    }
+    activeField = null;
+  }
+  return fields;
 }
 
 export function findPinnedCandidateRefs(body) {
