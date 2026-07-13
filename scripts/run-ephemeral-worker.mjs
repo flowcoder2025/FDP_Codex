@@ -165,6 +165,7 @@ function emitPromptBoundaryResult(kind, timeoutMs, reason) {
       drained: false,
       verified: false,
       controller_watchdog_armed: false,
+      controller_watchdog_stopped: false,
       wrapper_closed: false,
       root_started_at: null,
       atomic_child_pid: null,
@@ -207,7 +208,7 @@ async function main() {
   process.once('SIGTERM', onSigterm);
 
   try {
-    const invocation = resolveCodexInvocation();
+    const invocation = resolveCodexInvocation({ targetCwd: args.cwd });
     let prompt;
     try {
       prompt = await readPrompt(deadlineAt, abortController.signal);

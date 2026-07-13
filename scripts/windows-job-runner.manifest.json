@@ -1,9 +1,9 @@
 {
     "schema_version":  2,
     "source":  "windows-job-runner.cs",
-    "source_sha256":  "68b81b1588b0139a759b733357995f144e46897bdb6603e3a55b5ec5c6d42baa",
+    "source_sha256":  "8737d64f3dce095fd1c3297b0342c76e2993a135852d53e950d7e2187ce8b60d",
     "executable":  "windows-job-runner.exe",
-    "executable_sha256":  "36175c0be9705f3538eba2f8aa83c194f8b1d1a7711867100230d71ea5b4c254",
+    "executable_sha256":  "88b06e2c57aca6fd17a5fac60b593cced098cb4db573d405386bd1b2a54eb5d8",
     "build":  {
                   "tool":  "dotnet-roslyn-csc",
                   "compiler_version":  "4.11.0-3.25569.22 (3fb752d4)",

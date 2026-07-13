@@ -141,6 +141,8 @@ This split supersedes the retired Codex app worktree cron as the supported direc
 
 ### Ephemeral Worker Process Lifecycle
 
+Before using a target working directory, the controller must reject relative CLI overrides, resolve the Codex executable or Node-plus-shim pair to canonical absolute paths, exclude PATH candidates inside the target root, and fail closed when no trusted absolute command exists. Native process-creation errors must preserve the operation, Win32 error code, and operating-system message. Prompt timeout or interruption must return the complete result schema with explicit `controller_watchdog_armed: false` and `controller_watchdog_stopped: false` when no wrapper was created.
+
 Supervised local ephemeral workers must run through `scripts/run-ephemeral-worker.mjs`. Direct unmanaged `codex exec --ephemeral` use is not allowed for unattended WI execution.
 
 Managed workers are instructed not to execute repository-supplied scripts or package managers, and the visible controller runs canonical validation after worker exit. This is not runtime command confinement. Project-local command rules apply to the visible controller too, so they must not be installed as a worker-only control. Generalized managed-worker use remains blocked until a worker-specific command boundary exists.

@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildEphemeralWorkerArgs } from './lib/codex-invocation.mjs';
+import { buildEphemeralWorkerArgs, resolveCodexInvocation } from './lib/codex-invocation.mjs';
 import {
   classifyControllerIdentityLookupCleanup,
   classifyProcessIdentity,
@@ -183,6 +183,31 @@ function captureChild(child, stdinText = null) {
     child.once('error', reject);
     child.once('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
   });
+}
+
+async function getWindowsProcessCreationFileTime(pid) {
+  const powershell = path.join(
+    process.env.SystemRoot || 'C:\\Windows',
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  );
+  const child = spawn(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    '(Get-Process -Id ' + pid + ' -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()',
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 0, JSON.stringify(result, null, 2));
+  const value = result.stdout.trim();
+  assert(/^\d+$/.test(value), JSON.stringify(result, null, 2));
+  return value;
 }
 
 async function runDelayedWrapperCloseCase() {
@@ -1518,6 +1543,86 @@ async function runControllerIdentityMismatchCase() {
   };
 }
 
+async function runCodexInvocationResolutionCases() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-codex-invocation-'));
+  const targetRoot = path.join(tempRoot, 'target');
+  const trustedRoot = path.join(tempRoot, 'trusted');
+  const targetShadow = path.join(targetRoot, 'codex.exe');
+  const trustedExecutable = path.join(trustedRoot, 'codex.exe');
+  try {
+    await mkdir(targetRoot);
+    await mkdir(trustedRoot);
+    await writeFile(targetShadow, 'target-controlled shadow executable\n', 'utf8');
+    await copyFile(windowsJobRunnerExecutablePath, trustedExecutable);
+
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { CODEX_CLI_PATH: 'codex.exe' },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: targetRoot,
+      }),
+      /must be an absolute/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { PATH: targetRoot },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: targetRoot,
+      }),
+      /trusted absolute path/,
+    );
+
+    const fallback = resolveCodexInvocation({
+      env: { PATH: targetRoot + path.delimiter + trustedRoot },
+      platform: 'win32',
+      execPath: process.execPath,
+      targetCwd: targetRoot,
+    });
+    assert.equal(path.resolve(fallback.command), path.resolve(trustedExecutable));
+    assert.deepEqual(fallback.argsPrefix, []);
+    assert.notEqual(path.resolve(fallback.command), path.resolve(targetShadow));
+
+    return {
+      relative_override_rejected: true,
+      target_cwd_shadow_rejected: true,
+      path_fallback_absolute: path.isAbsolute(fallback.command),
+      trusted_fallback_selected: true,
+    };
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
+async function runNativeErrorDetailCase() {
+  const token = 'c'.repeat(64);
+  const missingExecutable = path.join(os.tmpdir(), 'fdp-codex-command-does-not-exist.exe');
+  const child = spawn(windowsJobRunnerExecutablePath, [
+    missingExecutable,
+    process.cwd(),
+  ], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      FDP_JOB_CONTROL_TOKEN: token,
+      FDP_JOB_CONTROLLER_PID: String(process.pid),
+      FDP_JOB_CONTROLLER_START_FILETIME: await getWindowsProcessCreationFileTime(process.pid),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 125, JSON.stringify(result, null, 2));
+  assert(result.stderr.includes('CreateProcess failed with Win32 error 2:'), JSON.stringify(result, null, 2));
+  return {
+    exit_code: result.code,
+    operation_preserved: true,
+    win32_error_code_preserved: true,
+    native_message_preserved: true,
+  };
+}
+
 async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-worker-cli-exit-'));
   try {
@@ -1613,12 +1718,27 @@ async function runCliPromptBoundaryCase(expectedExitCode, abortAfterMs = null) {
     assert.equal(workerResult.root_pid, null);
     assert.equal(workerResult.cleanup.required, false);
     assert.equal(workerResult.cleanup.verified, true);
+    assert.deepEqual(workerResult.containment, {
+      mode: 'windows-job-object',
+      assigned: false,
+      drained: false,
+      verified: false,
+      controller_watchdog_armed: false,
+      controller_watchdog_stopped: false,
+      wrapper_closed: false,
+      root_started_at: null,
+      atomic_child_pid: null,
+      atomic_child_started_at: null,
+      errors: [],
+    });
     assert.equal(result.stdout.includes('"type":"worker.started"'), false);
     return {
       exit_code: result.code,
       status: workerResult.status,
       root_pid: workerResult.root_pid,
       wrapper_spawned: false,
+      terminal_schema_complete: true,
+      controller_watchdog_stopped: workerResult.containment.controller_watchdog_stopped,
       elapsed_ms: elapsedMs,
     };
   } finally {
@@ -1686,6 +1806,8 @@ const windowsCases = process.platform === 'win32' ? {
   controllerPreAcquireDeath: await runControllerPreAcquireDeathCase(),
   controllerDeathWatchdog: await runControllerDeathWatchdogCase(),
   controllerIdentityMismatch: await runControllerIdentityMismatchCase(),
+  codexInvocationResolution: await runCodexInvocationResolutionCases(),
+  nativeErrorDetail: await runNativeErrorDetailCase(),
   cliPromptTimeout: await runCliPromptBoundaryCase(124),
   cliPromptInterruption: await runCliPromptBoundaryCase(130, 750),
   cliTimeoutExit: await runCliPrimaryExitCase(124),
@@ -1806,6 +1928,8 @@ console.log(JSON.stringify({
         atomic_child_gone: windowsCases.controllerDeathWatchdog.atomic_child_gone,
       },
       controller_identity_mismatch: windowsCases.controllerIdentityMismatch,
+      codex_invocation_resolution: windowsCases.codexInvocationResolution,
+      native_error_detail: windowsCases.nativeErrorDetail,
       cli_prompt_timeout: windowsCases.cliPromptTimeout,
       cli_prompt_interruption: windowsCases.cliPromptInterruption,
       cli_timeout_exit: windowsCases.cliTimeoutExit,

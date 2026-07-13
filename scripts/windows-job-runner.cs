@@ -209,7 +209,11 @@ public static class FdpWindowsJobRunner
 
     private static void ThrowLastError(string operation)
     {
-        throw new Win32Exception(Marshal.GetLastWin32Error(), operation);
+        var errorCode = Marshal.GetLastWin32Error();
+        var nativeError = new Win32Exception(errorCode);
+        throw new Win32Exception(
+            errorCode,
+            operation + " failed with Win32 error " + errorCode + ": " + nativeError.Message);
     }
 
     private static long FileTimeToLong(System.Runtime.InteropServices.ComTypes.FILETIME value)

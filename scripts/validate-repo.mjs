@@ -3897,6 +3897,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const providerKi = knownIssues.find((item) => item.id === 'KI-CX-PROVIDER-001');
   const temporalKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-002');
   const reusedParentKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-004');
+  const commandPathKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-005');
+  const promptSchemaKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-006');
   const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
   const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
   const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
@@ -4169,6 +4171,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_ASSIGNED:" + controlToken')
     && windowsJobRunner.includes('Console.Error.WriteLine("FDP_JOB_RUNNER_ERROR:" + controlToken')
+    && windowsJobRunner.includes('operation + " failed with Win32 error " + errorCode + ": " + nativeError.Message')
     && windowsJobRunner.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)')
     && windowsJobRunner.includes('var controllerHandle = OpenProcess(')
     && windowsJobRunner.includes('GetProcessTimes(')
@@ -4198,11 +4201,17 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && runner.includes('const remainingMs = deadlineAt - Date.now()')
     && runner.includes('timeoutMs: remainingMs')
     && runner.includes('emitPromptBoundaryResult')
+    && runner.includes('controller_watchdog_stopped: false')
+    && runner.includes('resolveCodexInvocation({ targetCwd: args.cwd })')
     && runner.indexOf('const result = await runManagedProcess({') < runner.lastIndexOf("emitJson({ type: 'worker.result'")
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
     && codexInvocation.includes('CODEX_CLI_PATH')
+    && codexInvocation.includes('path.isAbsolute(override)')
+    && codexInvocation.includes('realpathSync')
+    && codexInvocation.includes('!isWithin(targetRoot, command)')
+    && codexInvocation.includes('Codex CLI was not found at a trusted absolute path')
     && codexInvocation.includes("'@openai'")
     && codexInvocation.includes("'exec'")
     && codexInvocation.includes("'--ephemeral'")
@@ -4339,14 +4348,26 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.controller_death_watchdog?.atomic_child_gone === true
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.exit_code === 125
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.mismatch_rejected_before_worker_creation === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.relative_override_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_shadow_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.path_fallback_absolute === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.trusted_fallback_selected === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.exit_code === 125
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.operation_preserved === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.win32_error_code_preserved === true
+        && testResult?.cases?.windows_lifecycle?.native_error_detail?.native_message_preserved === true
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.exit_code === 124
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.status === 'timed_out'
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.root_pid === null
         && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_timeout?.controller_watchdog_stopped === false
         && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.exit_code === 130
         && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.root_pid === null
         && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.wrapper_spawned === false
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.terminal_schema_complete === true
+        && testResult?.cases?.windows_lifecycle?.cli_prompt_interruption?.controller_watchdog_stopped === false
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.exit_code === 124
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.detailed_status === 'cleanup_failed'
         && testResult?.cases?.windows_lifecycle?.cli_timeout_exit?.cleanup_verified === false
@@ -4420,6 +4441,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runControlEnvironmentIsolationCase()')
     && lifecycleTest.includes('function runControllerPreAcquireDeathCase()')
     && lifecycleTest.includes('function runCliPromptBoundaryCase(expectedExitCode')
+    && lifecycleTest.includes('function runCodexInvocationResolutionCases()')
+    && lifecycleTest.includes('function runNativeErrorDetailCase()')
+    && lifecycleTest.includes('CreateProcess failed with Win32 error 2:')
+    && lifecycleTest.includes('terminal_schema_complete: true')
     && lifecycleTest.includes('captureChild(child),')
     && lifecycleTest.includes("assert.equal(workerResult.root_pid, null)")
     && lifecycleTest.includes('function runCliPrimaryExitCase(expectedExitCode')
@@ -4452,6 +4477,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && pkg.scripts?.['worker:verify-windows-runner-build'] === 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1 -Verify'
     && pkg.dependencies === undefined;
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
+    && autonomy.includes('reject relative CLI overrides')
+    && autonomy.includes('exclude PATH candidates inside the target root')
+    && autonomy.includes('Win32 error code, and operating-system message')
+    && autonomy.includes('`controller_watchdog_armed: false` and `controller_watchdog_stopped: false`')
     && autonomy.includes('Windows native wrapper runtime must not compile or load source')
     && autonomy.includes('source/executable SHA-256 manifest')
     && autonomy.includes('Roslyn `/deterministic+` with a normalized source path')
@@ -4576,6 +4605,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('worker:verify-windows-runner-build')
     && spec.includes('byte-for-byte equality')
     && spec.includes('compiler processes, and PowerShell wrapper hosts are forbidden')
+    && spec.includes('only an absolute Codex executable or absolute `codex.js` shim')
+    && spec.includes('excludes candidates inside the target root')
+    && spec.includes('Native API failures preserve the operation name, Win32 error code')
     && spec.includes('with a null root')
     && spec.includes('requires no temporally valid direct setup child after wrapper-start filtering')
     && spec.includes('older stale-parent rows are excluded by creation time')
@@ -4594,6 +4626,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('opens one native controller process handle')
     && spec.includes('retains that exact handle')
     && spec.includes('controller_watchdog_stopped')
+    && spec.includes('`controller_watchdog_armed: false` and `controller_watchdog_stopped: false`')
     && spec.includes('same-native-handle open/FILETIME/retention source contract')
     && spec.includes('separate watchdog cancellation event')
     && spec.includes('delayed watchdog-cancellation normal-teardown runtime case')
@@ -4854,6 +4887,33 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && proofRecord.includes('Issue #61 comment `4950118514` supersedes historical comment `4938282551`')
     && reusedParentKi.hard_stop.includes('before post-merge WI closeout')
     && reusedParentKi.evidence === proofRecordPath;
+  checks.worker_command_path_known_issue = commandPathKi?.status === 'open'
+    && commandPathKi.severity === 'High'
+    && commandPathKi.owner === 'CODEX'
+    && commandPathKi.github_issue_number === 66
+    && commandPathKi.trigger.includes('relative CLI override or fallback')
+    && commandPathKi.trigger.includes('target-cwd codex.exe')
+    && commandPathKi.repayment_condition.includes('trusted absolute override and PATH resolution')
+    && commandPathKi.repayment_condition.includes('Win32 error code')
+    && commandPathKi.hard_stop.includes('before PR readiness')
+    && commandPathKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-005 / Issue #66')
+    && fixPlan.includes('KI-CX-WORKER-005 / Issue #66')
+    && handoff.includes('KI-CX-WORKER-005 / Issue #66')
+    && proofRecord.includes('KI-CX-WORKER-005 / Issue #66');
+  checks.worker_prompt_schema_known_issue = promptSchemaKi?.status === 'open'
+    && promptSchemaKi.severity === 'High'
+    && promptSchemaKi.owner === 'CODEX'
+    && promptSchemaKi.github_issue_number === 67
+    && promptSchemaKi.trigger.includes('prompt timeout and interruption omitted')
+    && promptSchemaKi.repayment_condition.includes('complete schema-version-1 result')
+    && promptSchemaKi.repayment_condition.includes('watchdog armed and stopped')
+    && promptSchemaKi.hard_stop.includes('before PR readiness')
+    && promptSchemaKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-006 / Issue #67')
+    && fixPlan.includes('KI-CX-WORKER-006 / Issue #67')
+    && handoff.includes('KI-CX-WORKER-006 / Issue #67')
+    && proofRecord.includes('KI-CX-WORKER-006 / Issue #67');
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
@@ -5028,6 +5088,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_lifecycle_state) error('worker_lifecycle.state_missing', 'Machine state must expose local guard results and the rejected-before-execution live smoke.');
   if (!checks.worker_lifecycle_known_issue) error('worker_lifecycle.known_issue_missing', 'WI-CX0059 must repay the process KI while retaining the separate provider-trust KI and hard stops.');
   if (!checks.worker_reused_parent_known_issue) error('worker_lifecycle.reused_parent_ki_missing', 'WI-CX0060 must record and repay the Windows reused-parent false-descendant KI with Issue #64 evidence.');
+  if (!checks.worker_command_path_known_issue) error('worker_lifecycle.command_path_ki_missing', 'WI-CX0060 must record trusted absolute command resolution debt with Issue #66 evidence.');
+  if (!checks.worker_prompt_schema_known_issue) error('worker_lifecycle.prompt_schema_ki_missing', 'WI-CX0060 must record prompt-boundary schema debt with Issue #67 evidence.');
   if (!checks.worker_lifecycle_boundary) error('worker_lifecycle.boundary_missing', 'WI-CX0059 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.', liveRunnerStatus);
   if (!checks.worker_temporal_identity_registration) error('worker_temporal_identity.registration_missing', 'Manifest and indexes must register the WI-CX0061 validation record.');
   if (!checks.worker_temporal_identity_ledger) error('worker_temporal_identity.ledger_missing', 'WI-CX0061 must retain its 17-entry metadata-only fresh context evidence.');
