@@ -257,9 +257,19 @@ function runControllerSameHandleBindingCase() {
   assert(returnIndex > timeIndex);
   assert(windowsJobRunnerSource.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)'));
   assert(!windowsJobRunnerSource.includes('Process.GetProcessById(controllerPid)'));
+  const cancelIndex = windowsJobRunnerSource.indexOf('SetEvent(watchdogCancellation)');
+  const joinIndex = windowsJobRunnerSource.indexOf('controllerWatchdog.Join(5000)', cancelIndex);
+  const closeJobIndex = windowsJobRunnerSource.indexOf('CloseHandle(job);', joinIndex);
+  const closeControllerIndex = windowsJobRunnerSource.indexOf('CloseHandle(controllerHandle);', joinIndex);
+  assert(windowsJobRunnerSource.includes('WaitForMultipleObjects('));
+  assert(cancelIndex >= 0);
+  assert(joinIndex > cancelIndex);
+  assert(closeJobIndex > joinIndex);
+  assert(closeControllerIndex > joinIndex);
   return {
     same_native_handle_verified_and_retained: true,
     managed_process_lookup_absent: true,
+    watchdog_cancelled_and_joined_before_handle_close: true,
   };
 }
 
@@ -714,11 +724,52 @@ async function runNormalCase() {
   assert.equal(result.ok, true);
   assert.equal(result.exit_code, 0);
   assert.equal(result.cleanup.required, false);
+  assert.equal(result.containment.controller_watchdog_stopped, true);
   assert.equal(result.observation_verified, true);
   assertManagedIdentitiesBeforeObservation(events, result);
   assert(events.some((event) => event.type === 'worker.stdout' && event.payload?.fixture === 'complete'));
   assert(events.some((event) => event.type === 'worker.stderr' && event.payload === 'fixture stderr visible'));
   return result;
+}
+
+async function runWatchdogTeardownRaceCase() {
+  let workerCompletedAt = null;
+  const result = await runManagedProcess({
+    command: process.execPath,
+    args: [fixturePath, 'complete'],
+    env: {
+      NODE_ENV: 'test',
+      FDP_JOB_TEST_WATCHDOG_CANCEL_DELAY_MS: '250',
+    },
+    timeoutMs: 5000,
+    pollIntervalMs: 100,
+    residualGraceMs: 0,
+    onEvent: (event) => {
+      const payload = event.payload;
+      if (event.type === 'worker.stdout'
+        && typeof payload === 'object'
+        && payload !== null
+        && 'fixture' in payload
+        && payload.fixture === 'complete') {
+        workerCompletedAt = Date.now();
+      }
+    },
+  });
+  const returnedAt = Date.now();
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert.equal(result.containment.controller_watchdog_stopped, true);
+  if (workerCompletedAt === null) throw new Error(
+'worker completion event was not observed'
+);
+  const cancellationDelayObservedMs = returnedAt - /** @type {number} */ (workerCompletedAt);
+  assert(cancellationDelayObservedMs >= 200,
+    'wrapper returned before the delayed watchdog cancellation path could join');
+  return {
+    status: result.status,
+    watchdog_stopped: true,
+    cancellation_delay_observed_ms: cancellationDelayObservedMs,
+  };
 }
 
 async function runTimeoutCase() {
@@ -1472,6 +1523,7 @@ const windowsCases = process.platform === 'win32' ? {
   finalSpawnAbort: await runFinalSpawnAbortGuardCase(),
   controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
   normal: await runNormalCase(),
+  watchdogTeardownRace: await runWatchdogTeardownRaceCase(),
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
@@ -1527,7 +1579,9 @@ console.log(JSON.stringify({
         status: windowsCases.normal.status,
         stdout_line_count: windowsCases.normal.stdout_line_count,
         stderr_line_count: windowsCases.normal.stderr_line_count,
+        watchdog_stopped: windowsCases.normal.containment.controller_watchdog_stopped,
       },
+      watchdog_teardown_race: windowsCases.watchdogTeardownRace,
       timeout: {
         status: windowsCases.timeout.status,
         observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,

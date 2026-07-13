@@ -1,12 +1,48 @@
 const LIVE_HEAD_INSTRUCTION = 'query the live PR head';
-const PINNED_CANDIDATE_PATTERN = /\b[0-9a-f]{7,40}\b/gi;
-const SHORT_LABELED_CANDIDATE_PATTERN = /\b(?:candidate|commit|head|sha)\b[^\r\n]{0,32}?\b([0-9a-f]{4,6})\b/gi;
+const FULL_GIT_REF_PATTERN = /\b[0-9a-f]{40}\b/gi;
+const CANDIDATE_CONTEXT_PATTERN = /\b(?:candidate|commit|head|revision|sha)\b/i;
+const GIT_REF_PATTERN = /\b[0-9a-f]{4,40}\b/gi;
+
+export function parseStructuredIssueFields(body) {
+  return String(body || '')
+    .split(/\r?\n/)
+    .map((line) => /^\s*-\s*([^:\r\n]+):\s*(.*)$/.exec(line))
+    .filter(Boolean)
+    .map((match) => ({
+      name: match[1].trim(),
+      value: match[2].trim(),
+    }));
+}
 
 export function findPinnedCandidateRefs(body) {
   const text = String(body || '');
-  const refs = [...(text.match(PINNED_CANDIDATE_PATTERN) ?? [])];
-  for (const match of text.matchAll(SHORT_LABELED_CANDIDATE_PATTERN)) refs.push(match[1]);
+  const refs = [...(text.match(FULL_GIT_REF_PATTERN) ?? [])];
+  for (const line of text.split(/\r?\n/)) {
+    if (!CANDIDATE_CONTEXT_PATTERN.test(line)) continue;
+    refs.push(...(line.match(GIT_REF_PATTERN) ?? []));
+  }
   return [...new Set(refs.map((ref) => ref.toLowerCase()))];
+}
+
+export function findCandidateReferenceFields(body) {
+  return parseStructuredIssueFields(body)
+    .map((field) => ({
+      ...field,
+      refs: [...new Set((field.value.match(GIT_REF_PATTERN) ?? []).map((ref) => ref.toLowerCase()))],
+    }))
+    .filter((field) => field.refs.length > 0 && (
+      /\b(?:candidate|revision|head|sha)\b/i.test(field.name)
+      || /\bcurrent (?:candidate|revision|head|sha)\b/i.test(field.value)
+      || /^(?:candidate|revision|head|sha)\b/i.test(field.value)
+    ));
+}
+
+export function hasExactCandidateHeadReferences(body, expectedHead) {
+  const head = String(expectedHead || '').toLowerCase();
+  const fields = findCandidateReferenceFields(body);
+  return /^[0-9a-f]{40}$/.test(head)
+    && fields.length > 0
+    && fields.every((field) => field.refs.length === 1 && field.refs[0] === head);
 }
 
 export function hasLivePrOnlyCandidateReference(body, prNumber) {

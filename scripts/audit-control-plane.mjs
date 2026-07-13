@@ -3,7 +3,12 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { findPinnedCandidateRefs, hasLivePrOnlyCandidateReference } from './lib/control-plane-issue.mjs';
+import {
+  findCandidateReferenceFields,
+  findPinnedCandidateRefs,
+  hasExactCandidateHeadReferences,
+  hasLivePrOnlyCandidateReference,
+} from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const state = JSON.parse(readFileSync(path.join(repoRoot, '.flowset', 'state.json'), 'utf8'));
@@ -200,6 +205,23 @@ addCheck('ki.KI-CX-WORKER-003.live_pr_reference', Boolean(liveWorkerFinalResultI
 });
 
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
+for (const issue of issues.filter((candidate) => candidate.state === 'OPEN')) {
+  const candidateFields = findCandidateReferenceFields(issue.body);
+  if (candidateFields.length === 0) continue;
+  const referencedPrNumbers = [...new Set(
+    [...String(issue.body || '').matchAll(/\bPR #(\d+)\b/g)].map((match) => Number(match[1])),
+  )];
+  const candidatePr = referencedPrNumbers.length === 1
+    ? pullRequests.find((pullRequest) => pullRequest.number === referencedPrNumbers[0])
+    : null;
+  addCheck(`ki.issue_${issue.number}.candidate_head`, Boolean(candidatePr)
+    && hasExactCandidateHeadReferences(issue.body, candidatePr.headRefOid), {
+    issue_number: issue.number,
+    referenced_pr_numbers: referencedPrNumbers,
+    live_pr_head: candidatePr?.headRefOid || null,
+    candidate_fields: candidateFields,
+  });
+}
 const baselinePr = state.control_plane?.operational_integrity?.github_pr_label_baseline_from ?? 33;
 const independentReviewBaselinePr = state.control_plane?.independent_review?.pr_baseline_from ?? Number.POSITIVE_INFINITY;
 const requiredPrLabels = ['fdp:approved-work', 'needs:validator', 'pr:ready-for-review', 'pr:approved-merge'];

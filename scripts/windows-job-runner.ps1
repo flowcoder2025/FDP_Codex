@@ -170,6 +170,23 @@ public static class FdpWindowsJobRunner
     private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
 
     [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForMultipleObjects(
+        uint nCount,
+        [In] IntPtr[] lpHandles,
+        bool bWaitAll,
+        uint dwMilliseconds);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateEvent(
+        IntPtr lpEventAttributes,
+        bool bManualReset,
+        bool bInitialState,
+        string lpName);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetEvent(IntPtr hEvent);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -331,6 +348,19 @@ public static class FdpWindowsJobRunner
         {
             throw new InvalidOperationException("Invalid controller PID.");
         }
+
+        var watchdogCancelDelayMs = 0;
+        var watchdogCancelDelayText = Environment.GetEnvironmentVariable("FDP_JOB_TEST_WATCHDOG_CANCEL_DELAY_MS");
+        Environment.SetEnvironmentVariable("FDP_JOB_TEST_WATCHDOG_CANCEL_DELAY_MS", null);
+        if (Environment.GetEnvironmentVariable("NODE_ENV") == "test"
+            && !String.IsNullOrEmpty(watchdogCancelDelayText)
+            && (!Int32.TryParse(watchdogCancelDelayText, out watchdogCancelDelayMs)
+                || watchdogCancelDelayMs < 0
+                || watchdogCancelDelayMs > 5000))
+        {
+            throw new InvalidOperationException("Invalid watchdog cancellation test delay.");
+        }
+
         var controllerHandle = OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime);
 
         var job = CreateJobObject(IntPtr.Zero, null);
@@ -347,11 +377,20 @@ public static class FdpWindowsJobRunner
         var attributeListSize = UIntPtr.Zero;
         IntPtr attributeList = IntPtr.Zero;
         IntPtr jobListValue = IntPtr.Zero;
+        IntPtr watchdogCancellation = IntPtr.Zero;
         var attributeListInitialized = false;
+        Thread controllerWatchdog = null;
+        var controllerWatchdogStarted = false;
         PROCESS_INFORMATION processInfo = new PROCESS_INFORMATION();
 
         try
         {
+            watchdogCancellation = CreateEvent(IntPtr.Zero, true, false, null);
+            if (watchdogCancellation == IntPtr.Zero)
+            {
+                ThrowLastError("CreateEvent(watchdog cancellation)");
+            }
+
             Marshal.StructureToPtr(limits, limitsPointer, false);
             if (!SetInformationJobObject(
                 job,
@@ -370,16 +409,33 @@ public static class FdpWindowsJobRunner
             }
             attributeListInitialized = true;
 
-            var controllerWatchdog = new Thread(() =>
+            controllerWatchdog = new Thread(() =>
             {
-                if (WaitForSingleObject(controllerHandle, UInt32.MaxValue) == WAIT_OBJECT_0)
+                var waitResult = WaitForMultipleObjects(
+                    2,
+                    new[] { controllerHandle, watchdogCancellation },
+                    false,
+                    UInt32.MaxValue);
+                if (waitResult == WAIT_OBJECT_0)
                 {
                     TerminateJobObject(job, 1);
                     Environment.Exit(126);
                 }
+                if (waitResult == WAIT_OBJECT_0 + 1)
+                {
+                    if (watchdogCancelDelayMs > 0)
+                    {
+                        Thread.Sleep(watchdogCancelDelayMs);
+                    }
+                    Console.Error.WriteLine("FDP_JOB_RUNNER_CONTROLLER_WATCHDOG_STOPPED:" + controlToken);
+                    return;
+                }
+
+                Environment.Exit(126);
             });
             controllerWatchdog.IsBackground = true;
             controllerWatchdog.Start();
+            controllerWatchdogStarted = true;
             Console.Error.WriteLine("FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken);
 
             jobListValue = Marshal.AllocHGlobal(IntPtr.Size);
@@ -476,6 +532,19 @@ public static class FdpWindowsJobRunner
         }
         finally
         {
+            if (controllerWatchdogStarted)
+            {
+                if (!SetEvent(watchdogCancellation))
+                {
+                    ThrowLastError("SetEvent(watchdog cancellation)");
+                }
+                if (!controllerWatchdog.Join(5000))
+                {
+                    throw new InvalidOperationException(
+                        "Controller watchdog did not stop before native handle teardown.");
+                }
+            }
+
             if (processInfo.hThread != IntPtr.Zero)
             {
                 CloseHandle(processInfo.hThread);
@@ -497,8 +566,13 @@ public static class FdpWindowsJobRunner
                 Marshal.FreeHGlobal(attributeList);
             }
             Marshal.FreeHGlobal(limitsPointer);
+            if (watchdogCancellation != IntPtr.Zero)
+            {
+                CloseHandle(watchdogCancellation);
+            }
             CloseHandle(job);
             CloseHandle(controllerHandle);
+
         }
     }
 }

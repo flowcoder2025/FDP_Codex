@@ -114,6 +114,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - Reviewer 019f576e-9981-7343-a065-555961f62853 inspected published head 6675269e74e720f6344d563ec872ed336809f21f with fork_context: false and returned FAIL with two P2 findings: an absent root still allowed reused-PGID adoption, and handoff, state history, and Issue #61 disagreed about the current candidate. The remediation requires a present same-identity root, adds absent-root coverage, records both review generations, removes Issue #61's mutable candidate pin, and requires local plus live control-plane drift checks. Any changed head still requires a fresh PASS.
 
 - Reviewer 019f5a06-e5e2-7960-92fe-583d9525ba3e inspected exact head 2cb1976d264d4c621953feb71d38af2dd041e987 with fork_context: false and returned FAIL with two P2 findings plus one P3: synchronous final-result callback delivery could block past the deadline or accept an abort after lifecycle completion, the live-Issue audit accepted a seven-character candidate pin, and the PR body retained a stale check snapshot. `runManagedProcess` now returns terminal results without invoking arbitrary callbacks, fixed CLI publishers emit exactly one `worker.result`, normal and spawn-failure isolation regressions prove a terminal-conditioned callback is never invoked, candidate detection rejects Git-supported abbreviated and full candidate references, and PR validation must be read live. Any changed head still requires a fresh PASS.
+- Reviewer 019f5a49-75f1-7222-bdfd-f746e9f4cf80 inspected exact head 376e82dffd9d0bd82d6c8a329ce3a05f64f1f4e4 with fork_context: false and returned FAIL in GitHub review 4682548609 with two P2 findings: normal wrapper teardown closed Job and controller handles without cancelling and joining the watchdog, and candidate-drift checks missed multiline short refs plus candidate-bearing Issues #63 and #64. The remediation adds an authenticated watchdog-stopped result, cancellation-event plus join ordering before native handle close, a deterministic delayed-cancellation runtime regression, structured candidate fields, and live PR-head comparison for every open candidate-bearing Issue. Any changed head still requires a fresh PASS.
 
 ## Open Known Issues
 
@@ -121,7 +122,7 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 - KI-CX-WORKER-003 / Issue #61 remains open until the post-fix worker returns a final result and controller-owned validation plus cleanup complete.
 - KI-CX-WORKER-004 / Issue #64 remains `open` through fresh independent review, PR validation, merge, and post-merge audit.
 - KI-CX-DOGFOOD-002 / Issue #62 remains open and blocks further target progression until the stale handoff false-green is fixed.
-- KI-CX-REVIEW-002 / Issue #63 remains open because published head 6675269e74e720f6344d563ec872ed336809f21f failed with two P2 findings; the remediation head requires a fresh exact-head PASS and audit.
+- KI-CX-REVIEW-002 / Issue #63 remains open because exact head 376e82dffd9d0bd82d6c8a329ce3a05f64f1f4e4 failed with two P2 findings; the remediation head requires a fresh exact-head PASS and audit.
 - KI-CX-REVIEW-001 / Issue #59 and KI-CX-STATUS-001 / Issue #60 continue to block unattended/generalized merge and release-boundary authority.
 
 ## Boundary

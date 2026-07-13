@@ -25,6 +25,7 @@ const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
 const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
 const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
 const WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG';
+const WINDOWS_JOB_CONTROLLER_WATCHDOG_STOPPED_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG_STOPPED';
 const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
 const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
@@ -606,6 +607,7 @@ export async function runManagedProcess(options) {
         drained: false,
         verified: false,
         controller_watchdog_armed: false,
+        controller_watchdog_stopped: false,
         wrapper_closed: false,
         root_started_at: null,
         atomic_child_pid: null,
@@ -703,6 +705,7 @@ export async function runManagedProcess(options) {
         drained: false,
         verified: false,
         controller_watchdog_armed: false,
+        controller_watchdog_stopped: false,
         wrapper_closed: false,
         root_started_at: null,
         atomic_child_pid: null,
@@ -757,6 +760,7 @@ export async function runManagedProcess(options) {
     drained: false,
     verified: false,
     controller_watchdog_armed: false,
+    controller_watchdog_stopped: false,
     wrapper_closed: false,
     root_started_at: null,
     atomic_child_pid: null,
@@ -859,6 +863,7 @@ export async function runManagedProcess(options) {
   const authenticatedAssignedMarker = `${WINDOWS_JOB_ASSIGNED_MARKER}:${controlToken}`;
   const authenticatedDrainedMarker = `${WINDOWS_JOB_DRAINED_MARKER}:${controlToken}`;
   const authenticatedControllerWatchdogMarker = `${WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER}:${controlToken}`;
+  const authenticatedControllerWatchdogStoppedMarker = `${WINDOWS_JOB_CONTROLLER_WATCHDOG_STOPPED_MARKER}:${controlToken}`;
   const authenticatedRootPrefix = `${WINDOWS_JOB_ROOT_PREFIX}${controlToken}|`;
   const authenticatedAtomicChildPrefix = `${WINDOWS_JOB_ATOMIC_CHILD_PREFIX}${controlToken}|`;
   const authenticatedErrorPrefix = `${WINDOWS_JOB_ERROR_PREFIX}${controlToken}|`;
@@ -874,6 +879,10 @@ export async function runManagedProcess(options) {
     }
     if (line === authenticatedControllerWatchdogMarker) {
       containment.controller_watchdog_armed = true;
+      return true;
+    }
+    if (line === authenticatedControllerWatchdogStoppedMarker) {
+      containment.controller_watchdog_stopped = true;
       return true;
     }
     if (line.startsWith(authenticatedRootPrefix)) {
@@ -1209,6 +1218,7 @@ export async function runManagedProcess(options) {
   if (status === 'completed' && identityObservationIncomplete) status = 'observation_failed';
   containment.verified = containment.assigned
     && containment.controller_watchdog_armed
+    && (containment.controller_watchdog_stopped || cleanup.required)
     && containment.wrapper_closed
     && (containment.drained || (cleanup.required && cleanup.verified))
     && containment.errors.length === 0;

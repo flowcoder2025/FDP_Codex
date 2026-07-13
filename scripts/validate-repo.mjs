@@ -3,13 +3,26 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { findPinnedCandidateRefs, hasLivePrOnlyCandidateReference } from './lib/control-plane-issue.mjs';
+import {
+  findCandidateReferenceFields,
+  findPinnedCandidateRefs,
+  hasExactCandidateHeadReferences,
+  hasLivePrOnlyCandidateReference,
+} from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const errors = [];
 const warnings = [];
 const checks = {};
 
+const workerIssueCandidateHead = 'a'.repeat(40);
+const workerIssueStaleHead = 'b'.repeat(40);
+const currentCandidateIssueBody = [
+  '## KI fields',
+  '- Related WI / evidence: WI-CX0060-test; PR #65; current candidate ' + workerIssueCandidateHead + '; record.',
+].join('\n');
+const staleCandidateIssueBody = currentCandidateIssueBody.replace(workerIssueCandidateHead, workerIssueStaleHead);
+const currentRevisionIssueBody = '- Current revision: ' + workerIssueCandidateHead;
 checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head',
   65,
@@ -19,13 +32,23 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
 ) && !hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head; current candidate dead',
   65,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head\n- Current revision: 376e82',
+  65,
 ) && JSON.stringify(findPinnedCandidateRefs(
   'PR #65; query the live PR head; current candidate 6675269',
 )) === '["6675269"]'
   && JSON.stringify(findPinnedCandidateRefs(
     'PR #65; query the live PR head; current candidate dead',
-  )) === '["dead"]';
-
+  )) === '["dead"]'
+  && JSON.stringify(findPinnedCandidateRefs(
+    'PR #65; query the live PR head\n- Current revision: 376e82',
+  )) === '["376e82"]'
+  && findCandidateReferenceFields(currentCandidateIssueBody).length === 1
+  && findCandidateReferenceFields(currentRevisionIssueBody).length === 1
+  && hasExactCandidateHeadReferences(currentCandidateIssueBody, workerIssueCandidateHead)
+  && hasExactCandidateHeadReferences(currentRevisionIssueBody, workerIssueCandidateHead)
+  && !hasExactCandidateHeadReferences(staleCandidateIssueBody, workerIssueCandidateHead);
 const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
 
 const hasSingleExactClaim = (text, exactClaim, mention) => text.includes(exactClaim)
@@ -4085,7 +4108,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('Controller identity mismatch.')
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)")
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)")
-    && windowsJobRunner.includes('WaitForSingleObject(controllerHandle, UInt32.MaxValue)')
+    && windowsJobRunner.includes('WaitForMultipleObjects(')
+    && windowsJobRunner.includes('CreateEvent(')
+    && windowsJobRunner.includes('SetEvent(watchdogCancellation)')
+    && windowsJobRunner.includes('controllerWatchdog.Join(5000)')
+    && windowsJobRunner.includes('FDP_JOB_RUNNER_CONTROLLER_WATCHDOG_STOPPED:')
+    && windowsJobRunner.indexOf('SetEvent(watchdogCancellation)') < windowsJobRunner.lastIndexOf('CloseHandle(job);')
+    && windowsJobRunner.indexOf('controllerWatchdog.Join(5000)') < windowsJobRunner.lastIndexOf('CloseHandle(controllerHandle);')
+    && managedProcess.includes('controller_watchdog_stopped')
+    && lifecycleTest.includes('function runWatchdogTeardownRaceCase()')
     && windowsJobRunner.includes('Environment.Exit(126)')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken')
     && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)")
@@ -4349,6 +4380,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('retain that exact controller process handle')
     && autonomy.includes('same native process handle')
     && autonomy.includes('background watchdog must terminate the Job and exit the wrapper')
+    && autonomy.includes('separate cancellation event must wake the watchdog')
+    && autonomy.includes('join that thread')
+    && autonomy.includes('authenticated watchdog-stopped marker is required')
     && autonomy.includes("Cleanup verification requires the exact wrapper's actual close event")
     && autonomy.includes('exit code or signal alone is insufficient')
     && autonomy.includes('launch the real CLI wrapper as a child process')
@@ -4393,6 +4427,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('opens one native controller process handle')
     && decision.includes('retains that exact controller process handle')
     && decision.includes('same native process handle')
+    && decision.includes('waits on either the controller handle or a separate cancellation event')
+    && decision.includes('joins the watchdog')
+    && decision.includes('authenticated watchdog-stopped marker')
     && decision.includes('Cleanup can verify only after the exact wrapper close event is observed')
     && decision.includes('real CLI wrapper as a child process')
     && decision.includes('primary CLI exit classifications 124 and 130')
@@ -4439,8 +4476,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('same native process handle')
     && spec.includes('opens one native controller process handle')
     && spec.includes('retains that exact handle')
-    && spec.includes('records `controller_watchdog_armed` and `wrapper_closed`')
+    && spec.includes('controller_watchdog_stopped')
     && spec.includes('same-native-handle open/FILETIME/retention source contract')
+    && spec.includes('separate watchdog cancellation event')
+    && spec.includes('delayed watchdog-cancellation normal-teardown runtime case')
     && spec.includes('controller death before watchdog acquisition with no worker side effect')
     && spec.includes('controller-process hard kill after watchdog acquisition with wrapper and worker confirmed gone')
     && spec.includes('124 when timeout was the primary guard')
@@ -4805,8 +4844,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
       && attempt.reviewed_head === '2cb1976d264d4c621953feb71d38af2dd041e987'
       && attempt.result.includes('final-event-deadline-bypass'))
     && currentWi.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
-    && fixPlan.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
     && proofRecord.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a49-75f1-7222-bdfd-f746e9f4cf80'
+      && attempt.reviewed_head === '376e82dffd9d0bd82d6c8a329ce3a05f64f1f4e4'
+      && attempt.result.includes('watchdog-handle-teardown-race'))
+    && currentWi.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && fixPlan.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && proofRecord.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && handoff.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && workerControlAudit.includes('findCandidateReferenceFields')
+    && workerControlAudit.includes('hasExactCandidateHeadReferences')
     && handoff.includes('PR #65 is already published')
     && handoff.includes('query its live head and checks')
     && !handoff.includes('Finish the PR #65 Linux CI remediation')
