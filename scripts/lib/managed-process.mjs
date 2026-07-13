@@ -1,5 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +31,9 @@ const WINDOWS_JOB_ROOT_PREFIX = 'FDP_JOB_RUNNER_ROOT:';
 const WINDOWS_JOB_ATOMIC_CHILD_PREFIX = 'FDP_JOB_RUNNER_ATOMIC_CHILD:';
 const WINDOWS_JOB_ERROR_PREFIX = 'FDP_JOB_RUNNER_ERROR:';
 const WINDOWS_JOB_CONTROL_TOKEN_ENV = 'FDP_JOB_CONTROL_TOKEN';
-const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.ps1', import.meta.url));
+const WINDOWS_JOB_RUNNER_SOURCE = fileURLToPath(new URL('../windows-job-runner.cs', import.meta.url));
+const WINDOWS_JOB_RUNNER = fileURLToPath(new URL('../windows-job-runner.exe', import.meta.url));
+const WINDOWS_JOB_RUNNER_MANIFEST = fileURLToPath(new URL('../windows-job-runner.manifest.json', import.meta.url));
 
 export function managedProcessPlatformSupport(platform = process.platform) {
   if (platform === 'win32') {
@@ -44,24 +47,53 @@ export function managedProcessPlatformSupport(platform = process.platform) {
   };
 }
 
+function sha256File(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function verifyWindowsJobRunnerArtifact() {
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(WINDOWS_JOB_RUNNER_MANIFEST, 'utf8'));
+  } catch (error) {
+    throw new Error('failed to read the prebuilt Windows Job runner manifest: '
+      + (error instanceof Error ? error.message : String(error)));
+  }
+  if (manifest?.schema_version !== 2
+    || manifest.source !== 'windows-job-runner.cs'
+    || manifest.executable !== 'windows-job-runner.exe'
+    || !/^[a-f0-9]{64}$/.test(manifest.source_sha256 || '')
+    || !/^[a-f0-9]{64}$/.test(manifest.executable_sha256 || '')
+    || manifest.build?.tool !== 'dotnet-roslyn-csc'
+    || typeof manifest.build?.compiler_version !== 'string'
+    || !/^[a-f0-9]{64}$/.test(manifest.build?.compiler_sha256 || '')
+    || manifest.build?.deterministic !== true
+    || manifest.build?.target !== 'winexe'
+    || manifest.build?.path_map !== '/src'
+    || manifest.build?.framework !== 'netfx-v4.0.30319'
+    || !['mscorlib.dll', 'System.dll', 'System.Core.dll'].every((name) =>
+      /^[a-f0-9]{64}$/.test(manifest.build?.reference_sha256?.[name] || ''))) {
+    throw new Error('invalid prebuilt Windows Job runner manifest');
+  }
+  if (sha256File(WINDOWS_JOB_RUNNER_SOURCE) !== manifest.source_sha256
+    || sha256File(WINDOWS_JOB_RUNNER) !== manifest.executable_sha256) {
+    throw new Error('prebuilt Windows Job runner does not match its audited source manifest');
+  }
+}
+
 function buildSpawnInvocation(options, controlToken, controllerStartFileTime) {
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  verifyWindowsJobRunnerArtifact();
   return {
-    command: path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    command: WINDOWS_JOB_RUNNER,
     args: [
-      '-NoLogo',
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', WINDOWS_JOB_RUNNER,
+      options.command,
+      path.resolve(options.cwd || process.cwd()),
+      ...(options.args || []),
     ],
     cwd: options.cwd,
     env: {
       ...process.env,
       ...options.env,
-      FDP_JOB_COMMAND: options.command,
-      FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify(options.args || []), 'utf8').toString('base64'),
-      FDP_JOB_CWD: path.resolve(options.cwd || process.cwd()),
       [WINDOWS_JOB_CONTROL_TOKEN_ENV]: controlToken,
       FDP_JOB_CONTROLLER_PID: String(process.pid),
       FDP_JOB_CONTROLLER_START_FILETIME: controllerStartFileTime,
@@ -668,10 +700,17 @@ export async function runManagedProcess(options) {
     const timedOut = outcome.kind === 'timeout';
     const interrupted = outcome.kind === 'interrupted';
     const identityFailed = outcome.kind === 'controller-identity-failed';
-    const failureMessage = identityFailed
+    const artifactFailed = outcome.kind === 'runner-artifact-failed';
+    const failureMessage = identityFailed || artifactFailed
       ? (outcome.error instanceof Error ? outcome.error.message : String(outcome.error))
       : null;
-    const primaryStatus = timedOut ? 'timed_out' : interrupted ? 'interrupted' : 'controller_identity_failed';
+    const primaryStatus = timedOut
+      ? 'timed_out'
+      : interrupted
+        ? 'interrupted'
+        : artifactFailed
+          ? 'runner_artifact_failed'
+          : 'controller_identity_failed';
     const cleanupRequired = preSpawnCleanup?.required === true;
     const cleanupVerified = preSpawnCleanup?.verified !== false;
     if (timedOut || interrupted) {
@@ -753,7 +792,12 @@ export async function runManagedProcess(options) {
   if (finalPreSpawnGuard !== null) return returnBeforeSpawn(finalPreSpawnGuard);
 
   const controlToken = randomBytes(32).toString('hex');
-  const invocation = buildSpawnInvocation(options, controlToken, controllerIdentityOutcome.value);
+  let invocation;
+  try {
+    invocation = buildSpawnInvocation(options, controlToken, controllerIdentityOutcome.value);
+  } catch (error) {
+    return returnBeforeSpawn({ kind: 'runner-artifact-failed', error });
+  }
   const containment = {
     mode: invocation.containmentMode,
     assigned: false,

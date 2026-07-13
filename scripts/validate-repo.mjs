@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -148,7 +149,10 @@ const requiredFiles = [
   'scripts/validate-layer2-scaffold.mjs',
   'scripts/lib/codex-invocation.mjs',
   'scripts/lib/managed-process.mjs',
-  'scripts/windows-job-runner.ps1',
+  'scripts/build-windows-job-runner.ps1',
+  'scripts/windows-job-runner.cs',
+  'scripts/windows-job-runner.exe',
+  'scripts/windows-job-runner.manifest.json',
   'scripts/run-ephemeral-worker.mjs',
   'scripts/smoke-ephemeral-worker-cli.mjs',
   'scripts/test-ephemeral-worker-lifecycle.mjs',
@@ -3849,7 +3853,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const temporalRecord = read(temporalRecordPath);
   const autonomy = read('docs/policies/autonomy-and-approval.md');
   const managedProcess = read('scripts/lib/managed-process.mjs');
-  const windowsJobRunner = read('scripts/windows-job-runner.ps1');
+  const windowsJobRunnerBuild = read('scripts/build-windows-job-runner.ps1');
+  const windowsJobRunner = read('scripts/windows-job-runner.cs');
+  const windowsJobRunnerArtifactManifest = readJson('scripts/windows-job-runner.manifest.json');
+  const windowsJobRunnerSourceSha256 = createHash('sha256')
+    .update(readFileSync(relPath('scripts/windows-job-runner.cs'))).digest('hex');
+  const windowsJobRunnerExecutableSha256 = createHash('sha256')
+    .update(readFileSync(relPath('scripts/windows-job-runner.exe'))).digest('hex');
   const codexInvocation = read('scripts/lib/codex-invocation.mjs');
   const managedWorkerPolicy = read('docs/specifications/managed-worker-exec-policy.rules');
   const runner = read('scripts/run-ephemeral-worker.mjs');
@@ -3902,6 +3912,28 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     liveRunnerStatus = /^status\s*=\s*"PAUSED"\s*$/m.test(runnerConfig) ? 'paused' : 'not-paused';
   }
 
+  let reproducibleBuildResult = null;
+  let reproducibleBuildError = null;
+  if (process.platform === 'win32') {
+    try {
+      reproducibleBuildResult = JSON.parse(execFileSync('powershell.exe', [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', 'scripts/build-windows-job-runner.ps1',
+        '-Verify',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30000,
+      }));
+    } catch (validationError) {
+      reproducibleBuildError = validationError.stderr?.toString().trim() || validationError.message;
+    }
+  }
+
   let testResult = null;
   let testError = null;
   try {
@@ -3923,8 +3955,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && manifest.includes('id: tool.codex-invocation')
     && manifest.includes('id: tool.managed-process')
     && manifest.includes('id: tool.windows-job-runner')
-    && manifest.includes('scripts/windows-job-runner.ps1')
-    && docsIndex.includes('scripts/windows-job-runner.ps1')
+    && manifest.includes('scripts/windows-job-runner.cs')
+    && manifest.includes('id: tool.build-windows-job-runner')
+    && manifest.includes('scripts/build-windows-job-runner.ps1')
+    && manifest.includes('id: lock.windows-job-runner-artifact')
+    && manifest.includes('scripts/windows-job-runner.manifest.json')
+    && docsIndex.includes('scripts/build-windows-job-runner.ps1')
+    && docsIndex.includes('scripts/windows-job-runner.cs')
+    && docsIndex.includes('scripts/windows-job-runner.exe')
+    && docsIndex.includes('scripts/windows-job-runner.manifest.json')
     && manifest.includes('id: tool.run-ephemeral-worker')
     && manifest.includes('id: tool.smoke-ephemeral-worker-cli')
     && manifest.includes('id: tool.test-ephemeral-worker-lifecycle')
@@ -3974,6 +4013,27 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('unknown_after_cleanup')
     && managedProcess.includes('await stopRootWrapper()')
     && managedProcess.includes("mode: 'unsupported-fail-closed'")
+    && managedProcess.includes('verifyWindowsJobRunnerArtifact()')
+    && managedProcess.includes("new URL('../windows-job-runner.exe'")
+    && managedProcess.includes("? 'runner_artifact_failed'")
+    && windowsJobRunnerArtifactManifest.schema_version === 2
+    && windowsJobRunnerArtifactManifest.source === 'windows-job-runner.cs'
+    && windowsJobRunnerArtifactManifest.source_sha256 === windowsJobRunnerSourceSha256
+    && windowsJobRunnerArtifactManifest.executable === 'windows-job-runner.exe'
+    && windowsJobRunnerArtifactManifest.executable_sha256 === windowsJobRunnerExecutableSha256
+    && windowsJobRunnerArtifactManifest.build?.tool === 'dotnet-roslyn-csc'
+    && typeof windowsJobRunnerArtifactManifest.build?.compiler_version === 'string'
+    && /^[a-f0-9]{64}$/.test(windowsJobRunnerArtifactManifest.build?.compiler_sha256 || '')
+    && windowsJobRunnerArtifactManifest.build?.deterministic === true
+    && windowsJobRunnerArtifactManifest.build?.target === 'winexe'
+    && windowsJobRunnerArtifactManifest.build?.path_map === '/src'
+    && windowsJobRunnerArtifactManifest.build?.framework === 'netfx-v4.0.30319'
+    && ['mscorlib.dll', 'System.dll', 'System.Core.dll'].every((name) =>
+      /^[a-f0-9]{64}$/.test(windowsJobRunnerArtifactManifest.build?.reference_sha256?.[name] || ''))
+    && !windowsJobRunnerBuild.includes('Add-Type')
+    && windowsJobRunnerBuild.includes("'/deterministic+'")
+    && windowsJobRunnerBuild.includes("tool = 'dotnet-roslyn-csc'")
+    && windowsJobRunnerBuild.includes("throw 'The checked Windows Job runner is not reproducible")
     && managedProcess.indexOf('if (!platformSupport.supported)') < managedProcess.indexOf('const child = spawn(')
     && managedProcess.includes('started_at')
     && managedProcess.includes('PID-only signaling is forbidden')
@@ -4039,6 +4099,13 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("result.terminal_status_before_event_failure = result.status")
     && managedProcess.includes("result.status = 'event_dispatch_failed'")
     && managedProcess.includes('result.ok = false');
+  checks.worker_lifecycle_reproducible_build = process.platform !== 'win32'
+    ? windowsJobRunnerBuild.includes("'/deterministic+'")
+    : reproducibleBuildResult?.ok === true
+      && reproducibleBuildResult?.verified === true
+      && reproducibleBuildResult?.deterministic === true
+      && reproducibleBuildResult?.source_sha256 === windowsJobRunnerSourceSha256
+      && reproducibleBuildResult?.executable_sha256 === windowsJobRunnerExecutableSha256;
   checks.worker_temporal_identity_implementation = managedProcess.includes('function isNotOlderThan(candidate, ancestor)')
     && managedProcess.includes('candidateStartedAt >= ancestorStartedAt')
     && managedProcess.includes('const hasObservedParent = parentPids.has(entry.ppid)')
@@ -4072,6 +4139,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes("containmentMode: 'windows-job-object'")
     && managedProcess.includes('containment.drained')
     && windowsJobRunner.includes('CREATE_SUSPENDED')
+    && windowsJobRunner.includes('CREATE_NO_WINDOW')
+    && windowsJobRunner.includes('CREATE_SUSPENDED | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT')
     && windowsJobRunner.includes('JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE')
     && windowsJobRunner.includes('PROC_THREAD_ATTRIBUTE_JOB_LIST')
     && windowsJobRunner.includes('EXTENDED_STARTUPINFO_PRESENT')
@@ -4095,19 +4164,19 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && windowsJobRunner.includes('FDP_JOB_RUNNER_DRAINED')
     && windowsJobRunner.includes('activeProcessesAfterRootExit = GetActiveProcessCount(job)')
     && windowsJobRunner.includes('Worker root exited while')
-    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)")
-    && windowsJobRunner.indexOf("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN'") < windowsJobRunner.indexOf('Add-Type -TypeDefinition')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN", null);')
+    && windowsJobRunner.indexOf('Environment.SetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN", null);') < windowsJobRunner.indexOf('return Run(')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_DRAINED:" + controlToken')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_ASSIGNED:" + controlToken')
-    && windowsJobRunner.includes('"FDP_JOB_RUNNER_ERROR:$controlToken|')
+    && windowsJobRunner.includes('Console.Error.WriteLine("FDP_JOB_RUNNER_ERROR:" + controlToken')
     && windowsJobRunner.includes('OpenVerifiedControllerProcess(controllerPid, controllerStartFileTime)')
     && windowsJobRunner.includes('var controllerHandle = OpenProcess(')
     && windowsJobRunner.includes('GetProcessTimes(')
     && windowsJobRunner.includes('FileTimeToLong(creationTime) != controllerStartFileTime')
     && !windowsJobRunner.includes('Process.GetProcessById(controllerPid)')
     && windowsJobRunner.includes('Controller identity mismatch.')
-    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)")
-    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)")
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_START_FILETIME", null);')
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS", null);')
     && windowsJobRunner.includes('WaitForMultipleObjects(')
     && windowsJobRunner.includes('CreateEvent(')
     && windowsJobRunner.includes('SetEvent(watchdogCancellation)')
@@ -4119,7 +4188,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runWatchdogTeardownRaceCase()')
     && windowsJobRunner.includes('Environment.Exit(126)')
     && windowsJobRunner.includes('"FDP_JOB_RUNNER_CONTROLLER_WATCHDOG:" + controlToken')
-    && windowsJobRunner.includes("[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)")
+    && windowsJobRunner.includes('Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_PID", null);')
     && lifecycleTest.includes('reused_parent_identity_excluded: true');
   checks.worker_lifecycle_runner = runner.includes("const ALLOWED_SANDBOXES = new Set(['read-only', 'workspace-write'])")
     && runner.includes('buildEphemeralWorkerArgs')
@@ -4164,6 +4233,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.builtin_fanout_flag?.multi_agent_disabled === true
     && testResult?.cases?.platform_support?.windows === 'supported'
     && testResult?.cases?.platform_support?.posix === 'unsupported-fail-closed'
+    && testResult?.cases?.prebuilt_runner_artifact?.runtime_compiler_absent === true
+    && testResult?.cases?.prebuilt_runner_artifact?.source_manifest_verified === true
+    && testResult?.cases?.prebuilt_runner_artifact?.executable_manifest_verified === true
+    && testResult?.cases?.prebuilt_runner_artifact?.build_boundary_explicit === true
+    && testResult?.cases?.prebuilt_runner_artifact?.deterministic_build_receipt_verified === true
     && testResult?.cases?.temporal_identity?.stale_excluded === true
     && testResult?.cases?.temporal_identity?.reused_parent_identity_excluded === true
     && testResult?.cases?.temporal_identity?.posix_group_reused_root_excluded === true
@@ -4178,6 +4252,15 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && (process.platform === 'win32'
       ? (testResult?.cases?.controller_same_handle_binding?.same_native_handle_verified_and_retained === true
         && testResult?.cases?.controller_same_handle_binding?.managed_process_lookup_absent === true
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.status === 'cleanup_failed'
+        && Array.isArray(testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.runtime_compiler_children)
+        && testResult.cases.windows_lifecycle.prebuilt_setup_boundary.runtime_compiler_children.length === 0
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.worker_executed === false
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.wrapper_closed === true
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.cleanup_classification === 'complete'
+        && Number.isInteger(testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.stale_direct_child_rows_ignored)
+        && testResult.cases.windows_lifecycle.prebuilt_setup_boundary.stale_direct_child_rows_ignored >= 0
+        && testResult?.cases?.windows_lifecycle?.prebuilt_setup_boundary?.elapsed_ms < 12000
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.status === 'interrupted'
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.wrapper_spawned === false
         && testResult?.cases?.windows_lifecycle?.pre_spawn_abort?.worker_executed === false
@@ -4326,6 +4409,12 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runControllerDeathWatchdogCase()')
     && lifecycleTest.includes("'--controller-watchdog-helper'")
     && lifecycleTest.includes('function runDelayedWrapperCloseCase()')
+    && lifecycleTest.includes('function runPrebuiltRunnerArtifactCase()')
+    && lifecycleTest.includes('function runPrebuiltSetupBoundaryCase()')
+    && lifecycleTest.includes('FDP_JOB_TEST_SETUP_DELAY_MS')
+    && lifecycleTest.includes('prebuilt setup spawned an unmanaged child')
+    && lifecycleTest.includes('childStartedAt >= parentStartedAt')
+    && lifecycleTest.includes('stale_direct_child_rows_ignored')
     && lifecycleTest.includes('function runPreSpawnAbortCase()')
     && lifecycleTest.includes('function runPreSpawnTimeoutCase()')
     && lifecycleTest.includes('function runControlEnvironmentIsolationCase()')
@@ -4359,8 +4448,18 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   checks.worker_lifecycle_package = pkg.scripts?.['worker:run'] === 'node scripts/run-ephemeral-worker.mjs'
     && pkg.scripts?.['worker:smoke-local'] === 'node scripts/smoke-ephemeral-worker-cli.mjs'
     && pkg.scripts?.['worker:test'] === 'node scripts/test-ephemeral-worker-lifecycle.mjs'
+    && pkg.scripts?.['worker:build-windows-runner'] === 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1'
+    && pkg.scripts?.['worker:verify-windows-runner-build'] === 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/build-windows-job-runner.ps1 -Verify'
     && pkg.dependencies === undefined;
   checks.worker_lifecycle_policy = autonomy.includes('### Ephemeral Worker Process Lifecycle')
+    && autonomy.includes('Windows native wrapper runtime must not compile or load source')
+    && autonomy.includes('source/executable SHA-256 manifest')
+    && autonomy.includes('Roslyn `/deterministic+` with a normalized source path')
+    && autonomy.includes('worker:verify-windows-runner-build')
+    && autonomy.includes('without creating the wrapper when the artifact is missing or stale')
+    && autonomy.includes('runtime setup cannot introduce an unmanaged compiler or console-host child')
+    && autonomy.includes('zero temporally valid direct setup children after wrapper-start filtering')
+    && autonomy.includes('older stale-parent rows are excluded by creation time')
     && autonomy.includes('must run through `scripts/run-ephemeral-worker.mjs`')
     && autonomy.includes('stops the exact wrapper first so Job-handle close terminates all atomically assigned members')
     && autonomy.includes('never sends PID-only signals to observed descendants')
@@ -4413,6 +4512,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('must not create persistent Codex app tasks')
     && autonomy.includes('Live model execution remains subject to the active data and network approval boundary');
   checks.worker_lifecycle_decision = decision.includes('Status: accepted-v0')
+    && decision.includes('native runtime is a prebuilt')
+    && decision.includes('visible Node controller checks both before spawn')
+    && decision.includes('explicit build command is the only compiler boundary')
+    && decision.includes('Roslyn deterministic compilation')
+    && decision.includes('manifest schema 2')
+    && decision.includes('No-console creation applies to the wrapper and worker')
+    && decision.includes('zero temporally valid direct wrapper children before `Run`')
+    && decision.includes('excluding older stale-parent rows by creation time')
     && decision.includes('codex exec --ephemeral --json')
     && decision.includes('default timeout is 120 seconds')
     && decision.includes('pids, parent pids, executable names, and start times')
@@ -4462,6 +4569,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('repay KI-CX-WORKER-001')
     && decision.includes('KI-CX-PROVIDER-001 records that separate provider trust boundary');
   checks.worker_lifecycle_spec = spec.includes('Status: implemented-v1')
+    && spec.includes('Windows wrapper is a checked-in prebuilt')
+    && spec.includes('only by the explicit')
+    && spec.includes('source and executable SHA-256 hashes')
+    && spec.includes('Manifest schema 2')
+    && spec.includes('worker:verify-windows-runner-build')
+    && spec.includes('byte-for-byte equality')
+    && spec.includes('compiler processes, and PowerShell wrapper hosts are forbidden')
+    && spec.includes('with a null root')
+    && spec.includes('requires no temporally valid direct setup child after wrapper-start filtering')
+    && spec.includes('older stale-parent rows are excluded by creation time')
     && spec.includes('does not start any process-table query until its stderr handler has registered both the immutable root identity and atomic worker identity')
     && spec.includes('without waiting for a supervisor acknowledgement')
     && spec.includes('writes this marker while the worker is still suspended')
@@ -4569,7 +4686,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && String(guard.deterministic_cases?.normal).startsWith('passed')
     && String(guard.deterministic_cases?.timeout_descendant_cleanup).startsWith('passed')
     && String(guard.deterministic_cases?.interruption_descendant_cleanup).startsWith('passed')
-    && guard.containment?.windows === 'job-object-atomic-create-kill-on-close'
+    && guard.containment?.windows === 'prebuilt-windowsapplication-job-object-atomic-create-kill-on-close-no-runtime-setup-children'
     && guard.containment?.posix === 'unsupported-fail-closed-before-spawn'
     && String(guard.deterministic_cases?.posix_platform_guard).startsWith('static-contract-passed')
     && guard.containment?.normal_completion_requires_verified_drain === true
@@ -4590,6 +4707,20 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.local_cli_smoke?.containment_verified === true
     && guard.local_cli_smoke?.observed_descendant_count === 1
     && guard.local_cli_smoke?.atomic_child_registered === true
+    && guard.deterministic_cases?.prebuilt_runner_artifact === 'passed-reproducible-source-executable-and-build-receipt-verified'
+    && guard.deterministic_cases?.prebuilt_setup_boundary === 'passed-zero-temporally-valid-direct-setup-children-stale-parent-rows-filtered-no-worker-side-effect-bounded-wrapper-close-complete-classification'
+    && guard.prebuilt_runner?.source === 'scripts/windows-job-runner.cs'
+    && guard.prebuilt_runner?.executable === 'scripts/windows-job-runner.exe'
+    && guard.prebuilt_runner?.manifest === 'scripts/windows-job-runner.manifest.json'
+    && guard.prebuilt_runner?.manifest_schema === 2
+    && guard.prebuilt_runner?.build_command === 'npm run worker:build-windows-runner'
+    && guard.prebuilt_runner?.verification_command === 'npm run worker:verify-windows-runner-build'
+    && guard.prebuilt_runner?.compiler_boundary === 'dotnet-roslyn-csc'
+    && guard.prebuilt_runner?.deterministic_build === true
+    && guard.prebuilt_runner?.runtime_compilation === false
+    && guard.prebuilt_runner?.hash_verified_before_spawn === true
+    && guard.prebuilt_runner?.wrapper_subsystem === 'WindowsApplication'
+    && guard.prebuilt_runner?.worker_create_no_window === true
     && (guard.live_model_smoke?.result === 'policy-rejected-after-user-approval'
       || guard.live_model_smoke?.public_repository_preflight?.result === 'passed');
   checks.worker_temporal_identity_record = temporalRecord.includes('Status: validated')
@@ -4849,9 +4980,16 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
       && attempt.reviewed_head === '376e82dffd9d0bd82d6c8a329ce3a05f64f1f4e4'
       && attempt.result.includes('watchdog-handle-teardown-race'))
     && currentWi.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
-    && fixPlan.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
     && proofRecord.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
     && handoff.includes('019f5a49-75f1-7222-bdfd-f746e9f4cf80')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a78-d8f4-73e0-8744-2f8f070810af'
+      && attempt.reviewed_head === 'd6c0a68c3520d3ca31fabdba57aa4aeaa370ae6c'
+      && attempt.github_review_id === 4682944626
+      && attempt.result.includes('pre-job-runtime-compiler-escape'))
+    && currentWi.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && fixPlan.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && proofRecord.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
+    && handoff.includes('019f5a78-d8f4-73e0-8744-2f8f070810af')
     && workerControlAudit.includes('findCandidateReferenceFields')
     && workerControlAudit.includes('hasExactCandidateHeadReferences')
     && handoff.includes('PR #65 is already published')
@@ -4878,6 +5016,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_lifecycle_registration) error('worker_lifecycle.registration_missing', 'Manifest and indexes must register the WI-CX0059 decision, specification, tools, fixture, and record.');
   if (!checks.worker_lifecycle_ledger) error('worker_lifecycle.ledger_missing', 'WI-CX0059 must retain its 17-entry metadata-only fresh context evidence.');
   if (!checks.worker_lifecycle_supervisor) error('worker_lifecycle.supervisor_missing', 'Managed process supervisor must observe identities, stream events, clean descendants, and fail closed.');
+  if (!checks.worker_lifecycle_reproducible_build) error('worker_lifecycle.reproducible_build_failed', 'The checked Windows runner must reproduce exactly from the tracked source and build receipt.', reproducibleBuildError);
   if (!checks.worker_lifecycle_runner) error('worker_lifecycle.runner_missing', 'Worker runner must use the fixed ephemeral JSONL surface, stdin prompt, bounded sandboxes, and interruption handling.');
   if (!checks.worker_lifecycle_tests) error('worker_lifecycle.tests_failed', 'Normal, timeout, and interruption process-tree cases must pass with verified cleanup.', testError);
   if (!checks.worker_lifecycle_package) error('worker_lifecycle.package_missing', 'Package scripts must expose run, local smoke, and lifecycle tests without a production dependency.');

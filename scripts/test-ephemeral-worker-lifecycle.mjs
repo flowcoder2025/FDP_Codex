@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
@@ -18,10 +19,15 @@ import {
 
 const fixturePath = fileURLToPath(new URL('./fixtures/managed-worker-tree.mjs', import.meta.url));
 const workerCliPath = fileURLToPath(new URL('./run-ephemeral-worker.mjs', import.meta.url));
-const windowsJobRunnerPath = fileURLToPath(new URL('./windows-job-runner.ps1', import.meta.url));
+const windowsJobRunnerNativePath = fileURLToPath(new URL('./windows-job-runner.cs', import.meta.url));
+const windowsJobRunnerExecutablePath = fileURLToPath(new URL('./windows-job-runner.exe', import.meta.url));
+const windowsJobRunnerManifestPath = fileURLToPath(new URL('./windows-job-runner.manifest.json', import.meta.url));
+const windowsJobRunnerBuildPath = fileURLToPath(new URL('./build-windows-job-runner.ps1', import.meta.url));
 const testScriptPath = fileURLToPath(import.meta.url);
 const managedProcessSource = readFileSync(fileURLToPath(new URL('./lib/managed-process.mjs', import.meta.url)), 'utf8');
-const windowsJobRunnerSource = readFileSync(windowsJobRunnerPath, 'utf8');
+const windowsJobRunnerNativeSource = readFileSync(windowsJobRunnerNativePath, 'utf8');
+const windowsJobRunnerBuildSource = readFileSync(windowsJobRunnerBuildPath, 'utf8');
+const windowsJobRunnerSource = windowsJobRunnerNativeSource;
 const OBSERVATION_HANG_FINITE_BOUND_MS = 8000;
 const STDIN_TIMEOUT_BACKPRESSURE_BYTES = 64 * 1024 * 1024;
 
@@ -74,6 +80,43 @@ async function waitForProcessGone(pid, timeoutMs = 3000) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   return !isProcessAlive(pid);
+}
+
+async function waitForFile(filePath, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!existsSync(filePath) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return existsSync(filePath);
+}
+
+async function listWindowsDirectChildren(parentPid) {
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$parent = Get-CimInstance Win32_Process -Filter "ProcessId = ${parentPid}"`,
+    "if ($null -eq $parent) { throw 'wrapper process row missing' }",
+    '$items = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = ' + parentPid + '" | ForEach-Object { [PSCustomObject]@{ pid = [int]$_.ProcessId; name = [string]$_.Name; started_at = ([DateTime]$_.CreationDate).ToUniversalTime().ToString("o") } })',
+    '$observation = [PSCustomObject]@{ parent_started_at = ([DateTime]$parent.CreationDate).ToUniversalTime().ToString("o"); children = $items }',
+    'ConvertTo-Json -Compress -Depth 3 -InputObject $observation',
+  ].join('; ');
+  const child = spawn(powershell, [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', script,
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const result = await captureChild(child);
+  assert.equal(result.code, 0, JSON.stringify(result, null, 2));
+  const parsed = JSON.parse(result.stdout.trim());
+  assert.equal(typeof parsed.parent_started_at, 'string');
+  assert(Array.isArray(parsed.children));
+  return parsed;
 }
 
 function assertObservedCleanupPartition(result) {
@@ -270,6 +313,42 @@ function runControllerSameHandleBindingCase() {
     same_native_handle_verified_and_retained: true,
     managed_process_lookup_absent: true,
     watchdog_cancelled_and_joined_before_handle_close: true,
+  };
+}
+
+function sha256File(filePath) {
+  return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+}
+
+function runPrebuiltRunnerArtifactCase() {
+  const manifest = JSON.parse(readFileSync(windowsJobRunnerManifestPath, 'utf8'));
+  assert.equal(manifest.schema_version, 2);
+  assert.equal(manifest.source, 'windows-job-runner.cs');
+  assert.equal(manifest.executable, 'windows-job-runner.exe');
+  assert.equal(manifest.source_sha256, sha256File(windowsJobRunnerNativePath));
+  assert.equal(manifest.executable_sha256, sha256File(windowsJobRunnerExecutablePath));
+  assert.equal(manifest.build.tool, 'dotnet-roslyn-csc');
+  assert.equal(manifest.build.deterministic, true);
+  assert.equal(manifest.build.target, 'winexe');
+  assert.equal(manifest.build.path_map, '/src');
+  assert.equal(manifest.build.framework, 'netfx-v4.0.30319');
+  assert.match(manifest.build.compiler_sha256, /^[a-f0-9]{64}$/);
+  for (const name of ['mscorlib.dll', 'System.dll', 'System.Core.dll']) {
+    assert.match(manifest.build.reference_sha256[name], /^[a-f0-9]{64}$/);
+  }
+  assert.equal(windowsJobRunnerNativeSource.includes('Add-Type'), false);
+  assert.equal(windowsJobRunnerBuildSource.includes('Add-Type'), false);
+  assert(managedProcessSource.includes('verifyWindowsJobRunnerArtifact()'));
+  assert(managedProcessSource.includes("new URL('../windows-job-runner.exe'"));
+  assert(windowsJobRunnerBuildSource.includes("'/deterministic+'"));
+  assert(windowsJobRunnerBuildSource.includes("tool = 'dotnet-roslyn-csc'"));
+  assert(windowsJobRunnerBuildSource.includes("throw 'The checked Windows Job runner is not reproducible"));
+  return {
+    runtime_compiler_absent: true,
+    source_manifest_verified: true,
+    executable_manifest_verified: true,
+    build_boundary_explicit: true,
+    deterministic_build_receipt_verified: true,
   };
 }
 
@@ -711,6 +790,79 @@ async function runControlEnvironmentIsolationCase() {
     control_environment_inherited: false,
   };
 }
+async function runPrebuiltSetupBoundaryCase() {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-prebuilt-setup-'));
+  const setupReadyPath = path.join(tempRoot, 'setup-ready.txt');
+  const workerMarkerPath = path.join(tempRoot, 'worker-executed.txt');
+  let execution = null;
+  let result = null;
+  let wrapperPid = null;
+  const startedAt = Date.now();
+  try {
+    execution = runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'write-marker', workerMarkerPath],
+      env: {
+        NODE_ENV: 'test',
+        FDP_JOB_TEST_SETUP_DELAY_MS: '30000',
+        FDP_JOB_TEST_SETUP_READY_FILE: setupReadyPath,
+      },
+      timeoutMs: 6000,
+      pollIntervalMs: 100,
+      verificationTimeoutMs: 3000,
+      onEvent: (event) => {
+        if (event.type === 'worker.started') wrapperPid = event.root_pid;
+      },
+    });
+
+    assert.equal(await waitForFile(setupReadyPath, 4000), true, 'pre-run setup hook did not become ready');
+    const verifiedWrapperPid = Number(wrapperPid);
+    assert(Number.isInteger(verifiedWrapperPid) && verifiedWrapperPid > 0);
+    assert.equal(Number.parseInt(readFileSync(setupReadyPath, 'utf8'), 10), verifiedWrapperPid);
+    const directChildObservation = await listWindowsDirectChildren(verifiedWrapperPid);
+    const parentStartedAt = Date.parse(directChildObservation.parent_started_at);
+    assert(Number.isFinite(parentStartedAt));
+    const runtimeDirectChildren = directChildObservation.children.filter((entry) => {
+      const childStartedAt = Date.parse(entry.started_at);
+      return !Number.isFinite(childStartedAt) || childStartedAt >= parentStartedAt;
+    });
+    assert.deepEqual(runtimeDirectChildren, [], 'prebuilt setup spawned an unmanaged child: '
+      + JSON.stringify(runtimeDirectChildren));
+
+    result = await execution;
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(result.ok, false);
+    assert.equal(result.timed_out, true);
+    assert.equal(result.containment.assigned, false);
+    assert.equal(result.containment.wrapper_closed, true);
+    assert.equal(result.containment.atomic_child_pid, null);
+    assert.deepEqual(result.observed_descendant_pids, []);
+    assert.equal(existsSync(workerMarkerPath), false, 'worker executed during stalled pre-run setup');
+    assert.equal(await waitForProcessGone(verifiedWrapperPid), true);
+    const classified = [
+      ...result.cleanup.confirmed_gone_pids,
+      ...result.cleanup.identity_mismatch_pids,
+      ...result.cleanup.alive_after_cleanup,
+      ...result.cleanup.unknown_after_cleanup,
+    ];
+    assert.deepEqual(classified, [verifiedWrapperPid]);
+    assert(elapsedMs < 12000, 'pre-run setup timeout exceeded finite bound: ' + elapsedMs + 'ms');
+    return {
+      status: result.status,
+      wrapper_pid: verifiedWrapperPid,
+      runtime_compiler_children: runtimeDirectChildren,
+      stale_direct_child_rows_ignored: directChildObservation.children.length - runtimeDirectChildren.length,
+      worker_executed: false,
+      wrapper_closed: true,
+      cleanup_classification: 'complete',
+      elapsed_ms: elapsedMs,
+    };
+  } finally {
+    if (execution && !result) await execution.catch(() => null);
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
+
 async function runNormalCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -1339,21 +1491,15 @@ function parseWorkerResult(stdout) {
 
 async function runControllerIdentityMismatchCase() {
   const token = 'b'.repeat(64);
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
-  const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const child = spawn(powershell, [
-    '-NoLogo',
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy', 'Bypass',
-    '-File', windowsJobRunnerPath,
+  const child = spawn(windowsJobRunnerExecutablePath, [
+    process.execPath,
+    process.cwd(),
+    fixturePath,
+    'complete',
   ], {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      FDP_JOB_COMMAND: process.execPath,
-      FDP_JOB_ARGS_B64: Buffer.from(JSON.stringify([fixturePath, 'complete']), 'utf8').toString('base64'),
-      FDP_JOB_CWD: process.cwd(),
       FDP_JOB_CONTROL_TOKEN: token,
       FDP_JOB_CONTROLLER_PID: String(process.pid),
       FDP_JOB_CONTROLLER_START_FILETIME: '1',
@@ -1512,6 +1658,7 @@ const identityLookupCleanupClassification = runIdentityLookupCleanupClassificati
 const builtinFanoutFlag = runBuiltinFanoutFlagCase();
 const platformSupport = runPlatformSupportCase();
 const controllerSameHandleBinding = runControllerSameHandleBindingCase();
+const prebuiltRunnerArtifact = runPrebuiltRunnerArtifactCase();
 const temporalIdentity = runTemporalIdentityCase();
 const windowsCases = process.platform === 'win32' ? {
   preSpawnAbort: await runPreSpawnAbortCase(),
@@ -1522,6 +1669,7 @@ const windowsCases = process.platform === 'win32' ? {
   finalSpawnTimeout: await runFinalSpawnTimeoutGuardCase(),
   finalSpawnAbort: await runFinalSpawnAbortGuardCase(),
   controlEnvironmentIsolation: await runControlEnvironmentIsolationCase(),
+  prebuiltSetupBoundary: await runPrebuiltSetupBoundaryCase(),
   normal: await runNormalCase(),
   watchdogTeardownRace: await runWatchdogTeardownRaceCase(),
   timeout: await runTimeoutCase(),
@@ -1561,6 +1709,7 @@ console.log(JSON.stringify({
     builtin_fanout_flag: builtinFanoutFlag,
     platform_support: platformSupport,
     controller_same_handle_binding: controllerSameHandleBinding,
+    prebuilt_runner_artifact: prebuiltRunnerArtifact,
     temporal_identity: temporalIdentity,
     unsupported_platform: unsupportedPlatform && {
       status: unsupportedPlatform.status,
@@ -1575,6 +1724,7 @@ console.log(JSON.stringify({
       final_spawn_timeout: windowsCases.finalSpawnTimeout,
       final_spawn_abort: windowsCases.finalSpawnAbort,
       control_environment_isolation: windowsCases.controlEnvironmentIsolation,
+      prebuilt_setup_boundary: windowsCases.prebuiltSetupBoundary,
       normal: {
         status: windowsCases.normal.status,
         stdout_line_count: windowsCases.normal.stdout_line_count,

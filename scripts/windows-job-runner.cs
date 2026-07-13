@@ -1,6 +1,3 @@
-$ErrorActionPreference = 'Stop'
-
-$source = @"
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -11,6 +8,7 @@ using System.Threading;
 public static class FdpWindowsJobRunner
 {
     private const uint CREATE_SUSPENDED = 0x00000004;
+    private const uint CREATE_NO_WINDOW = 0x08000000;
     private const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private static readonly IntPtr PROC_THREAD_ATTRIBUTE_JOB_LIST = new IntPtr(0x0002000D);
@@ -329,6 +327,109 @@ public static class FdpWindowsJobRunner
         return false;
     }
 
+    private static bool IsLowerHexToken(string value)
+    {
+        if (String.IsNullOrEmpty(value) || value.Length != 64)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (!((character >= '0' && character <= '9') || (character >= 'a' && character <= 'f')))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static int Main(string[] args)
+    {
+        var controlToken = Environment.GetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN") ?? String.Empty;
+        var controllerPidText = Environment.GetEnvironmentVariable("FDP_JOB_CONTROLLER_PID") ?? String.Empty;
+        var controllerStartFileTimeText = Environment.GetEnvironmentVariable("FDP_JOB_CONTROLLER_START_FILETIME") ?? String.Empty;
+        var controllerAcquireDelayText = Environment.GetEnvironmentVariable("FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS") ?? String.Empty;
+        var setupDelayText = Environment.GetEnvironmentVariable("FDP_JOB_TEST_SETUP_DELAY_MS") ?? String.Empty;
+        var setupReadyFile = Environment.GetEnvironmentVariable("FDP_JOB_TEST_SETUP_READY_FILE") ?? String.Empty;
+        Environment.SetEnvironmentVariable("FDP_JOB_CONTROL_TOKEN", null);
+        Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_PID", null);
+        Environment.SetEnvironmentVariable("FDP_JOB_CONTROLLER_START_FILETIME", null);
+        Environment.SetEnvironmentVariable("FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS", null);
+        Environment.SetEnvironmentVariable("FDP_JOB_TEST_SETUP_DELAY_MS", null);
+        Environment.SetEnvironmentVariable("FDP_JOB_TEST_SETUP_READY_FILE", null);
+
+        try
+        {
+            if (!IsLowerHexToken(controlToken))
+            {
+                throw new InvalidOperationException("Missing or invalid FDP Job control token.");
+            }
+            if (args == null || args.Length < 2 || String.IsNullOrEmpty(args[0]) || String.IsNullOrEmpty(args[1]))
+            {
+                throw new InvalidOperationException("Missing Windows Job runner command or working directory.");
+            }
+
+            int controllerPid;
+            if (!Int32.TryParse(controllerPidText, out controllerPid) || controllerPid <= 0)
+            {
+                throw new InvalidOperationException("Missing or invalid FDP Job controller PID.");
+            }
+            long controllerStartFileTime;
+            if (!Int64.TryParse(controllerStartFileTimeText, out controllerStartFileTime)
+                || controllerStartFileTime <= 0)
+            {
+                throw new InvalidOperationException("Missing or invalid FDP Job controller start FILETIME.");
+            }
+
+            var controllerAcquireDelayMs = 0;
+            if (Environment.GetEnvironmentVariable("NODE_ENV") == "test"
+                && !String.IsNullOrEmpty(controllerAcquireDelayText)
+                && (!Int32.TryParse(controllerAcquireDelayText, out controllerAcquireDelayMs)
+                    || controllerAcquireDelayMs <= 0
+                    || controllerAcquireDelayMs > 99999))
+            {
+                throw new InvalidOperationException("Invalid controller acquisition test delay.");
+            }
+
+            var setupDelayMs = 0;
+            if (Environment.GetEnvironmentVariable("NODE_ENV") == "test"
+                && !String.IsNullOrEmpty(setupDelayText))
+            {
+                if (!Int32.TryParse(setupDelayText, out setupDelayMs)
+                    || setupDelayMs <= 0
+                    || setupDelayMs > 30000
+                    || String.IsNullOrEmpty(setupReadyFile)
+                    || !System.IO.Path.IsPathRooted(setupReadyFile))
+                {
+                    throw new InvalidOperationException("Invalid pre-run setup delay test configuration.");
+                }
+                System.IO.File.WriteAllText(setupReadyFile, Process.GetCurrentProcess().Id.ToString());
+                Thread.Sleep(setupDelayMs);
+            }
+
+            var childArguments = new string[args.Length - 2];
+            if (childArguments.Length > 0)
+            {
+                Array.Copy(args, 2, childArguments, 0, childArguments.Length);
+            }
+            return Run(
+                args[0],
+                childArguments,
+                args[1],
+                controllerPid,
+                controllerStartFileTime,
+                controllerAcquireDelayMs,
+                controlToken);
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine("FDP_JOB_RUNNER_ERROR:" + controlToken + "|" + error.Message);
+            return 125;
+        }
+    }
+
     public static int Run(string command, string[] arguments, string workingDirectory, int controllerPid, long controllerStartFileTime, int controllerAcquireDelayMs, string controlToken)
     {
         int wrapperProcessId;
@@ -474,7 +575,7 @@ public static class FdpWindowsJobRunner
                 IntPtr.Zero,
                 IntPtr.Zero,
                 true,
-                CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
+                CREATE_SUSPENDED | CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT,
                 IntPtr.Zero,
                 workingDirectory,
                 ref startupInfo,
@@ -575,52 +676,4 @@ public static class FdpWindowsJobRunner
 
         }
     }
-}
-"@
-
-$controlToken = [string]$env:FDP_JOB_CONTROL_TOKEN
-$controllerPidText = [string]$env:FDP_JOB_CONTROLLER_PID
-$controllerStartFileTimeText = [string]$env:FDP_JOB_CONTROLLER_START_FILETIME
-$controllerAcquireDelayText = [string]$env:FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS
-[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROL_TOKEN', $null, [EnvironmentVariableTarget]::Process)
-[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_PID', $null, [EnvironmentVariableTarget]::Process)
-[Environment]::SetEnvironmentVariable('FDP_JOB_CONTROLLER_START_FILETIME', $null, [EnvironmentVariableTarget]::Process)
-[Environment]::SetEnvironmentVariable('FDP_JOB_TEST_CONTROLLER_ACQUIRE_DELAY_MS', $null, [EnvironmentVariableTarget]::Process)
-
-try {
-    if ($controlToken -notmatch '^[a-f0-9]{64}$') {
-        throw 'Missing or invalid FDP Job control token.'
-    }
-    $controllerPid = 0
-    if (-not [int]::TryParse($controllerPidText, [ref]$controllerPid) -or $controllerPid -le 0) {
-        throw 'Missing or invalid FDP Job controller PID.'
-    }
-    $controllerStartFileTime = 0L
-    if (-not [long]::TryParse($controllerStartFileTimeText, [ref]$controllerStartFileTime) -or $controllerStartFileTime -le 0) {
-        throw 'Missing or invalid FDP Job controller start FILETIME.'
-    }
-    $controllerAcquireDelayMs = 0
-    if ($env:NODE_ENV -eq 'test' -and $controllerAcquireDelayText -match '^[1-9][0-9]{0,4}$') {
-        $controllerAcquireDelayMs = [int]$controllerAcquireDelayText
-    }
-    Add-Type -TypeDefinition $source -Language CSharp
-    $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:FDP_JOB_ARGS_B64))
-    $childArgs = [string[]]@()
-    if ($decoded -ne '[]') {
-        $parsedArgs = ConvertFrom-Json -InputObject $decoded
-        $childArgs = [string[]]@($parsedArgs | ForEach-Object { [string]$_ })
-    }
-    $exitCode = [FdpWindowsJobRunner]::Run(
-        $env:FDP_JOB_COMMAND,
-        [string[]]$childArgs,
-        $env:FDP_JOB_CWD,
-        [int]$controllerPid,
-        [long]$controllerStartFileTime,
-        [int]$controllerAcquireDelayMs,
-        $controlToken
-    )
-    exit [int]$exitCode
-} catch {
-    [Console]::Error.WriteLine("FDP_JOB_RUNNER_ERROR:$controlToken|$($_.Exception.Message)")
-    exit 125
 }

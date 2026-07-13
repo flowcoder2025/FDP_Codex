@@ -1,0 +1,21 @@
+{
+    "schema_version":  2,
+    "source":  "windows-job-runner.cs",
+    "source_sha256":  "68b81b1588b0139a759b733357995f144e46897bdb6603e3a55b5ec5c6d42baa",
+    "executable":  "windows-job-runner.exe",
+    "executable_sha256":  "36175c0be9705f3538eba2f8aa83c194f8b1d1a7711867100230d71ea5b4c254",
+    "build":  {
+                  "tool":  "dotnet-roslyn-csc",
+                  "compiler_version":  "4.11.0-3.25569.22 (3fb752d4)",
+                  "compiler_sha256":  "7f0ebc401a086f50e6e46e75456cf79a3b555c3828cbdfa9025a721fd80200ff",
+                  "deterministic":  true,
+                  "target":  "winexe",
+                  "path_map":  "/src",
+                  "framework":  "netfx-v4.0.30319",
+                  "reference_sha256":  {
+                                           "mscorlib.dll":  "a8cae3d326f7d973ca79cba849939d4837ad18d507ef6d5f6ebab802b7fb157a",
+                                           "System.dll":  "fc2146b1f63b64b508dc254125428d125c98d3321af7d21dcc606aad12e6d089",
+                                           "System.Core.dll":  "836f48f196618b22fdc4136b07121c7df848457f21e957a92fd314a2ce76116f"
+                                       }
+              }
+}

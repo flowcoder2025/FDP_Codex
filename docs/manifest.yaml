@@ -1798,14 +1798,36 @@ chunks:
       - tooling
     body_carryover: forbidden
   - id: tool.windows-job-runner
-    title: Windows Job Object Runner
-    source: scripts/windows-job-runner.ps1
+    title: Prebuilt Windows Job Object Runner Source
+    source: scripts/windows-job-runner.cs
     type: tool
     layer: layer1
     status: implemented
     loads_for:
       - ephemeral-worker-process-lifecycle
       - worker-process-cleanup
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: tool.build-windows-job-runner
+    title: Windows Job Object Runner Build Tool
+    source: scripts/build-windows-job-runner.ps1
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
+      - validation
+      - tooling
+    body_carryover: forbidden
+  - id: lock.windows-job-runner-artifact
+    title: Windows Job Object Runner Reproducible Build Receipt And Hash Lock
+    source: scripts/windows-job-runner.manifest.json
+    type: tool-lock
+    layer: layer1
+    status: implemented
+    loads_for:
+      - ephemeral-worker-process-lifecycle
       - validation
       - tooling
     body_carryover: forbidden

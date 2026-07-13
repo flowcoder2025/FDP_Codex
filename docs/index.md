@@ -161,7 +161,10 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `docs/specifications/managed-worker-exec-policy.rules`
 - `scripts/lib/codex-invocation.mjs`
 - `scripts/lib/managed-process.mjs`
-- `scripts/windows-job-runner.ps1`
+- `scripts/build-windows-job-runner.ps1`
+- `scripts/windows-job-runner.cs`
+- `scripts/windows-job-runner.exe` (prebuilt from the audited C# source)
+- `scripts/windows-job-runner.manifest.json`
 - `scripts/run-ephemeral-worker.mjs`
 - `scripts/smoke-ephemeral-worker-cli.mjs`
 - `scripts/test-ephemeral-worker-lifecycle.mjs`
