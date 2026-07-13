@@ -18,6 +18,8 @@ Reviewer 019f5b27-a680-7d20-8c02-bb5c71eb6bc6 returned FAIL in GitHub review 468
 
 Reviewer 019f5b8f-5b4f-7e92-b108-197c412ef805 returned FAIL in GitHub review 4685108846 on exact published head 932adcdc088e5c41624338560a0fe3569bbc7562 with P2 PID-only/non-repeatable lifecycle verification, P2 `Current commit` and candidate-bearing `Status` audit bypass, and a same-cycle P3 stale-control-state disposition. Issues #64, #69, and #70 track repayment. The current remediation waits for observation-helper close, verifies PID plus creation-time identity, covers commit/status metadata, and requires consecutive canonical validation plus a fresh exact-head PASS.
 
+The first live PR-phase audit after publishing dd0c7fe0 exposed a same-KI #69 parser overreach: historical commit/head narratives and numeric review or Actions run ids in Issues #60, #62, and #69 were mistaken for candidate refs. The parser now distinguishes explicit candidate structures from narrative evidence. Exact current/stale plus narrative regressions and three consecutive final-worktree canonical CI runs pass after the correction.
+
 WI-CX0054-fix is merged through PR #38 at commit `5402082266ca9ab464a779abea74947cbe50c266`. WI-CX0038-docs is merged through PR #39 at commit `a5ae05cdbd35d89de35f84748004a8e677b5201d`. WI-CX0055-feat is merged through PR #40 at commit `dbb915c2f647f0c8403975eb77de28b2435a9a2b`. WI-CX0056-test is merged through PR #41 at commit `753ff25820a4a65596ec87b6ba23be3560597c32`. WI-CX0057-docs is merged through PR #42 at commit `de267d5f7ffb24a927fd4713bc7540f9a80ac6f4`. WI-CX0058-fix is merged through PR #43 at commit `3da0475ad70e5282a6273c6d63479e830aa411c8`. WI-CX0059-fix is merged through PR #44 at commit `b905fc6cd0db825dcf91edbaa19688ba2a0d44ec`. WI-CX0061-fix is merged through PR #45 at commit `7b5187e720c9c82087cde941d61c252d07f73115`.
 
 WI-CX0050 verified that this A2 runner did not prove an isolated per-run worktree. WI-CX0051 defines the minimal repair gate: a later receiver must start outside `C:\dev\FDP_Codex`, prove its git toplevel is the receiver worktree, preserve the canonical repository, start clean, rebuild context, pass duplicate branch/PR guards, and record repo-visible validation before worktree isolation can be marked proven.
@@ -180,7 +182,7 @@ These marker lines preserve validator continuity without replacing SSOT records.
 
 ## Next Action
 
-Commit and publish the review 4685108846 remediation after the three consecutive final-worktree canonical CI passes and clean identity-aware census, synchronize Issues #63, #64, #66, #67, #68, #69, and #70, then obtain a new clean-context blind adversarial review and run the independent-review plus live control-plane audits. Merge only if the exact head passes every gate under the active user approval. Land only as a non-completion checkpoint, keep Issues #55 and #61 open, and after closeout start WI-CX0064-docs while Issue #62 blocks further target progression.
+Commit and publish the final review 4685108846 remediation after the candidate-narrative correction and three consecutive final-worktree canonical CI passes, synchronize Issues #63, #64, #66, #67, #68, #69, and #70, then obtain a new clean-context blind adversarial review and run the independent-review plus live control-plane audits. Merge only if the exact head passes every gate under the active user approval. Land only as a non-completion checkpoint, keep Issues #55 and #61 open, and after closeout start WI-CX0064-docs while Issue #62 blocks further target progression.
 
 ## Blocked Work
 
@@ -190,7 +192,7 @@ Commit and publish the review 4685108846 remediation after the three consecutive
 - KI-CX-WORKER-005 / Issue #66 is `repaid-on-merge`; the complete target repository boundary, non-overlapping trusted roots, and canonical reparse-point regressions pass locally.
 - KI-CX-WORKER-006 / Issue #67 is `repaid-on-merge`; prompt-boundary schema completeness passes locally.
 - KI-CX-WORKER-007 / Issue #68 is `repaid-on-merge`; setup-failure terminal-result completeness passes locally.
-- KI-CX-CONTROL-002 / Issue #69 is `repaid-on-merge`; final canonical CI confirms continuation, commit, status, malformed, stale, and abbreviated candidate metadata reaches the live-head audit.
+- KI-CX-CONTROL-002 / Issue #69 is `repaid-on-merge`; continuation, commit, status, malformed, stale, and abbreviated candidate metadata reaches the live-head audit, while historical commit/head narratives and numeric review/run ids remain non-candidates.
 - KI-CX-WORKER-008 / Issue #70 is `repaid-on-merge`; bounded Job convergence, transient observation retry, helper-close waiting, identity-aware residual assertions, three consecutive CI runs, and a clean identity-aware census pass.
 - KI-CX-DOGFOOD-002 blocks further target progression and target-handoff correctness claims until a qualified target fix and validator regression exist.
 - KI-CX-REVIEW-002 blocks PR readiness and merge because exact published head 932adcdc088e5c41624338560a0fe3569bbc7562 failed in GitHub review 4685108846 with two P2 findings; every remediation commit invalidates older evidence.

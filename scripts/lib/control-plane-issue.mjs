@@ -31,16 +31,15 @@ export function parseStructuredIssueFields(body) {
 
 function isCandidateReferenceField(field) {
   return /^(?:current\s+)?(?:candidate|commit|revision|head|sha)(?:\s+(?:commit|state|reference|sha|head))?$/i.test(field.name)
-    || /\b(?:current|review) (?:candidate|commit|revision|head|sha)\b/i.test(field.value)
-    || /^(?:candidate|commit|revision|head|sha)\b/i.test(field.value);
+    || /\b(?:current|review) candidate\b/i.test(field.value)
+    || /^candidate(?:\s*[:=]|\s+(?:PR\s+#\d+\s+(?:at\s+)?)?[0-9a-f]{4,40}\b)/i.test(field.value);
 }
 
 export function hasCandidateReferenceCue(body) {
   const text = String(body || '');
   return parseStructuredIssueFields(text).some(isCandidateReferenceField)
     || text.split(/\r?\n/).some((line) =>
-      /^\s*(?:[-*]\s*)?(?:current\s+(?:candidate|commit|revision|head|sha)\b|(?:candidate|commit|revision|head|sha)\s*[:=])/i.test(line)
-      || (CANDIDATE_CONTEXT_PATTERN.test(line) && (line.match(GIT_REF_PATTERN) ?? []).length > 0));
+      /^\s*(?:[-*]\s*)?(?:current\s+(?:candidate|commit|revision|head|sha)\b|(?:candidate|commit|revision|head|sha)\s*[:=])/i.test(line));
 }
 
 export function findPinnedCandidateRefs(body) {

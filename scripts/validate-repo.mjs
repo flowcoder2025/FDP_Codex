@@ -50,6 +50,11 @@ const currentCommitIssueBody = 'Current commit: ' + workerIssueCandidateHead + '
 const staleCommitIssueBody = 'Current commit: ' + workerIssueStaleHead + ' for PR #65';
 const currentStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueCandidateHead + ' for PR #65';
 const staleStatusCandidateIssueBody = 'Status: Review candidate ' + workerIssueStaleHead + ' for PR #65';
+const historicalCandidateParserNarratives = [
+  '- Trigger: Review 4685108846 found Current commit and candidate-bearing Status fields could retain a stale SHA.',
+  '- Live evidence: Candidate Actions run 29104125595 proved candidate workflow code can publish a shared context.',
+  '- Trigger: The target repository was clean at committed head a2702ab4 while the handoff was stale.',
+];
 checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head',
   65,
@@ -112,6 +117,9 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   && hasCandidateReferenceCue(staleCommitIssueBody)
   && hasCandidateReferenceCue(currentStatusCandidateIssueBody)
   && hasCandidateReferenceCue(staleStatusCandidateIssueBody)
+  && historicalCandidateParserNarratives.every((body) =>
+    !hasCandidateReferenceCue(body)
+    && findCandidateReferenceFields(body).length === 0)
   && hasValidCandidateHeadReference(currentCommitIssueBody, 65, workerIssueCandidateHead)
   && !hasValidCandidateHeadReference(staleCommitIssueBody, 65, workerIssueCandidateHead)
   && hasValidCandidateHeadReference(currentStatusCandidateIssueBody, 65, workerIssueCandidateHead)
@@ -5059,8 +5067,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && candidateAuditKi.github_issue_number === 69
     && candidateAuditKi.trigger.includes('Current commit')
     && candidateAuditKi.trigger.includes('candidate-bearing Status')
+    && candidateAuditKi.trigger.includes('historical commit/head narratives')
     && candidateAuditKi.repayment_condition.includes('continuation, commit, and status fields')
     && candidateAuditKi.repayment_condition.includes('ambiguous references fail closed')
+    && candidateAuditKi.repayment_condition.includes('historical narrative evidence')
     && candidateAuditKi.hard_stop.includes('before PR readiness')
     && candidateAuditKi.evidence === proofRecordPath
     && currentWi.includes('KI-CX-CONTROL-002 / Issue #69')
@@ -5164,6 +5174,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && guard.live_model_smoke?.post_fix_retry?.result === 'policy-rejected-after-current-explicit-user-approval'
     && guard.live_model_smoke?.post_fix_retry?.user_approval_recorded === true
     && guard.deterministic_cases?.commit_status_candidate_fields === 'passed-current-commit-and-review-candidate-status-exact-stale-rejected'
+    && guard.deterministic_cases?.candidate_narrative_false_positive_guard === 'passed-review-run-workflow-and-historical-head-narratives-remain-non-candidates'
     && guard.deterministic_cases?.identity_aware_residual_assertions === 'passed-pid-and-creation-time-gone-or-reused-never-pid-only'
     && guard.deterministic_cases?.observation_helper_close === 'passed-result-settles-after-actual-helper-close';
   checks.worker_proof_known_issues = confinementKi?.severity === 'High'
