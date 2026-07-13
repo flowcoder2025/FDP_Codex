@@ -7,8 +7,10 @@ import path from 'node:path';
 import {
   findCandidateReferenceFields,
   findPinnedCandidateRefs,
+  hasCandidateReferenceCue,
   hasExactCandidateHeadReferences,
   hasLivePrOnlyCandidateReference,
+  hasValidCandidateHeadReference,
 } from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
@@ -34,9 +36,23 @@ const multilineCurrentShortCandidateIssueBody = multilineCurrentCandidateIssueBo
   .replace(workerIssueCandidateHead, workerIssueCandidateHead.slice(0, 7));
 const multilineStaleShortCandidateIssueBody = multilineCurrentCandidateIssueBody
   .replace(workerIssueCandidateHead, workerIssueStaleHead.slice(0, 7));
+const candidateFormattingBodies = [
+  '- Current candidate:\n PR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\nPR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\n\tPR #65 at ' + workerIssueCandidateHead,
+  'Current candidate: PR #65 at ' + workerIssueCandidateHead,
+  '- Current candidate:\nThe active PR #65 is at ' + workerIssueCandidateHead,
+];
+const ambiguousCandidateIssueBody = '- Current candidate:\nPR #65 awaits publication';
+const malformedCandidateIssueBody = '- Current candidate PR #65 awaits publication';
+const nonCandidateRevisionBody = '- Revision history: PR #65 was triaged';
 checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head',
   65,
+) && hasValidCandidateHeadReference(
+  'PR #65; query the live PR head',
+  65,
+  workerIssueCandidateHead,
 ) && !hasLivePrOnlyCandidateReference(
   'PR #65; query the live PR head; current candidate 6675269',
   65,
@@ -61,6 +77,31 @@ checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
   && findCandidateReferenceFields(multilineStaleCandidateIssueBody).length === 1
   && findCandidateReferenceFields(multilineCurrentShortCandidateIssueBody).length === 1
   && findCandidateReferenceFields(multilineStaleShortCandidateIssueBody).length === 1
+  && candidateFormattingBodies.every((body) =>
+    hasCandidateReferenceCue(body)
+    && findCandidateReferenceFields(body).length === 1
+    && hasExactCandidateHeadReferences(body, workerIssueCandidateHead))
+  && candidateFormattingBodies.every((body) =>
+    !hasExactCandidateHeadReferences(
+      body.replace(workerIssueCandidateHead, workerIssueStaleHead),
+      workerIssueCandidateHead,
+    ))
+  && hasCandidateReferenceCue(ambiguousCandidateIssueBody)
+  && findCandidateReferenceFields(ambiguousCandidateIssueBody).length === 0
+  && hasCandidateReferenceCue(malformedCandidateIssueBody)
+  && findCandidateReferenceFields(malformedCandidateIssueBody).length === 0
+  && !hasValidCandidateHeadReference(
+    malformedCandidateIssueBody,
+    65,
+    workerIssueCandidateHead,
+  )
+  && !hasValidCandidateHeadReference(
+    ambiguousCandidateIssueBody,
+    65,
+    workerIssueCandidateHead,
+  )
+  && !hasCandidateReferenceCue(nonCandidateRevisionBody)
+  && findCandidateReferenceFields(nonCandidateRevisionBody).length === 0
   && hasExactCandidateHeadReferences(currentCandidateIssueBody, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(currentRevisionIssueBody, workerIssueCandidateHead)
   && hasExactCandidateHeadReferences(multilineCurrentCandidateIssueBody, workerIssueCandidateHead)
@@ -3919,6 +3960,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   const promptSchemaKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-006');
   const setupResultKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-007');
   const candidateAuditKi = knownIssues.find((item) => item.id === 'KI-CX-CONTROL-002');
+  const workerRepeatabilityKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-008');
   const confinementKi = knownIssues.find((item) => item.id === 'KI-CX-WORKER-003');
   const dogfoodKi = knownIssues.find((item) => item.id === 'KI-CX-DOGFOOD-002');
   const reviewAvailabilityKi = knownIssues.find((item) => item.id === 'KI-CX-REVIEW-002');
@@ -4230,10 +4272,21 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
+    && codexInvocation.includes('function canonicalTargetBoundary(')
+    && codexInvocation.includes('FDP_CODEX_CLI_TRUST_ROOTS')
+    && codexInvocation.includes('isTrustedPath(command, trustRoots)')
+    && workerControlAudit.includes('hasCandidateReferenceCue')
+    && workerControlAudit.includes('hasValidCandidateHeadReference')
+    && workerControlAudit.includes('livePrOnlyReference')
+    && managedProcess.includes('DEFAULT_OBSERVATION_RETRY_BUDGET_MS')
+    && managedProcess.includes('FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE')
+    && managedProcess.includes('deadlineAt: Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS')
+    && windowsJobRunner.includes('var drainedNaturally = WaitForDrain(job, 1000)')
     && codexInvocation.includes('CODEX_CLI_PATH')
     && codexInvocation.includes('path.isAbsolute(override)')
     && codexInvocation.includes('realpathSync')
-    && codexInvocation.includes('!isWithin(targetRoot, command)')
+    && codexInvocation.includes('!isWithin(targetBoundary, command)')
+    && codexInvocation.includes('!isWithin(candidate, targetBoundary)')
     && codexInvocation.includes('Codex CLI was not found at a trusted absolute path')
     && codexInvocation.includes("'@openai'")
     && codexInvocation.includes("'exec'")
@@ -4373,13 +4426,21 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.controller_identity_mismatch?.mismatch_rejected_before_worker_creation === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.relative_override_rejected === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_override_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_repository_ancestor_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.arbitrary_executable_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.overlapping_trust_root_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.junction_escape_rejected === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.target_cwd_shadow_rejected === true
+        && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.controller_trust_root_required === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.path_fallback_absolute === true
         && testResult?.cases?.windows_lifecycle?.codex_invocation_resolution?.trusted_fallback_selected === true
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.exit_code === 125
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.operation_preserved === true
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.win32_error_code_preserved === true
         && testResult?.cases?.windows_lifecycle?.native_error_detail?.native_message_preserved === true
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.transient_failure_retried === true
+        && testResult?.cases?.windows_lifecycle?.transient_observation_retry?.absolute_retry_deadline_enforced === true
         && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.exit_code === 1
         && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.status === 'setup_failed'
         && testResult?.cases?.windows_lifecycle?.cli_relative_override_failure?.root_pid === null
@@ -4642,7 +4703,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('byte-for-byte equality')
     && spec.includes('compiler processes, and PowerShell wrapper hosts are forbidden')
     && spec.includes('only an absolute Codex executable or absolute `codex.js` shim')
-    && spec.includes('excludes candidates inside the target root')
+    && spec.includes('outside that complete target boundary')
+    && spec.includes('inside an approved trust root')
+    && spec.includes('bounded natural convergence window')
+    && spec.includes('absolute per-observation deadline')
     && spec.includes('Native API failures preserve the operation name, Win32 error code')
     && spec.includes('with a null root')
     && spec.includes('requires no temporally valid direct setup child after wrapper-start filtering')
@@ -4931,8 +4995,10 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && commandPathKi.github_issue_number === 66
     && commandPathKi.trigger.includes('relative CLI override or fallback')
     && commandPathKi.trigger.includes('target-cwd codex.exe')
+    && commandPathKi.trigger.includes('repository-ancestor or arbitrary executable')
     && commandPathKi.repayment_condition.includes('trusted absolute override and PATH resolution')
     && commandPathKi.repayment_condition.includes('Win32 error code')
+    && commandPathKi.repayment_condition.includes('controller-owned trust roots')
     && commandPathKi.hard_stop.includes('before PR readiness')
     && commandPathKi.evidence === proofRecordPath
     && currentWi.includes('KI-CX-WORKER-005 / Issue #66')
@@ -4972,13 +5038,29 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && candidateAuditKi.owner === 'CODEX'
     && candidateAuditKi.github_issue_number === 69
     && candidateAuditKi.trigger.includes('multiline Current candidate')
+    && candidateAuditKi.trigger.includes('lazy, tabbed, plain, and malformed candidate metadata')
     && candidateAuditKi.repayment_condition.includes('continuation lines')
+    && candidateAuditKi.repayment_condition.includes('ambiguous candidate cues')
     && candidateAuditKi.hard_stop.includes('before PR readiness')
     && candidateAuditKi.evidence === proofRecordPath
     && currentWi.includes('KI-CX-CONTROL-002 / Issue #69')
     && fixPlan.includes('KI-CX-CONTROL-002 / Issue #69')
     && handoff.includes('KI-CX-CONTROL-002 / Issue #69')
     && proofRecord.includes('KI-CX-CONTROL-002 / Issue #69');
+  checks.worker_repeatability_known_issue = workerRepeatabilityKi?.status === 'repaid-on-merge'
+    && workerRepeatabilityKi?.repaid_by === 'WI-CX0060-test'
+    && workerRepeatabilityKi.severity === 'High'
+    && workerRepeatabilityKi.owner === 'CODEX'
+    && workerRepeatabilityKi.github_issue_number === 70
+    && workerRepeatabilityKi.trigger.includes('consecutive canonical Windows CI runs failed')
+    && workerRepeatabilityKi.repayment_condition.includes('bounded natural convergence')
+    && workerRepeatabilityKi.repayment_condition.includes('retries')
+    && workerRepeatabilityKi.hard_stop.includes('before PR readiness')
+    && workerRepeatabilityKi.evidence === proofRecordPath
+    && currentWi.includes('KI-CX-WORKER-008 / Issue #70')
+    && fixPlan.includes('KI-CX-WORKER-008 / Issue #70')
+    && handoff.includes('KI-CX-WORKER-008 / Issue #70')
+    && proofRecord.includes('KI-CX-WORKER-008 / Issue #70');
   checks.worker_lifecycle_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
     && ['PAUSED', 'RETIRED'].includes(state.control_plane?.automation?.status)
     && state.layer2_target?.remote_configured === false
@@ -5076,8 +5158,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && state.layer2_target?.observed_inconsistency?.github_issue_number === 62
     && reviewAvailabilityKi?.severity === 'High'
     && reviewAvailabilityKi?.owner.includes('execution platform')
-    && reviewAvailabilityKi?.status === 'repaid-on-merge'
-    && reviewAvailabilityKi?.repaid_by === 'WI-CX0060-test'
+    && reviewAvailabilityKi?.status === 'open'
     && reviewAvailabilityKi?.github_issue_number === 63
     && reviewAvailabilityKi?.hard_stop.includes('before marking WI-CX0060 validated')
     && reviewAvailabilityKi?.trigger.includes('7696fbb')
@@ -5085,6 +5166,9 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAvailabilityKi?.trigger.includes('71576c0')
     && reviewAvailabilityKi?.defer_reason.includes('each remediated head requires a fresh review generation')
     && reviewAvailabilityKi?.repayment_condition.includes('PASS with no unresolved P0, P1, or P2 finding')
+    && reviewAvailabilityKi?.latest_review?.agent_id === '019f5b52-28c5-73b2-8eb2-cb03c9325e75'
+    && reviewAvailabilityKi?.latest_review?.github_review_id === 4684593492
+    && reviewAvailabilityKi?.latest_review?.verdict === 'FAIL'
     && state.control_plane?.independent_review?.availability_issue === 63
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d43-2090-7711-ae34-05aaa264bf22' && attempt.result.includes('no-verdict'))
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f4d6b-f84f-7c30-b759-038b6183cf70' && attempt.reviewed_head === 'b63bbca2552d6fe071812c279143a046683d0ac1' && attempt.result.includes('fail-two-p2'))
@@ -5128,6 +5212,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && fixPlan.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
     && proofRecord.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
     && handoff.includes('019f5b27-a680-7d20-8c02-bb5c71eb6bc6')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5b52-28c5-73b2-8eb2-cb03c9325e75'
+      && attempt.reviewed_head === 'c6c7952fdbab2c6172aa2e1b2b8b3924985e2b6e'
+      && attempt.github_review_id === 4684593492
+      && attempt.result.includes('target-ancestor-command-substitution'))
+    && currentWi.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
+    && fixPlan.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
+    && proofRecord.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
+    && handoff.includes('019f5b52-28c5-73b2-8eb2-cb03c9325e75')
     && workerControlAudit.includes('findCandidateReferenceFields')
     && workerControlAudit.includes('hasExactCandidateHeadReferences')
     && handoff.includes('PR #65 is already published')
@@ -5170,6 +5262,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
   if (!checks.worker_prompt_schema_known_issue) error('worker_lifecycle.prompt_schema_ki_missing', 'WI-CX0060 must record prompt-boundary schema debt with Issue #67 evidence.');
   if (!checks.worker_setup_result_known_issue) error('worker_lifecycle.setup_result_ki_missing', 'WI-CX0060 must record setup-failure terminal-result debt with Issue #68 evidence.');
   if (!checks.worker_candidate_audit_known_issue) error('worker_lifecycle.candidate_audit_ki_missing', 'WI-CX0060 must record multiline candidate-audit debt with Issue #69 evidence.');
+  if (!checks.worker_repeatability_known_issue) error('worker_lifecycle.repeatability_ki_missing', 'WI-CX0060 must record canonical Windows repeatability debt with Issue #70 evidence.');
   if (!checks.worker_lifecycle_boundary) error('worker_lifecycle.boundary_missing', 'WI-CX0059 must preserve runner, target, publication, authority, dependency, API, and destructive-operation boundaries.', liveRunnerStatus);
   if (!checks.worker_temporal_identity_registration) error('worker_temporal_identity.registration_missing', 'Manifest and indexes must register the WI-CX0061 validation record.');
   if (!checks.worker_temporal_identity_ledger) error('worker_temporal_identity.ledger_missing', 'WI-CX0061 must retain its 17-entry metadata-only fresh context evidence.');

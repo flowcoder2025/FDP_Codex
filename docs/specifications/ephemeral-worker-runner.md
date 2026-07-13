@@ -26,8 +26,9 @@ The final `-` makes Codex read the prompt from stdin. The wrapper does not write
 - `--timeout-ms` defaults to 120000 and must be between 1000 and 1800000. The invocation deadline and interruption handling are armed before prompt input, bind a held-open stdin, and managed execution receives only the remaining time.
 - `--sandbox` defaults to `workspace-write` and accepts only `read-only` or `workspace-write`.
 - stdin must contain a non-empty UTF-8 prompt no larger than 1 MiB.
-- `CODEX_CLI_PATH` may identify only an absolute Codex executable or absolute `codex.js` shim. Relative overrides and Windows `.cmd` or `.bat` shims are rejected.
-- Before the target working directory is used, the controller canonicalizes the selected executable and shim paths. PATH fallback considers only absolute PATH directories, excludes candidates inside the target root, and fails closed when no trusted absolute command or absolute Node-plus-shim pair exists. A target-local `codex.exe` therefore cannot shadow the intended CLI before the Codex sandbox starts.
+- `CODEX_CLI_PATH` may identify only an absolute Codex executable or absolute `codex.js` shim inside the standard Codex npm package or a controller-owned `FDP_CODEX_CLI_TRUST_ROOTS` allowlist. Relative overrides and Windows `.cmd` or `.bat` shims are rejected.
+- Before the target working directory is used, the controller canonicalizes the selected executable, shim, trust roots, and nearest Git repository boundary. Explicit and PATH candidates must remain outside that complete target boundary and inside an approved trust root. Symlink or junction resolution cannot move a target-controlled file into a trusted path. A nested target therefore cannot select a repository-ancestor or arbitrary sibling executable before the Codex sandbox starts.
+- Normal Windows completion gives Job accounting a bounded natural convergence window before treating remaining members as residual containment failure. Process-table acquisition retries transient failures only within an absolute per-observation deadline; persistent uncertainty still fails closed.
 - The target must be trusted by Codex. Generalized managed-worker use remains blocked while command re-entry confinement is unresolved.
 
 ## Agent Confinement

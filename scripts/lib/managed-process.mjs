@@ -23,6 +23,9 @@ import { fileURLToPath } from 'node:url';
 
 const DEFAULT_MAX_BUFFER = 8 * 1024 * 1024;
 const DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS = 2000;
+const DEFAULT_OBSERVATION_RETRY_BUDGET_MS = 2500;
+const DEFAULT_OBSERVATION_RETRY_DELAY_MS = 50;
+const injectedObservationFailureTokens = new Set();
 const WINDOWS_JOB_ASSIGNED_MARKER = 'FDP_JOB_RUNNER_ASSIGNED';
 const WINDOWS_JOB_DRAINED_MARKER = 'FDP_JOB_RUNNER_DRAINED';
 const WINDOWS_JOB_CONTROLLER_WATCHDOG_MARKER = 'FDP_JOB_RUNNER_CONTROLLER_WATCHDOG';
@@ -191,7 +194,9 @@ export function classifyControllerIdentityLookupCleanup(pid, stopResult) {
  * @param {string} command
  * @param {string[]} args
  */
-function startExecFileText(command, args) {
+function startExecFileText(command, args, {
+  timeoutMs = DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS,
+} = {}) {
   /** @type {import('node:child_process').ChildProcess | undefined} */
   let child;
   /** @type {Promise<string>} */
@@ -203,7 +208,7 @@ function startExecFileText(command, args) {
     child = execFile(command, args, {
       encoding: 'utf8',
       maxBuffer: DEFAULT_MAX_BUFFER,
-      timeout: DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS,
+      timeout: timeoutMs,
       windowsHide: true,
     }, (error, stdout, stderr) => {
       if (error) {
@@ -251,12 +256,14 @@ function startExecFileText(command, args) {
  * @param {string[]} args
  * @returns {Promise<string>}
  */
-function execFileText(command, args) {
-  return startExecFileText(command, args).result;
+function execFileText(command, args, options) {
+  return startExecFileText(command, args, options).result;
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
-async function listWindowsProcesses() {
+async function listWindowsProcesses({
+  deadlineAt = Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS,
+} = {}) {
   const systemRoot = process.env.SystemRoot || 'C:\\Windows';
   const powershell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   const testDelayMs = Number.parseInt(
@@ -274,23 +281,47 @@ async function listWindowsProcesses() {
     '})',
     'ConvertTo-Json -Compress -InputObject $items',
   ].join('; ');
-  const output = (await execFileText(powershell, [
-    '-NoLogo',
-    '-NoProfile',
-    '-NonInteractive',
-    '-ExecutionPolicy', 'Bypass',
-    '-Command', script,
-  ])).trim();
-  if (!output) return [];
-  const parsed = JSON.parse(output);
-  const rows = Array.isArray(parsed) ? parsed : [parsed];
-  return rows.map((row) => ({
-    pid: Number(row.pid),
-    ppid: Number(row.ppid),
-    pgid: null,
-    name: String(row.name || ''),
-    started_at: row.started_at ? String(row.started_at) : null,
-  })).filter((row) => Number.isInteger(row.pid) && row.pid > 0);
+  let lastError = null;
+  let attempt = 0;
+  while (Date.now() < deadlineAt) {
+    attempt += 1;
+    try {
+      const injectionToken = process.env.NODE_ENV === 'test'
+        ? process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE
+        : null;
+      if (injectionToken && !injectedObservationFailureTokens.has(injectionToken)) {
+        injectedObservationFailureTokens.add(injectionToken);
+        throw new Error('test transient process-table acquisition failure');
+      }
+      const remainingMs = Math.max(1, deadlineAt - Date.now());
+      const output = (await execFileText(powershell, [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command', script,
+      ], {
+        timeoutMs: Math.min(DEFAULT_OBSERVATION_COMMAND_TIMEOUT_MS, remainingMs),
+      })).trim();
+      if (!output) return [];
+      const parsed = JSON.parse(output);
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      return rows.map((row) => ({
+        pid: Number(row.pid),
+        ppid: Number(row.ppid),
+        pgid: null,
+        name: String(row.name || ''),
+        started_at: row.started_at ? String(row.started_at) : null,
+      })).filter((row) => Number.isInteger(row.pid) && row.pid > 0);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= 3 || Date.now() + DEFAULT_OBSERVATION_RETRY_DELAY_MS >= deadlineAt) {
+        throw error;
+      }
+      await sleep(DEFAULT_OBSERVATION_RETRY_DELAY_MS);
+    }
+  }
+  throw lastError || new Error('process-table acquisition exceeded its absolute deadline');
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
@@ -314,8 +345,8 @@ async function listPosixProcesses() {
 }
 
 /** @returns {Promise<ProcessInfo[]>} */
-export function listProcessTable() {
-  return process.platform === 'win32' ? listWindowsProcesses() : listPosixProcesses();
+export function listProcessTable(options) {
+  return process.platform === 'win32' ? listWindowsProcesses(options) : listPosixProcesses();
 }
 
 /**
@@ -1068,7 +1099,9 @@ export async function runManagedProcess(options) {
       atomic_child_registered: containment.atomic_child_pid !== null
         && observed.has(containment.atomic_child_pid),
     });
-    observeInFlight = listProcessTable()
+    observeInFlight = listProcessTable({
+      deadlineAt: Date.now() + DEFAULT_OBSERVATION_RETRY_BUDGET_MS,
+    })
       .then((table) => {
         const unknownCandidatePids = mergeObservedTree(table, rootPid, observed);
         if (unknownCandidatePids.length > 0) {

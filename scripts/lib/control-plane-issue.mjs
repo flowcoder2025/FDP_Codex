@@ -7,7 +7,8 @@ export function parseStructuredIssueFields(body) {
   const fields = [];
   let activeField = null;
   for (const line of String(body || '').split(/\r?\n/)) {
-    const match = /^\s*-\s*([^:\r\n]+):\s*(.*)$/.exec(line);
+    const match = /^\s*-\s*([^:\r\n]+):\s*(.*)$/.exec(line)
+      || /^\s*((?:current\s+)?(?:candidate|revision|head|sha))\s*:\s*(.*)$/i.exec(line);
     if (match) {
       activeField = {
         name: match[1].trim(),
@@ -16,13 +17,29 @@ export function parseStructuredIssueFields(body) {
       fields.push(activeField);
       continue;
     }
-    if (activeField && /^\s{2,}\S/.test(line)) {
+    if (activeField
+      && line.trim()
+      && !/^\s*#{1,6}\s/.test(line)
+      && !/^\s*-\s*[^:\r\n]+:\s*/.test(line)) {
       activeField.value = [activeField.value, line.trim()].filter(Boolean).join(' ');
       continue;
     }
     activeField = null;
   }
   return fields;
+}
+
+function isCandidateReferenceField(field) {
+  return /^(?:current\s+)?(?:candidate|revision|head|sha)(?:\s+(?:commit|state|reference|sha|head))?$/i.test(field.name)
+    || /\bcurrent (?:candidate|revision|head|sha)\b/i.test(field.value)
+    || /^(?:candidate|revision|head|sha)\b/i.test(field.value);
+}
+
+export function hasCandidateReferenceCue(body) {
+  const text = String(body || '');
+  return parseStructuredIssueFields(text).some(isCandidateReferenceField)
+    || text.split(/\r?\n/).some((line) =>
+      /^\s*(?:[-*]\s*)?(?:current\s+(?:candidate|revision|head|sha)\b|(?:candidate|revision|head|sha)\s*[:=])/i.test(line));
 }
 
 export function findPinnedCandidateRefs(body) {
@@ -41,11 +58,7 @@ export function findCandidateReferenceFields(body) {
       ...field,
       refs: [...new Set((field.value.match(GIT_REF_PATTERN) ?? []).map((ref) => ref.toLowerCase()))],
     }))
-    .filter((field) => field.refs.length > 0 && (
-      /\b(?:candidate|revision|head|sha)\b/i.test(field.name)
-      || /\bcurrent (?:candidate|revision|head|sha)\b/i.test(field.value)
-      || /^(?:candidate|revision|head|sha)\b/i.test(field.value)
-    ));
+    .filter((field) => field.refs.length > 0 && isCandidateReferenceField(field));
 }
 
 export function hasExactCandidateHeadReferences(body, expectedHead) {
@@ -61,4 +74,9 @@ export function hasLivePrOnlyCandidateReference(body, prNumber) {
   return text.includes(`PR #${prNumber}`)
     && text.includes(LIVE_HEAD_INSTRUCTION)
     && findPinnedCandidateRefs(text).length === 0;
+}
+
+export function hasValidCandidateHeadReference(body, prNumber, expectedHead) {
+  return hasLivePrOnlyCandidateReference(body, prNumber)
+    || hasExactCandidateHeadReferences(body, expectedHead);
 }

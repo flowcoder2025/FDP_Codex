@@ -6,8 +6,10 @@ import path from 'node:path';
 import {
   findCandidateReferenceFields,
   findPinnedCandidateRefs,
+  hasCandidateReferenceCue,
   hasExactCandidateHeadReferences,
   hasLivePrOnlyCandidateReference,
+  hasValidCandidateHeadReference,
 } from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
@@ -207,18 +209,27 @@ addCheck('ki.KI-CX-WORKER-003.live_pr_reference', Boolean(liveWorkerFinalResultI
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));
 for (const issue of issues.filter((candidate) => candidate.state === 'OPEN')) {
   const candidateFields = findCandidateReferenceFields(issue.body);
-  if (candidateFields.length === 0) continue;
+  const candidateCuePresent = hasCandidateReferenceCue(issue.body);
+  if (!candidateCuePresent) continue;
   const referencedPrNumbers = [...new Set(
     [...String(issue.body || '').matchAll(/\bPR #(\d+)\b/g)].map((match) => Number(match[1])),
   )];
   const candidatePr = referencedPrNumbers.length === 1
     ? pullRequests.find((pullRequest) => pullRequest.number === referencedPrNumbers[0])
     : null;
+  const livePrOnlyReference = Boolean(candidatePr)
+    && hasLivePrOnlyCandidateReference(issue.body, candidatePr.number);
   addCheck(`ki.issue_${issue.number}.candidate_head`, Boolean(candidatePr)
-    && hasExactCandidateHeadReferences(issue.body, candidatePr.headRefOid), {
+    && hasValidCandidateHeadReference(
+      issue.body,
+      candidatePr.number,
+      candidatePr.headRefOid,
+    ), {
     issue_number: issue.number,
     referenced_pr_numbers: referencedPrNumbers,
     live_pr_head: candidatePr?.headRefOid || null,
+    candidate_cue_present: candidateCuePresent,
+    live_pr_only_reference: livePrOnlyReference,
     candidate_fields: candidateFields,
   });
 }

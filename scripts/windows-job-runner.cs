@@ -616,23 +616,25 @@ public static class FdpWindowsJobRunner
                 ThrowLastError("GetExitCodeProcess");
             }
 
-            var activeProcessesAfterRootExit = GetActiveProcessCount(job);
-            if (!TerminateJobObject(job, 1))
+            var drainedNaturally = WaitForDrain(job, 1000);
+            if (!drainedNaturally)
             {
-                ThrowLastError("TerminateJobObject");
-            }
-
-            if (!WaitForDrain(job, 5000))
-            {
-                throw new InvalidOperationException("Windows Job Object did not drain before the verification deadline.");
-            }
-
-            Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED:" + controlToken);
-            if (activeProcessesAfterRootExit > 0)
-            {
+                var activeProcessesAfterRootExit = GetActiveProcessCount(job);
+                if (!TerminateJobObject(job, 1))
+                {
+                    ThrowLastError("TerminateJobObject");
+                }
+                if (!WaitForDrain(job, 5000))
+                {
+                    throw new InvalidOperationException(
+                        "Windows Job Object did not drain before the verification deadline.");
+                }
+                Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED:" + controlToken);
                 throw new InvalidOperationException(
                     "Worker root exited while " + activeProcessesAfterRootExit + " Job process(es) remained active.");
             }
+
+            Console.Error.WriteLine("FDP_JOB_RUNNER_DRAINED:" + controlToken);
             return unchecked((int)exitCode);
         }
         finally

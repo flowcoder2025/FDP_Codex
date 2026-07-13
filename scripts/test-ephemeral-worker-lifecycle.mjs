@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -949,6 +949,40 @@ async function runWatchdogTeardownRaceCase() {
   };
 }
 
+async function runTransientObservationRetryCase() {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousInjection = process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE;
+  const injectionToken = `transient-observation-${process.pid}-${Date.now()}`;
+  process.env.NODE_ENV = 'test';
+  process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE = injectionToken;
+  try {
+    const result = await runManagedProcess({
+      command: process.execPath,
+      args: [fixturePath, 'complete'],
+      timeoutMs: 5000,
+      pollIntervalMs: 100,
+    });
+    assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+    assert.equal(result.ok, true);
+    assert.equal(result.observation_verified, true);
+    assert.equal(
+      result.observation_errors.some((message) =>
+        message.includes('test transient process-table acquisition failure')),
+      false,
+    );
+    return {
+      status: result.status,
+      transient_failure_retried: true,
+      absolute_retry_deadline_enforced: true,
+    };
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousInjection === undefined) delete process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE;
+    else process.env.FDP_WORKER_TEST_OBSERVATION_FAIL_ONCE = previousInjection;
+  }
+}
+
 async function runTimeoutCase() {
   const events = [];
   const result = await runManagedProcess({
@@ -1571,16 +1605,25 @@ async function runControllerIdentityMismatchCase() {
 async function runCodexInvocationResolutionCases() {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'fdp-codex-invocation-'));
   const targetRoot = path.join(tempRoot, 'target');
+  const nestedTarget = path.join(targetRoot, 'nested', 'work');
   const trustedRoot = path.join(tempRoot, 'trusted');
+  const unapprovedRoot = path.join(tempRoot, 'unapproved');
   const targetShadow = path.join(targetRoot, 'codex.exe');
   const trustedExecutable = path.join(trustedRoot, 'codex.exe');
+  const unapprovedExecutable = path.join(unapprovedRoot, 'codex.exe');
+  const targetJunction = path.join(trustedRoot, 'target-junction');
   try {
-    await mkdir(targetRoot);
+    await mkdir(path.join(targetRoot, '.git'), { recursive: true });
+    await mkdir(nestedTarget, { recursive: true });
     await mkdir(trustedRoot);
+    await mkdir(unapprovedRoot);
     await writeFile(targetShadow, 'target-controlled shadow executable\n', 'utf8');
     const targetShim = path.join(targetRoot, 'codex.js');
     await writeFile(targetShim, 'console.log("target-controlled shim");\n', 'utf8');
     await copyFile(windowsJobRunnerExecutablePath, trustedExecutable);
+    await copyFile(windowsJobRunnerExecutablePath, unapprovedExecutable);
+    await symlink(targetRoot, targetJunction, 'junction');
+    const trustEnv = { FDP_CODEX_CLI_TRUST_ROOTS: trustedRoot };
 
     assert.throws(
       () => resolveCodexInvocation({
@@ -1593,37 +1636,73 @@ async function runCodexInvocationResolutionCases() {
     );
     assert.throws(
       () => resolveCodexInvocation({
-        env: { CODEX_CLI_PATH: targetShadow },
+        env: { ...trustEnv, CODEX_CLI_PATH: targetShadow },
         platform: 'win32',
         execPath: process.execPath,
-        targetCwd: targetRoot,
+        targetCwd: nestedTarget,
       }),
-      /must not resolve inside the target working directory/,
+      /must not resolve inside the target repository trust boundary/,
     );
     assert.throws(
       () => resolveCodexInvocation({
-        env: { CODEX_CLI_PATH: targetShim },
+        env: { ...trustEnv, CODEX_CLI_PATH: targetShim },
         platform: 'win32',
         execPath: process.execPath,
-        targetCwd: targetRoot,
+        targetCwd: nestedTarget,
       }),
-      /must not resolve inside the target working directory/,
+      /must not resolve inside the target repository trust boundary/,
     );
     assert.throws(
       () => resolveCodexInvocation({
-        env: { PATH: targetRoot },
+        env: {
+          ...trustEnv,
+          CODEX_CLI_PATH: path.join(targetJunction, 'codex.exe'),
+        },
         platform: 'win32',
         execPath: process.execPath,
-        targetCwd: targetRoot,
+        targetCwd: nestedTarget,
+      }),
+      /must not resolve inside the target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, CODEX_CLI_PATH: unapprovedExecutable },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /approved Codex installation/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: {
+          FDP_CODEX_CLI_TRUST_ROOTS: tempRoot,
+          CODEX_CLI_PATH: targetShadow,
+        },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
+      }),
+      /target repository trust boundary/,
+    );
+    assert.throws(
+      () => resolveCodexInvocation({
+        env: { ...trustEnv, PATH: targetRoot + path.delimiter + unapprovedRoot },
+        platform: 'win32',
+        execPath: process.execPath,
+        targetCwd: nestedTarget,
       }),
       /trusted absolute path/,
     );
 
     const fallback = resolveCodexInvocation({
-      env: { PATH: targetRoot + path.delimiter + trustedRoot },
+      env: {
+        ...trustEnv,
+        PATH: targetRoot + path.delimiter + unapprovedRoot + path.delimiter + trustedRoot,
+      },
       platform: 'win32',
       execPath: process.execPath,
-      targetCwd: targetRoot,
+      targetCwd: nestedTarget,
     });
     assert.equal(path.resolve(fallback.command), path.resolve(trustedExecutable));
     assert.deepEqual(fallback.argsPrefix, []);
@@ -1632,7 +1711,12 @@ async function runCodexInvocationResolutionCases() {
     return {
       relative_override_rejected: true,
       target_cwd_override_rejected: true,
+      target_repository_ancestor_rejected: true,
+      arbitrary_executable_rejected: true,
+      overlapping_trust_root_rejected: true,
+      junction_escape_rejected: true,
       target_cwd_shadow_rejected: true,
+      controller_trust_root_required: true,
       path_fallback_absolute: path.isAbsolute(fallback.command),
       trusted_fallback_selected: true,
     };
@@ -1720,6 +1804,7 @@ async function runCliPrimaryExitCase(expectedExitCode, abortAfterMs = null) {
       ...process.env,
       NODE_ENV: 'test',
       CODEX_CLI_PATH: process.execPath,
+      FDP_CODEX_CLI_TRUST_ROOTS: path.dirname(process.execPath),
       FDP_JOB_TEST_OBSERVATION_DELAY_MS: '10000',
     };
     delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
@@ -1772,6 +1857,7 @@ async function runCliPromptBoundaryCase(expectedExitCode, abortAfterMs = null) {
       ...process.env,
       NODE_ENV: 'test',
       CODEX_CLI_PATH: process.execPath,
+      FDP_CODEX_CLI_TRUST_ROOTS: path.dirname(process.execPath),
     };
     delete env.FDP_WORKER_TEST_ABORT_AFTER_MS;
     if (abortAfterMs !== null) env.FDP_WORKER_TEST_ABORT_AFTER_MS = String(abortAfterMs);
@@ -1880,6 +1966,7 @@ const windowsCases = process.platform === 'win32' ? {
   prebuiltSetupBoundary: await runPrebuiltSetupBoundaryCase(),
   normal: await runNormalCase(),
   watchdogTeardownRace: await runWatchdogTeardownRaceCase(),
+  transientObservationRetry: await runTransientObservationRetryCase(),
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
@@ -1947,6 +2034,7 @@ console.log(JSON.stringify({
         watchdog_stopped: windowsCases.normal.containment.controller_watchdog_stopped,
       },
       watchdog_teardown_race: windowsCases.watchdogTeardownRace,
+      transient_observation_retry: windowsCases.transientObservationRetry,
       timeout: {
         status: windowsCases.timeout.status,
         observed_descendant_count: windowsCases.timeout.observed_descendant_pids.length,
