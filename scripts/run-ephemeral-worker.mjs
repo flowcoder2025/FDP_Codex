@@ -239,6 +239,7 @@ async function main() {
       signal: abortController.signal,
       onEvent: emitJson,
     });
+    emitJson({ type: 'worker.result', timestamp: new Date().toISOString(), result });
     if (result.ok) return;
     if (result.timed_out) process.exitCode = 124;
     else if (result.interrupted) process.exitCode = 130;

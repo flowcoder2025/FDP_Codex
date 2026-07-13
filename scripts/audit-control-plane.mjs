@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { findPinnedCandidateRefs, hasLivePrOnlyCandidateReference } from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const state = JSON.parse(readFileSync(path.join(repoRoot, '.flowset', 'state.json'), 'utf8'));
@@ -189,15 +190,13 @@ const workerFinalResultIssue = (state.known_issues || [])
   .find((knownIssue) => knownIssue.id === 'KI-CX-WORKER-003');
 const liveWorkerFinalResultIssue = issues
   .find((issue) => issue.number === workerFinalResultIssue?.github_issue_number);
-const pinnedCandidateShas = liveWorkerFinalResultIssue?.body?.match(/\b[0-9a-f]{40}\b/gi) ?? [];
+const pinnedCandidateRefs = findPinnedCandidateRefs(liveWorkerFinalResultIssue?.body);
 addCheck('ki.KI-CX-WORKER-003.live_pr_reference', Boolean(liveWorkerFinalResultIssue)
-  && liveWorkerFinalResultIssue.body.includes('PR #65')
-  && liveWorkerFinalResultIssue.body.includes('query the live PR head')
-  && pinnedCandidateShas.length === 0, {
+  && hasLivePrOnlyCandidateReference(liveWorkerFinalResultIssue.body, 65), {
   issue_number: workerFinalResultIssue?.github_issue_number || null,
   references_pr_65: liveWorkerFinalResultIssue?.body?.includes('PR #65') || false,
   requires_live_head_query: liveWorkerFinalResultIssue?.body?.includes('query the live PR head') || false,
-  pinned_candidate_shas: pinnedCandidateShas,
+  pinned_candidate_refs: pinnedCandidateRefs,
 });
 
 const pullRequests = JSON.parse(run('gh', ['pr', 'list', '--state', 'all', '--limit', '200', '--json', 'number,state,headRefName,headRefOid,labels,url']));

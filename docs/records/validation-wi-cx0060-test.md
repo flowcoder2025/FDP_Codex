@@ -171,6 +171,8 @@ The end-to-end live-proof claim remains blocked externally until the execution p
 
 - Reviewer 019f576e-9981-7343-a065-555961f62853 completed the full blind adversarial review on published head 6675269e74e720f6344d563ec872ed336809f21f and returned FAIL with two P2 findings. An absent current root still permitted same-group adoption after PGID reuse, while the handoff, machine review history, and Issue #61 retained contradictory candidate state. The remediation requires a present root classified `same`, adds deterministic `posix_group_absent_root_excluded` coverage, records the prior PASS and current FAIL, removes Issue #61's mutable SHA, and makes local validation plus the live control-plane audit reject this drift class. Any changed head requires a fresh blind exact-head review.
 
+- Reviewer 019f5a06-e5e2-7960-92fe-583d9525ba3e completed the full blind adversarial review on exact head 2cb1976d264d4c621953feb71d38af2dd041e987 and returned FAIL with two P2 findings plus one P3. The synchronous terminal-event callback could block past the deadline or abort after completion, the Issue #61 audit accepted a seven-character candidate pin, and the PR body described already-passed Node checks as pending. The remediation removes `worker.result` from arbitrary callback delivery, adds normal and spawn-failure terminal-isolation regressions plus exactly-once CLI parsing, shares a parser for Git-supported abbreviated and full candidate references between local and live audits, and makes PR prose instruct live check lookup. Any changed head requires a fresh blind exact-head review.
+
 ## Boundaries
 
 - The retired hourly runner remains absent.

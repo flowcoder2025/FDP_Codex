@@ -519,6 +519,7 @@ function captureLines(stream, streamName, emit, onInternalLine = () => false) {
 /**
  * Run one child process with observable output, a hard deadline, and verified
  * cleanup of the exact root and descendant process identities seen at runtime.
+ * `onEvent` receives non-terminal streaming events; the terminal result is returned.
  *
  * @param {{
  *   command: string,
@@ -572,8 +573,7 @@ export async function runManagedProcess(options) {
       }
     }
   };
-  const emitFinalResult = (result) => {
-    emit({ type: 'worker.result', timestamp: new Date().toISOString(), result });
+  const finalizeResult = (result) => {
     if (eventFailureOutcome !== null && result.status !== 'event_dispatch_failed') {
       result.terminal_status_before_event_failure = result.status;
       result.status = 'event_dispatch_failed';
@@ -624,7 +624,7 @@ export async function runManagedProcess(options) {
         errors: [],
       },
     };
-    return emitFinalResult(result);
+    return finalizeResult(result);
   }
   const timeoutDeadlineAt = Date.now() + options.timeoutMs;
   /** @type {NodeJS.Timeout | undefined} */
@@ -724,7 +724,7 @@ export async function runManagedProcess(options) {
     if (cleanupRequired && !cleanupVerified) {
       result.terminal_status_before_cleanup_failure = primaryStatus;
     }
-    return emitFinalResult(result);
+    return finalizeResult(result);
   };
 
   const initialPreSpawnGuard = elapsedGuardOutcome();
@@ -964,7 +964,7 @@ export async function runManagedProcess(options) {
         errors: [],
       },
     };
-    return emitFinalResult(result);
+    return finalizeResult(result);
   }
 
   const rootPid = child.pid;
@@ -1241,5 +1241,5 @@ export async function runManagedProcess(options) {
     containment,
     cleanup,
   };
-  return emitFinalResult(result);
+  return finalizeResult(result);
 }

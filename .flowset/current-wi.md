@@ -113,6 +113,8 @@ Prove that the managed ephemeral worker can reconstruct the separate Layer 2 dog
 
 - Reviewer 019f576e-9981-7343-a065-555961f62853 inspected published head 6675269e74e720f6344d563ec872ed336809f21f with fork_context: false and returned FAIL with two P2 findings: an absent root still allowed reused-PGID adoption, and handoff, state history, and Issue #61 disagreed about the current candidate. The remediation requires a present same-identity root, adds absent-root coverage, records both review generations, removes Issue #61's mutable candidate pin, and requires local plus live control-plane drift checks. Any changed head still requires a fresh PASS.
 
+- Reviewer 019f5a06-e5e2-7960-92fe-583d9525ba3e inspected exact head 2cb1976d264d4c621953feb71d38af2dd041e987 with fork_context: false and returned FAIL with two P2 findings plus one P3: synchronous final-result callback delivery could block past the deadline or accept an abort after lifecycle completion, the live-Issue audit accepted a seven-character candidate pin, and the PR body retained a stale check snapshot. `runManagedProcess` now returns terminal results without invoking arbitrary callbacks, fixed CLI publishers emit exactly one `worker.result`, normal and spawn-failure isolation regressions prove a terminal-conditioned callback is never invoked, candidate detection rejects Git-supported abbreviated and full candidate references, and PR validation must be read live. Any changed head still requires a fresh PASS.
+
 ## Open Known Issues
 
 - KI-CX-PROVIDER-001 / Issue #55 remains open until the execution platform establishes a trusted model destination that permits the repository-backed dogfood proof.

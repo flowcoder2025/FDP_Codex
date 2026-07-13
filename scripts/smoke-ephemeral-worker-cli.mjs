@@ -16,4 +16,6 @@ const result = await runManagedProcess({
   onEvent: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
 });
 
+process.stdout.write(`${JSON.stringify({ type: 'worker.result', timestamp: new Date().toISOString(), result })}\n`);
+
 if (!result.ok) process.exitCode = result.status === 'timed_out' ? 124 : 1;

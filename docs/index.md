@@ -166,6 +166,7 @@ This is the human navigation index for FDP_Codex. The machine-readable SSOT regi
 - `scripts/smoke-ephemeral-worker-cli.mjs`
 - `scripts/test-ephemeral-worker-lifecycle.mjs`
 - `scripts/fixtures/managed-worker-tree.mjs`
+- `scripts/lib/control-plane-issue.mjs`
 - `scripts/audit-control-plane.mjs`
 - `scripts/audit-independent-review.mjs`
 - `scripts/publish-independent-review-status.mjs`

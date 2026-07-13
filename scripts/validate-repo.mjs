@@ -3,11 +3,28 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { findPinnedCandidateRefs, hasLivePrOnlyCandidateReference } from './lib/control-plane-issue.mjs';
 
 const repoRoot = process.cwd();
 const errors = [];
 const warnings = [];
 const checks = {};
+
+checks.worker_issue_live_reference_policy = hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head',
+  65,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head; current candidate 6675269',
+  65,
+) && !hasLivePrOnlyCandidateReference(
+  'PR #65; query the live PR head; current candidate dead',
+  65,
+) && JSON.stringify(findPinnedCandidateRefs(
+  'PR #65; query the live PR head; current candidate 6675269',
+)) === '["6675269"]'
+  && JSON.stringify(findPinnedCandidateRefs(
+    'PR #65; query the live PR head; current candidate dead',
+  )) === '["dead"]';
 
 const hasActiveWiStatus = (text) => /^Status: (?:validated|validation-blocked|blocked-external)$/m.test(text);
 
@@ -113,6 +130,7 @@ const requiredFiles = [
   'scripts/smoke-ephemeral-worker-cli.mjs',
   'scripts/test-ephemeral-worker-lifecycle.mjs',
   'scripts/fixtures/managed-worker-tree.mjs',
+  'scripts/lib/control-plane-issue.mjs',
   'scripts/audit-control-plane.mjs',
   'scripts/audit-independent-review.mjs',
   'scripts/publish-independent-review-status.mjs',
@@ -193,6 +211,7 @@ const requiredChunkIds = [
   'decision.autonomous-work-exhaustion-stop-gate',
   'decision.a2-worktree-isolation-repair-gate',
   'decision.control-plane-operational-integrity',
+  'tool.control-plane-issue',
   'tool.audit-control-plane',
   'record.validation-wi-cx0062-fix',
   'github.workflow.independent-review',
@@ -3957,7 +3976,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && managedProcess.includes('const initialPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalPreSpawnGuard = elapsedGuardOutcome()')
     && managedProcess.includes('const finalSpawnGuard = elapsedGuardOutcome()')
-    && managedProcess.includes('return emitFinalResult(result)')
+    && managedProcess.includes('return finalizeResult(result)')
+    && !managedProcess.includes("type: 'worker.result'")
     && managedProcess.includes('return returnBeforeSpawn(controllerIdentityOutcome, preSpawnCleanup)')
     && managedProcess.includes('root_pid: null')
     && managedProcess.indexOf('const finalPreSpawnGuard = elapsedGuardOutcome()') < managedProcess.indexOf('const child = spawn(')
@@ -4078,6 +4098,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && runner.includes('const remainingMs = deadlineAt - Date.now()')
     && runner.includes('timeoutMs: remainingMs')
     && runner.includes('emitPromptBoundaryResult')
+    && runner.indexOf('const result = await runManagedProcess({') < runner.lastIndexOf("emitJson({ type: 'worker.result'")
     && runner.includes('prompt must be piped through stdin')
     && runner.includes('AbortController')
     && !runner.includes('danger-full-access')
@@ -4102,6 +4123,7 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && localSmoke.includes('buildEphemeralWorkerArgs')
     && localSmoke.includes('workerArgs.slice(0, -1)')
     && localSmoke.includes("'--help'")
+    && localSmoke.includes("type: 'worker.result'")
     && !localSmoke.includes('execpolicy')
     && !localSmoke.includes("'exec', '--help'");
   checks.worker_lifecycle_tests = testError === null
@@ -4160,12 +4182,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.cleanup_partition_verified === true
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_sink_failure_contained === true
         && testResult?.cases?.windows_lifecycle?.throwing_started_callback?.event_error_count >= 1
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.status === 'event_dispatch_failed'
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.previous_status === 'completed'
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.containment_verified === true
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.cleanup_required === false
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.final_result_failure_reclassified === true
-        && testResult?.cases?.windows_lifecycle?.throwing_result_callback?.event_error_count >= 1
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.status === 'completed'
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.terminal_callback_invoked === false
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.signal_aborted === false
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.returned_before_deadline === true
+        && testResult?.cases?.windows_lifecycle?.final_result_callback_isolation?.containment_verified === true
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.status === 'spawn_failed'
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.terminal_callback_invoked === false
+        && testResult?.cases?.windows_lifecycle?.spawn_failure_result_callback_isolation?.returned_before_deadline === true
         && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.status === 'completed'
         && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_marker_ignored === true
         && testResult?.cases?.windows_lifecycle?.spoofed_atomic_marker?.spoofed_pid_observed === false
@@ -4260,8 +4284,11 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && lifecycleTest.includes('function runThrowingStartedCallbackCase()')
     && lifecycleTest.includes("throw new Error('intentional event sink failure')")
     && lifecycleTest.includes("assert.equal(result.status, 'event_dispatch_failed'")
-    && lifecycleTest.includes('function runThrowingResultCallbackCase()')
-    && lifecycleTest.includes("intentional final result sink failure")
+    && lifecycleTest.includes('function runFinalResultCallbackIsolationCase()')
+    && lifecycleTest.includes('function runSpawnFailureResultCallbackIsolationCase()')
+    && lifecycleTest.includes('terminalCallbackCount += 1')
+    && lifecycleTest.includes('busyWait(6000)')
+    && lifecycleTest.includes('expected exactly one worker.result event')
     && lifecycleTest.includes('function runSpoofedAtomicMarkerCase()')
     && lifecycleTest.includes("fixturePath, 'spoof-marker'")
     && lifecycleTest.includes('function runSpoofedDrainWrapperKillCase()')
@@ -4337,7 +4364,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && autonomy.includes('Behavioral validation must prove the worker inherits none of them')
     && autonomy.includes('An event sink exception after spawn must be captured as `event_dispatch_failed`')
     && autonomy.includes('stdin stream error must be captured in `stdin_errors`')
-    && autonomy.includes('final `worker.result` sink itself fails')
+    && autonomy.includes('Arbitrary `onEvent` callbacks receive non-terminal streaming events only')
+    && autonomy.includes('fixed CLI publisher serializes exactly one `worker.result`')
     && autonomy.includes('native Windows wrapper must emit its own PID and start time')
     && autonomy.includes('requires its PID to equal the exact spawned wrapper PID')
     && autonomy.includes('uninitialized wrapper root is never adopted from mutable process-table parent or name fields')
@@ -4379,8 +4407,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && decision.includes('behavioral fixture proves the worker inherits none of them')
     && decision.includes('post-spawn event sink exception is captured as `event_dispatch_failed`')
     && decision.includes('Stdin stream errors are retained in `stdin_errors`')
-    && decision.includes('Every terminal path uses one final-result publisher')
-    && decision.includes('retains its prior terminal status')
+    && decision.includes('Arbitrary `onEvent` callbacks receive non-terminal streaming events only')
+    && decision.includes('fixed CLI publisher serializes exactly one `worker.result`')
     && decision.includes('native wrapper writes its own PID and start time marker')
     && decision.includes('requires that PID to match the exact spawned wrapper')
     && decision.includes('uninitialized wrapper root is never adopted from process-table parent or name fields')
@@ -4460,7 +4488,8 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && spec.includes('1 MiB early-exit stdin case')
     && spec.includes('test-only post-timeout stdin error')
     && spec.includes('without claiming a real pending write')
-    && spec.includes('failure while delivering the final `worker.result`')
+    && spec.includes('synchronous `onEvent` callback contract is explicitly limited to non-terminal streaming events')
+    && spec.includes('fixed CLI publisher then serializes exactly one `worker.result`')
     && spec.includes('every query has a separate finite command timeout')
     && spec.includes('visible controller');
   checks.worker_temporal_identity_spec = spec.includes('earlier than its observed parent or root')
@@ -4772,10 +4801,14 @@ function validateEphemeralWorkerProcessLifecycleGuard() {
     && reviewAttempts.some((attempt) => attempt.agent_id === '019f576e-9981-7343-a065-555961f62853'
       && attempt.reviewed_head === '6675269e74e720f6344d563ec872ed336809f21f'
       && attempt.result.includes('fail-two-p2'))
-    && currentWi.includes('019f576e-9981-7343-a065-555961f62853')
-    && fixPlan.includes('019f576e-9981-7343-a065-555961f62853')
+    && reviewAttempts.some((attempt) => attempt.agent_id === '019f5a06-e5e2-7960-92fe-583d9525ba3e'
+      && attempt.reviewed_head === '2cb1976d264d4c621953feb71d38af2dd041e987'
+      && attempt.result.includes('final-event-deadline-bypass'))
+    && currentWi.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
+    && fixPlan.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
+    && proofRecord.includes('019f5a06-e5e2-7960-92fe-583d9525ba3e')
     && handoff.includes('PR #65 is already published')
-    && handoff.includes('query the live PR #65 head')
+    && handoff.includes('query its live head and checks')
     && !handoff.includes('Finish the PR #65 Linux CI remediation')
     && workerControlAudit.includes('ki.KI-CX-WORKER-003.live_pr_reference');
   checks.worker_proof_boundary = ['not-present', 'paused'].includes(liveRunnerStatus)
@@ -4867,6 +4900,9 @@ function validateControlPlaneOperationalIntegrity() {
 
   checks.control_integrity_registration = manifest.includes('id: decision.control-plane-operational-integrity')
     && manifest.includes(decisionPath)
+    && manifest.includes('id: tool.control-plane-issue')
+    && manifest.includes('scripts/lib/control-plane-issue.mjs')
+    && docsIndex.includes('scripts/lib/control-plane-issue.mjs')
     && manifest.includes('id: tool.audit-control-plane')
     && manifest.includes(auditPath)
     && manifest.includes('id: record.validation-wi-cx0062-fix')

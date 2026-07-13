@@ -1928,6 +1928,18 @@ chunks:
       - validation
       - tooling
     body_carryover: forbidden
+  - id: tool.control-plane-issue
+    title: Control-Plane Issue Reference Parser
+    source: scripts/lib/control-plane-issue.mjs
+    type: tool
+    layer: layer1
+    status: implemented
+    loads_for:
+      - control-plane-integrity
+      - github-governance
+      - validation
+      - tooling
+    body_carryover: forbidden
   - id: record.validation-wi-cx0062-fix
     title: WI-CX0062-fix Validation Record
     source: docs/records/validation-wi-cx0062-fix.md

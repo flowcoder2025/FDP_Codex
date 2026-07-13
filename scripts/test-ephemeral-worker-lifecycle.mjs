@@ -289,8 +289,7 @@ async function runUnsupportedPlatformCase() {
   assert.equal(result.root_pid, null);
   assert.equal(result.containment.mode, 'unsupported-fail-closed');
   assert.equal(result.containment.verified, false);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].type, 'worker.result');
+  assert.equal(events.length, 0);
   return result;
 }
 function runTemporalIdentityCase() {
@@ -507,7 +506,7 @@ async function runControllerIdentityStartFailureCase() {
     assert.equal(result.cleanup.required, false);
     assert.equal(result.cleanup.verified, true);
     assert(result.observation_errors.includes('test controller identity helper start failure'));
-    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 0);
     assertNoWorkerSpawnEvents(events);
     return { status: result.status, structured_result: true, wrapper_spawned: false };
   } finally {
@@ -536,7 +535,7 @@ async function runControllerIdentityResultFailureCase() {
     assert.equal(result.cleanup.required, false);
     assert.equal(result.cleanup.verified, true);
     assert(result.observation_errors.some((error) => error.includes('test controller identity helper result failure')));
-    assert.equal(events.filter((event) => event.type === 'worker.result').length, 1);
+    assert.equal(events.filter((event) => event.type === 'worker.result').length, 0);
     assertNoWorkerSpawnEvents(events);
     return { status: result.status, structured_result: true, wrapper_spawned: false };
   } finally {
@@ -819,47 +818,67 @@ async function runThrowingStartedCallbackCase() {
   };
 }
 
-async function runThrowingResultCallbackCase() {
+async function runFinalResultCallbackIsolationCase() {
+  const abortController = new AbortController();
+  let terminalCallbackCount = 0;
+  const startedAt = Date.now();
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'complete'],
     timeoutMs: 5000,
     pollIntervalMs: 100,
+    signal: abortController.signal,
     onEvent: (event) => {
-      if (event.type === 'worker.result') throw new Error('intentional final result sink failure');
+      if (event.type !== 'worker.result') return;
+      terminalCallbackCount += 1;
+      abortController.abort('terminal-callback-should-not-run');
+      busyWait(6000);
     },
   });
-  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
-  assert.equal(result.terminal_status_before_event_failure, 'completed');
-  assert.equal(result.ok, false);
-  assert(result.event_errors.includes('intentional final result sink failure'));
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(terminalCallbackCount, 0);
+  assert.equal(abortController.signal.aborted, false);
+  assert.equal(result.status, 'completed', JSON.stringify(result, null, 2));
+  assert.equal(result.ok, true);
+  assert(elapsedMs < 5000, `managed result returned after deadline: ${elapsedMs}ms`);
   assert.equal(result.containment.verified, true);
   assert.equal(result.cleanup.required, false);
   assert.equal(isProcessAlive(result.root_pid), false);
   assert.equal(isProcessAlive(result.containment.atomic_child_pid), false);
-  return { ...result, previous_status: result.terminal_status_before_event_failure, final_result_failure_reclassified: true };
+  return {
+    status: result.status,
+    terminal_callback_invoked: false,
+    signal_aborted: false,
+    returned_before_deadline: true,
+    containment_verified: result.containment.verified,
+  };
 }
 
-async function runSpawnFailureResultCallbackCase() {
+async function runSpawnFailureResultCallbackIsolationCase() {
   const missingCwd = path.join(os.tmpdir(), 'fdp-codex-missing-spawn-cwd-' + process.pid + '-' + Date.now());
+  let terminalCallbackCount = 0;
+  const startedAt = Date.now();
   const result = await runManagedProcess({
     command: process.execPath,
     args: [fixturePath, 'complete'],
     cwd: missingCwd,
     timeoutMs: 5000,
     onEvent: (event) => {
-      if (event.type === 'worker.result') throw new Error('spawn-failed-result-sink');
+      if (event.type !== 'worker.result') return;
+      terminalCallbackCount += 1;
+      busyWait(6000);
     },
   });
-  assert.equal(result.status, 'event_dispatch_failed', JSON.stringify(result, null, 2));
-  assert.equal(result.terminal_status_before_event_failure, 'spawn_failed');
+  const elapsedMs = Date.now() - startedAt;
+  assert.equal(terminalCallbackCount, 0);
+  assert.equal(result.status, 'spawn_failed', JSON.stringify(result, null, 2));
   assert.equal(result.ok, false);
-  assert(result.event_errors.includes('spawn-failed-result-sink'));
   assert.equal(result.root_pid, null);
+  assert(elapsedMs < 5000, `spawn failure result returned after deadline: ${elapsedMs}ms`);
   return {
     status: result.status,
-    previous_status: result.terminal_status_before_event_failure,
-    final_result_failure_reclassified: true,
+    terminal_callback_invoked: false,
+    returned_before_deadline: true,
   };
 }
 async function runSpoofedAtomicMarkerCase() {
@@ -1253,16 +1272,18 @@ async function runObservationHangInterruptionCase() {
 }
 
 function parseWorkerResult(stdout) {
+  const results = [];
   for (const line of stdout.split(/\r?\n/)) {
     if (!line.trim()) continue;
     try {
       const event = JSON.parse(line);
-      if (event.type === 'worker.result') return event.result;
+      if (event.type === 'worker.result') results.push(event.result);
     } catch {
       // Non-JSON fixture output is surfaced separately by the managed worker.
     }
   }
-  return null;
+  assert.equal(results.length, 1, `expected exactly one worker.result event:\n${stdout}`);
+  return results[0];
 }
 
 async function runControllerIdentityMismatchCase() {
@@ -1454,8 +1475,8 @@ const windowsCases = process.platform === 'win32' ? {
   timeout: await runTimeoutCase(),
   startedCallbackDeadline: await runStartedCallbackDeadlineCase(),
   throwingStartedCallback: await runThrowingStartedCallbackCase(),
-  throwingResultCallback: await runThrowingResultCallbackCase(),
-  spawnFailureResultCallback: await runSpawnFailureResultCallbackCase(),
+  finalResultCallbackIsolation: await runFinalResultCallbackIsolationCase(),
+  spawnFailureResultCallbackIsolation: await runSpawnFailureResultCallbackIsolationCase(),
   spoofedAtomicMarker: await runSpoofedAtomicMarkerCase(),
   spoofedDrainWrapperKill: await runSpoofedDrainWrapperKillCase(),
   stdinEarlyExit: await runStdinEarlyExitCase(),
@@ -1532,15 +1553,8 @@ console.log(JSON.stringify({
         event_sink_failure_contained: windowsCases.throwingStartedCallback.event_sink_failure_contained,
         event_error_count: windowsCases.throwingStartedCallback.event_errors.length,
       },
-      throwing_result_callback: {
-        status: windowsCases.throwingResultCallback.status,
-        previous_status: windowsCases.throwingResultCallback.previous_status,
-        containment_verified: windowsCases.throwingResultCallback.containment.verified,
-        cleanup_required: windowsCases.throwingResultCallback.cleanup.required,
-        final_result_failure_reclassified: windowsCases.throwingResultCallback.final_result_failure_reclassified,
-        event_error_count: windowsCases.throwingResultCallback.event_errors.length,
-      },
-      spawn_failure_result_callback: windowsCases.spawnFailureResultCallback,
+      final_result_callback_isolation: windowsCases.finalResultCallbackIsolation,
+      spawn_failure_result_callback_isolation: windowsCases.spawnFailureResultCallbackIsolation,
       spoofed_atomic_marker: {
         status: windowsCases.spoofedAtomicMarker.status,
         spoofed_marker_ignored: windowsCases.spoofedAtomicMarker.spoofed_marker_ignored,

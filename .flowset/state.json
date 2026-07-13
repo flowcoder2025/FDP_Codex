@@ -378,6 +378,12 @@
           "fork_context": false,
           "reviewed_head": "6675269e74e720f6344d563ec872ed336809f21f",
           "result": "fail-two-p2-posix-absent-root-group-reuse-and-control-plane-candidate-drift-remediated-awaiting-fresh-review"
+        },
+        {
+          "agent_id": "019f5a06-e5e2-7960-92fe-583d9525ba3e",
+          "fork_context": false,
+          "reviewed_head": "2cb1976d264d4c621953feb71d38af2dd041e987",
+          "result": "fail-two-p2-final-event-deadline-bypass-and-abbreviated-candidate-pin-plus-p3-stale-pr-check-summary-remediated-awaiting-fresh-review"
         }
       ]
     },
